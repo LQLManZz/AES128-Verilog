@@ -1,8 +1,6 @@
-#backlink [[NIST.FIPS.197_specs.pdf]]
+#backlink [[NIST.FIPS.197_specs.pdf]] | [[Inverted Key Expansion.md]]
 [Link video ví dụ](https://www.youtube.com/watch?v=gP4PqVGudtg)
 Thuật toán Sinh Khóa Vòng (Key Expansion)
-
-Bài viết này đi sâu vào đặc tả quá trình sinh khóa vòng (Key Expansion) của Hệ mã hóa AES (Advanced Encryption Standard). Quá trình này nhận đầu vào là một Cipher Key và mở rộng nó thành một mảng các từ (words) để sử dụng làm Khóa vòng (Round Keys) cho từng bước lặp mã hóa/giải mã.
 ## 1. Một số thuật ngữ và ký hiệu sử dụng
 
 - **Word (Từ):** Một chuỗi gồm 32 bit (tương đương 4 byte), tương ứng với các cột của State Block. Quá trình sinh khóa của AES hoạt động chủ yếu trên các word.
@@ -18,8 +16,8 @@ Bài viết này đi sâu vào đặc tả quá trình sinh khóa vòng (Key Exp
     - AES-256: $N_r = 14$  
 - $N_b$**:** Kích thước khối dữ liệu (State Block size) tính bằng word. Với chuẩn AES, $N_b$ luôn luôn bằng $4$ (128 bit).
 - **Mảng** $W$**:** Mảng tuyến tính chứa các word của khóa sau khi mở rộng. Tổng số word cần thiết lập là $N_b \times (N_r + 1)$. Ví dụ: AES-128 cần $4 \times 11 = 44$ words (từ $W[0]$ đến $W[43]$).
-## 2. Các hàm bổ trợ trong Key Expansion
-Để đảm bảo tính phi tuyến tính và chống lại các rủi ro thám mã, thuật toán sinh khóa sử dụng 3 hàm bổ trợ chính tác động lên một word 4-byte $[a_0, a_1, a_2, a_3]$:
+## 2. Hàm G trong Key Expansion
+Để đảm bảo tính phi tuyến tính và chống lại các rủi ro thám mã, thuật toán sinh khóa sử dụng hàm G gồm 3 hàm con tác động lên một word 4-byte $[a_0, a_1, a_2, a_3]$:
 ### 2.1. Hàm `RotWord()`
 
 Thực hiện phép dịch vòng trái các byte trong một word.
@@ -28,7 +26,9 @@ $$RotWord([a_0, a_1, a_2, a_3]) = [a_1, a_2, a_3, a_0]$$
 Nhận đầu vào là một word 4-byte và áp dụng độc lập bảng thay thế S-Box của AES cho từng byte để tạo ra một word mới. Đây là bước cung cấp tính phi tuyến cho khóa.
 $$SubWord([a_0, a_1, a_2, a_3]) = [SBox(a_0), SBox(a_1), SBox(a_2), SBox(a_3)]$$
 [Tra cứu bảng SBox](https://docs.google.com/spreadsheets/d/1B7bFCWHM951GlbzD5aeAdbtgTKTDbiDaLbq5svjwcV0/edit?usp=sharing)
-![[SBox.png]]
+![[SBox.png|624]]
+Để tối ưu về mặt tài nguyên, cần thực hiện việc tra cứu SBox thông qua phương pháp mạch tổ hợp:
+[[SBox trong mạch tổ hợp]]
 ### 2.3. Mảng hằng số `Rcon[]` (Round Constant)
 Là một mảng các word hằng số, được sử dụng để loại bỏ tính đối xứng trong quá trình sinh khóa. Giá trị của `Rcon` tại chỉ số $i$ được định nghĩa:
 $$Rcon[i] = [RC_i, 00, 00, 00]$$
@@ -73,12 +73,13 @@ Giả sử ta cần tính giá trị $\text{02} \bullet Y$:
         
     - Vậy $RC_{10} = \text{36}$.
         
-
 Chính quy luật "cắt ngọn và XOR với `1B`" này khiến cho các hằng số Rcon biến đổi một cách phi tuyến tính và rất khó đoán, giúp phá vỡ mọi tính lặp đối xứng.
 ![[RCon AES-128.png]]
+
+**Ứng dụng:** Kết quả của quá trình mở rộng khóa (Round Keys) sẽ được đưa trực tiếp vào [[diagram/AddRoundKey_Design.md|Module AddRoundKey]] để thực hiện mã hóa dữ liệu.
 ## 3. Lưu đồ thuật toán và Công thức sinh khóa (Key Expansion Algorithm)
 
-![[AES Key Expansion.png]]
+![[media/AES Key Expansion.png]]
 
 - [[diagram/KeyExpansion_Top_Design.md|Thiết kế Module KeyExpansion (Top Level)]]
 - [[diagram/RotWord_Design.md|Thiết kế Module RotWord]]

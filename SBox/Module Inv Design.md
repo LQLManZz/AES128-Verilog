@@ -1,0 +1,17 @@
+**Liên kết:** [[SBox trong mạch tổ hợp.md|Tài liệu SBox]]
+
+## 1. Chức năng
+Module thực hiện tính nghịch đảo nhân trong trường $GF(2^4)$.
+
+## 2. High level Block Design
+![[Module Inv high level.png]]
+
+## 3. Mô tả tín hiệu
+| Tín hiệu | Hướng | Độ rộng | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `data_in` | Input | 4 bit | Phần tử đầu vào trong $GF(2^4)$ |
+| `data_out` | Output | 4 bit | Nghịch đảo nhân của `data_in` trong $GF(2^4)$ |
+
+## 4. Đặc điểm thiết kế
+- Có thể được triển khai bằng cách hạ bậc tiếp xuống $GF(2^2)$ hoặc sử dụng bảng tra cứu (LUT) nhỏ 4-bit để tối ưu hóa.
+- Giá trị 0 có nghịch đảo là 0.
