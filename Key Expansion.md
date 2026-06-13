@@ -77,7 +77,7 @@ Chính quy luật "cắt ngọn và XOR với `1B`" này khiến cho các hằng
 ![[RCon AES-128.png]]
 
 **Ứng dụng:** Kết quả của quá trình mở rộng khóa (Round Keys) sẽ được đưa trực tiếp vào [[diagram/AddRoundKey_Design.md|Module AddRoundKey]] để thực hiện mã hóa dữ liệu.
-## 3. Lưu đồ thuật toán và Công thức sinh khóa (Key Expansion Algorithm)
+## 3. Lưu đồ thuật toán và Công thức sinh khóa (Key Expansion Algorithm) (AES-128)
 
 ![[media/AES Key Expansion.png]]
 
