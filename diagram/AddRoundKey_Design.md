@@ -1,6 +1,6 @@
 # Module AddRoundKey Design
 
-**Liên kết:** [[AddRoundKey().md|Tài liệu thuật toán]] | [[KeyExpansion_Top_Design.md|Thiết kế KeyExpansion]]
+**Liên kết:** [[AddRoundKey().md|Tài liệu thuật toán]] | [[KeyExpansion_Design|Thiết kế KeyExpansion]]
 
 ## 1. Top-Level Block Design (Block Design)
 

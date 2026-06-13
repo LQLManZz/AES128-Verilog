@@ -1,6 +1,6 @@
 # Module RotWord Design
 
-**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[Inverted Key Expansion.md|Tài liệu thuật toán đảo]] | [[KeyExpansion_Top_Design.md|Thiết kế Top Level]]
+**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[Inverted Key Expansion.md|Tài liệu thuật toán đảo]] | [[KeyExpansion_Design|Thiết kế Top Level]]
 
 ## 1. Chức năng
 Module thực hiện phép dịch vòng trái 1 byte: `[a0, a1, a2, a3] -> [a1, a2, a3, a0]`.

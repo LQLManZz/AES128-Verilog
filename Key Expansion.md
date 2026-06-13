@@ -81,7 +81,7 @@ Chính quy luật "cắt ngọn và XOR với `1B`" này khiến cho các hằng
 
 ![[media/AES Key Expansion.png]]
 
-- [[diagram/KeyExpansion_Top_Design.md|Thiết kế Module KeyExpansion (Top Level)]]
+- [[KeyExpansion_Design|Thiết kế Module KeyExpansion (Top Level)]]
 - [[diagram/RotWord_Design.md|Thiết kế Module RotWord]]
 - [[diagram/SubWord_Design.md|Thiết kế Module SubWord]]
 - [[diagram/Rcon_Design.md|Thiết kế Module Rcon]]

@@ -1,4 +1,4 @@
-# Module KeyExpansion Top Design
+# Module KeyExpansion High Level
 
 **Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[Rcon_Design.md|Thiết kế Rcon]] | [[AddRoundKey_Design.md|Thiết kế AddRoundKey]]
 
@@ -25,3 +25,7 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
     - Ngược lại: `temp = W[i-1]`.
     - `W[i] = W[i-4] XOR temp`.
 3. **Trích xuất:** Xuất `round_key` dựa trên `round_idx`.
+
+# Module KeyExpansion Low Level
+
+![[AESKeyExpansionLowDes.png]]

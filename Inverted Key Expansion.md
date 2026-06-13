@@ -83,7 +83,7 @@ Sử dụng $InvRcon[10] = \text{01000000}$ cho bước tính Cipher Key từ Ro
 `2b7e1516 28aed2a6 abf71588 09cf4f3c` (Hoàn toàn khớp với khóa ban đầu!)
 
 ## 5. Thiết kế Module
-- [[diagram/InvKeyExpansion_Top_Design.md|Thiết kế Module InvKeyExpansion (Top Level)]]
+- [[InvKeyExpansion_Design|Thiết kế Module InvKeyExpansion (Top Level)]]
 - [[diagram/RotWord_Design.md|Thiết kế Module RotWord]] (Dùng chung)
 - [[diagram/SubWord_Design.md|Thiết kế Module SubWord]] (Dùng chung)
 - [[diagram/Rcon_Design.md|Thiết kế Module Rcon]] (Dùng chung với logic chọn chỉ số đảo)
