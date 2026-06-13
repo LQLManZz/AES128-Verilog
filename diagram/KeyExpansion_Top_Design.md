@@ -9,15 +9,14 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 ![[Module Key Expansion high level.png]]
 
 ## 3. Mô tả tín hiệu
-| Tín hiệu     | Hướng  | Độ rộng | Mô tả                               |
-| :----------- | :----- | :------ | :---------------------------------- |
-| `clk`        | Input  | 1 bit   | Xung clock                          |
-| `rst_n`      | Input  | 1 bit   | Reset (tích cực thấp)               |
-| `start`      | Input  | 1 bit   | Lệnh bắt đầu tính toán              |
-| `cipher_key` | Input  | 128 bit | Khóa gốc ban đầu                    |
-| `round_idx`  | Input  | 5 bit   | Chỉ số vòng                         |
-| `round_key`  | Output | 128 bit | Khóa vòng tương ứng với `round_idx` |
-| `ready`      | Output | 1 bit   | Báo hiệu hoàn tất quá trình mở rộng |
+| Tín hiệu           | Hướng  | Độ rộng | Mô tả                                       |
+| :----------------- | :----- | :------ | :------------------------------------------ |
+| `clk`              | Input  | 1 bit   | Xung clock                                  |
+| `rst_n`            | Input  | 1 bit   | Reset (tích cực thấp)                       |
+| `expansion_en`     | Input  | 1 bit   | Lệnh bắt đầu tính toán                      |
+| `cipher_key`       | Input  | 128 bit | Khóa gốc ban đầu                            |
+| `round_key`        | Output | 128 bit | Số khóa vòng tương ứng với ma trận `[0:10]` |
+| `expansion_finish` | Output | 1 bit   | Báo hiệu hoàn tất quá trình mở rộng         |
 
 ## 4. Mô tả vận hành 
 1. **Khởi tạo:** Nạp `cipher_key` vào `W[0...3]`.
