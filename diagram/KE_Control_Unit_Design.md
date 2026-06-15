@@ -5,7 +5,7 @@
 | :---------------- | :------------------------------------------------------------------------------------ |
 | `IDLE`            | Khi không có tín hiệu `expansion_en` và `expansion_finish` được trả về 0              |
 | `LOAD_CIPHER_KEY` | Nhận tín hiệu `expansion_en`, nạp cipher key vào mảng W thành `Word[0]` đến `Word[3]` |
-| `KEY_EXPAND`      | Bắt đầu quá trình sinh khóa, tạo bộ đếm `cnt`, duy trì đến khi `cnt==39`              |
+| `KEY_EXPAND`      | Bắt đầu quá trình sinh khóa, tạo bộ đếm `cnt`, duy trì đến khi `cnt = 39`             |
 | `FINISH`          | Kết thúc quá trình sinh khóa, trả về tín hiệu `expansion_finish`                      |
 
 # CU High level Design
