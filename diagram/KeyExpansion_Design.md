@@ -18,14 +18,6 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 | `round_key`        | Output | 128 bit | Số khóa vòng tương ứng với ma trận `[0:10]` |
 | `expansion_finish` | Output | 1 bit   | Báo hiệu hoàn tất quá trình mở rộng         |
 
-## 4. Mô tả vận hành 
-1. **Khởi tạo:** Nạp `cipher_key` vào `W[0...3]`.
-2. **Chu kỳ mở rộng:** 
-    - Nếu `i % 4 == 0`: `temp = SubWord(RotWord(W[i-1])) XOR Rcon`.
-    - Ngược lại: `temp = W[i-1]`.
-    - `W[i] = W[i-4] XOR temp`.
-3. **Trích xuất:** Xuất `round_key` dựa trên `round_idx`.
-
 # Module KeyExpansion Low Level
 
 ![[AESKeyExpansionLowDes.png]]
