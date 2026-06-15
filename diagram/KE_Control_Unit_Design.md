@@ -17,6 +17,7 @@
 | `rst_n`            | Input  | 1 bit   | Reset hệ thống (tích cực thấp)        |
 | `expansion_en`     | Input  | 1 bit   | Lệnh bắt đầu sinh khóa                |
 | `expansion_finish` | Output | 1 bit   | Báo hiệu hoàn tất quá trình sinh khóa |
+| `round_index`      | Output | 4 bit   | Cho biết số vòng hiện tại             |
 
 # CU Low level Design
 ![[AESKeyExpansion-CU_Low.png]]
