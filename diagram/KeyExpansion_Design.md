@@ -21,3 +21,5 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 # Module KeyExpansion Low Level
 
 ![[AESKeyExpansionLowDes.png]]
+
+**Thiết kế Control Unit cho Key Expansion: [[KE_Control_Unit_Design]] 

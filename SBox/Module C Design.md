@@ -1,4 +1,4 @@
-**Liên kết:** [[SBox trong mạch tổ hợp.md|Tài liệu SBox]]
+**Liên kết:** [[SBox trong mạch tổ hợp|Tài liệu SBox]]
 
 ## 1. Chức năng
 Module thực hiện phép nhân với hằng số $\lambda$ trong trường $GF(2^4)$. Đây là hằng số được sử dụng để hạ bậc từ $GF(2^8)$ xuống $GF(2^4)$.
