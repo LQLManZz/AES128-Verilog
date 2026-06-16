@@ -1,3 +1,5 @@
+#Nguồn[Bài 5 - Tối ưu logic tính S-Box dựa trên biến đổi toán học](https://nguyenquanicd.blogspot.com/2019/10/aes-bai-5-toi-uu-logic-tinh-s-box-dua.html)
+
 ## 1. Lý thuyết tổng quan
 Để tối ưu tài nguyên cho việc tra cứu bằng SBox, có thể xây dựng SBox theo hướng mạch tổ hợp. Để thực hiện mong đó, cần sử dụng các phép biến đổi toán học:
 -  Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$. Giá trị 0 có nghịch đảo là 0. Các giá trị khác phải biến đổi để tìm nghịch đảo.

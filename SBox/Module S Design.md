@@ -12,6 +12,3 @@ Module thực hiện phép tính bình phương (Square) trong trường $GF(2^4
 | `data_in` | Input | 4 bit | Dữ liệu đầu vào trong trường $GF(2^4)$ |
 | `data_out` | Output | 4 bit | Kết quả $data\_in^2$ trong trường $GF(2^4)$ |
 
-## 4. Đặc điểm thiết kế
-- Sử dụng các cổng XOR để thực hiện phép bình phương trong trường hữu hạn.
-- Logic hoàn toàn là mạch tổ hợp.

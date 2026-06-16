@@ -12,6 +12,3 @@ Module thực hiện phép nhân với hằng số $\lambda$ trong trường $GF
 | `data_in` | Input | 4 bit | Dữ liệu đầu vào trong trường $GF(2^4)$ |
 | `data_out` | Output | 4 bit | Kết quả sau khi nhân với hằng số $\lambda$ |
 
-## 4. Đặc điểm thiết kế
-- Thực hiện các phép tính XOR và dịch bit dựa trên hằng số $\lambda$ đã định nghĩa trong chuẩn thiết kế trường hỗn hợp.
-- Mạch tổ hợp.
