@@ -22,7 +22,7 @@ Thiết kế: [[diagram/SubWord_Design.md|Thiết kế Module SubWord]]
 $$SubWord([a_0, a_1, a_2, a_3]) = [SBox(a_0), SBox(a_1), SBox(a_2), SBox(a_3)]$$
 
 ### 2.3. Hằng số `Rcon`
-Thiết kế: [[diagram/Rcon_Design.md|Thiết kế Module Rcon]]
+Thiết kế: [[AddRcon_Design|Thiết kế Module Rcon]]
 Là module cung cấp hằng số `Rcon` tương ứng với vòng đang tính trong quá trình sinh khóa ngược. Thứ tự sử dụng Rcon sẽ ngược lại so với quá trình mã hóa.
 
 
@@ -86,4 +86,4 @@ Sử dụng $InvRcon[10] = \text{01000000}$ cho bước tính Cipher Key từ Ro
 - [[InvKeyExpansion_Design|Thiết kế Module InvKeyExpansion (Top Level)]]
 - [[diagram/RotWord_Design.md|Thiết kế Module RotWord]] (Dùng chung)
 - [[diagram/SubWord_Design.md|Thiết kế Module SubWord]] (Dùng chung)
-- [[diagram/Rcon_Design.md|Thiết kế Module Rcon]] (Dùng chung với logic chọn chỉ số đảo)
+- [[AddRcon_Design|Thiết kế Module Rcon]] (Dùng chung với logic chọn chỉ số đảo)

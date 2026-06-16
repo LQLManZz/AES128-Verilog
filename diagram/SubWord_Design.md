@@ -36,3 +36,6 @@ flowchart LR
 | `word_in`  | Input  | 32 bit  | Từ 32-bit đầu vào      |
 | `word_out` | Output | 32 bit  | Từ 32-bit sau thay thế |
 ## 4. Low-level Block Design
+![[SubWord Low.png]]
+
+[[SBox trong mạch tổ hợp]]

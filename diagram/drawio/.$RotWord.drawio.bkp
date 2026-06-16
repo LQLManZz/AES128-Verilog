@@ -1,6 +1,6 @@
-<mxfile host="Electron">
+<mxfile host="app.diagrams.net">
   <diagram name="Page-1" id="2EeAaaLCdNe_VYoI8voR">
-    <mxGraphModel dx="1400" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="none" math="1" shadow="0">
+    <mxGraphModel dx="632" dy="390" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#ffffff, #ffffff)" math="1" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -16,10 +16,10 @@
         <mxCell id="kyPes5tsgacmd_1LL51T-7" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="word_in[23:0]" vertex="1">
           <mxGeometry height="50" width="110" x="185" y="340" as="geometry" />
         </mxCell>
-        <mxCell id="kyPes5tsgacmd_1LL51T-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="word_out[31:8]" vertex="1">
+        <mxCell id="kyPes5tsgacmd_1LL51T-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="word_out[31:24]" vertex="1">
           <mxGeometry height="45" width="105" x="460" y="220" as="geometry" />
         </mxCell>
-        <mxCell id="kyPes5tsgacmd_1LL51T-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="word_out[7:0]" vertex="1">
+        <mxCell id="kyPes5tsgacmd_1LL51T-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="word_out[23:0]" vertex="1">
           <mxGeometry height="50" width="130" x="447.5" y="340" as="geometry" />
         </mxCell>
       </root>

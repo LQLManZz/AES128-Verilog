@@ -1,6 +1,6 @@
 # Module KeyExpansion High Level
 
-**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[Rcon_Design.md|Thiết kế Rcon]] | [[AddRoundKey_Design.md|Thiết kế AddRoundKey]]
+**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[AddRcon_Design|Thiết kế Rcon]] | [[AddRoundKey_Design.md|Thiết kế AddRoundKey]]
 
 ## 1. Chức năng
 Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
