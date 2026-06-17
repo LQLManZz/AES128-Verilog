@@ -1,10 +1,10 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="C9JqrJW0MAwRYBo361_v">
-    <mxGraphModel dx="2017" dy="689" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2250" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="SEovqvB-IS9J3Y__d_nL-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Biến đổi Affine đảo" vertex="1">
+        <mxCell id="SEovqvB-IS9J3Y__d_nL-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Inv Affine Transform" vertex="1">
           <mxGeometry height="50" width="120" x="120" y="290" as="geometry" />
         </mxCell>
         <mxCell id="SEovqvB-IS9J3Y__d_nL-8" edge="1" parent="1" source="SEovqvB-IS9J3Y__d_nL-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=-5;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="SEovqvB-IS9J3Y__d_nL-4">
@@ -24,10 +24,10 @@
         <mxCell id="SEovqvB-IS9J3Y__d_nL-15" edge="1" parent="1" source="SEovqvB-IS9J3Y__d_nL-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=0;" target="SEovqvB-IS9J3Y__d_nL-5">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="SEovqvB-IS9J3Y__d_nL-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Nghịch đảo nhân" vertex="1">
+        <mxCell id="SEovqvB-IS9J3Y__d_nL-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Multiplicative Inv" vertex="1">
           <mxGeometry height="50" width="120" x="470" y="320" as="geometry" />
         </mxCell>
-        <mxCell id="SEovqvB-IS9J3Y__d_nL-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Biến đổi Affine" vertex="1">
+        <mxCell id="SEovqvB-IS9J3Y__d_nL-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" value="Module&lt;br&gt;Affine Transform" vertex="1">
           <mxGeometry height="50" width="100" x="670" y="380" as="geometry" />
         </mxCell>
         <mxCell id="SEovqvB-IS9J3Y__d_nL-7" edge="1" parent="1" source="SEovqvB-IS9J3Y__d_nL-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.21666666666666667;entryDx=0;entryDy=3;entryPerimeter=0;" target="SEovqvB-IS9J3Y__d_nL-2">

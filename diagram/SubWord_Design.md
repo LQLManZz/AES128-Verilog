@@ -38,4 +38,9 @@ flowchart LR
 ## 4. Low-level Block Design
 ![[SubWord Low.png]]
 
-[[SBox trong mạch tổ hợp]]
+- [[SBox trong mạch tổ hợp]] 
+- [[Module Imp & ImpInv Design|Thiết kế Module Imp & ImpInv]] 
+- [[Module S Design|Thiết kế Module S]] 
+- [[Module X Design|Thiết kế Module X]] 
+- [[Module C Design|Thiết kế Module C]] 
+- [[Module Inv Design|Thiết kế Module Inv]] 
