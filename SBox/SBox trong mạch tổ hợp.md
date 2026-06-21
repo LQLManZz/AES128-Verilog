@@ -20,7 +20,8 @@ Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ l
 ## 2. Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$
 Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và $GF(2)$, gọi là **trường hỗn hợp**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
 Trong **trường hỗn hợp**, mỗi phần tử $A$ được biểu diễn dưới dạng một đa thức bậc nhất:
-$$A=a.x+b$$ (với a,b là các phần tử trong trường hỗn hợp $GF(2^4)$)
+$$A=a.x+b$$
+- a, b là các phần tử trong trường hỗn hợp $GF(2^4)$ 
 ### 2.1. Sơ đồ khối
 ![[NghichDaoNhanGF28.png]]
 
