@@ -3,9 +3,9 @@
 ## 1. Lý thuyết tổng quan
 Để tối ưu tài nguyên cho việc tra cứu bằng SBox, có thể xây dựng SBox theo hướng mạch tổ hợp. Để thực hiện mong đó, cần sử dụng các phép biến đổi toán học:
 -  Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$. Giá trị 0 có nghịch đảo là 0. Các giá trị khác phải biến đổi để tìm nghịch đảo.
--  Thực hiện biến đổi **Affine** trên GF(2).
+-  Thực hiện biến đổi **Affine** trên $GF(2)$.
 Để tra cứu bảng Inverted SBox  (SBox đảo), ta thực hiện phép biến đổi như sau:
-- Thực hiện biến đổi **Affine** nghịch đảo trên GF(2).
+- Thực hiện biến đổi **Affine** nghịch đảo trên $GF(2)$.
 - Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$. Giá trị 0 có nghịch đảo là 0. Các giá trị khác phải biến đổi để tìm nghịch đảo.
 Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ liệu trong Word sang 1 byte tương ứng trong SBox như sau:
 ![[SBoxCombinationalLogic.png]]
@@ -18,7 +18,7 @@ Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ l
 | `byte_a_substitute` | Output | 8 bit   | Byte đầu ra sau khi đã tra cứu giá trị tương ứng trong SBox     |
 
 ## 2. Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$
-Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và GF(2), gọi là **trường hỗn hợp**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
+Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và $GF(2)$, gọi là **trường hỗn hợp**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
 Trong **trường hỗn hợp**, mỗi phần tử $A$ được biểu diễn dưới dạng một đa thức bậc nhất:
 $$A=a.x+b$$ (với a,b là các phần tử trong trường hỗn hợp $GF(2^4)$)
 ### 2.1. Sơ đồ khối
