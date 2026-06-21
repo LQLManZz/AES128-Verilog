@@ -33,7 +33,7 @@ Khối Imp (gọi là Isomorphic Mapping) là khối ánh xạ phần tử của
 ###### Khối Imp thực hiện phép nhân ma trận sau đây:
 $$
 \delta \times a = 
-\begin{pmatrix}
+\begin{bmatrix}
 1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
 1 & 1 & 0 & 1 & 1 & 1 & 1 & 0 \\
 1 & 0 & 1 & 0 & 1 & 1 & 0 & 0 \\
@@ -42,9 +42,9 @@ $$
 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\
 0 & 1 & 0 & 1 & 0 & 0 & 1 & 0 \\
 0 & 1 & 0 & 0 & 0 & 0 & 1 & 1
-\end{pmatrix}
+\end{bmatrix}
 \times
-\begin{pmatrix}
+\begin{bmatrix}
 a_7 \\
 a_6 \\
 a_5 \\
@@ -53,8 +53,8 @@ a_3 \\
 a_2 \\
 a_1 \\
 a_0
-\end{pmatrix} = 
-\begin{pmatrix}
+\end{bmatrix} = 
+\begin{bmatrix}
 a_7 \oplus a_5 \\
 a_7 \oplus a_6 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\
 a_7 \oplus a_5 \oplus a_3 \oplus a_2 \\
@@ -63,16 +63,16 @@ a_7 \oplus a_6 \oplus a_2 \oplus a_1 \\
 a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\
 a_6 \oplus a_4 \oplus a_1 \\
 a_6 \oplus a_1 \oplus a_0
-\end{pmatrix}
+\end{bmatrix}
 $$
 ###### Khối ImpInv thực hiện phép nhân ma trận sau đây:
 $$
-\delta^{-1} \times a = \begin{pmatrix} 1 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 0 & 1 \end{pmatrix} \times \begin{pmatrix} a_7 \\ a_6 \\ a_5 \\ a_4 \\ a_3 \\ a_2 \\ a_1 \\ a_0 \end{pmatrix} = \begin{pmatrix} a_7 \oplus a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_2 \\ a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_0 \end{pmatrix}
+\delta^{-1} \times a = \begin{bmatrix} 1 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 0 & 1 \end{bmatrix} \times \begin{bmatrix} a_7 \\ a_6 \\ a_5 \\ a_4 \\ a_3 \\ a_2 \\ a_1 \\ a_0 \end{bmatrix} = \begin{bmatrix} a_7 \oplus a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_2 \\ a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_0 \end{bmatrix}
 $$
 Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
 #### 2.1.2. Khối S
 Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp** với nguyên tắc như sau: 
-Các đa thức bất kỳ có thể biểu diễn dưới dạng $bx+c$ trong đó $b$ là các phần trọng số cao còn $c$ là phần trọng số thấp. Từ đó, một số nhị phân $a$ có thể được biểu diễn là $a_H.x + a_L$.
+Các đa thức bất kỳ trong **trường hữu hạn** có thể biểu diễn dưới dạng $bx+c$ trong đó $b$ là các phần trọng số cao còn $c$ là phần trọng số thấp. Từ đó, một số nhị phân $a$ có thể được biểu diễn là $a_H.x + a_L$.
 VD: Số nhị phân $a=1001_{2}$ có thể biểu diễn dưới dạng $a=10_{2}.x+01_{2}$ với $a_H=10_{2}$ và $a_L=01_{2}$. Ngoài ra, $a_H$ và $a_L$ có thể tiếp tục được biểu diễn như sau:
 $$
 \begin{align*}
