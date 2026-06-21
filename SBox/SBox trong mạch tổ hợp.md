@@ -18,10 +18,59 @@ Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ l
 | `byte_a_substitute` | Output | 8 bit   | Byte đầu ra sau khi đã tra cứu giá trị tương ứng trong SBox     |
 
 ## 2. Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$
-Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và $GF(2)$, gọi là **trường hỗn hợp**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
-Trong **trường hỗn hợp**, mỗi phần tử $A$ được biểu diễn dưới dạng một đa thức bậc nhất:
-$$A=a.x+b$$
-- a, b là các phần tử trong trường hỗn hợp $GF(2^4)$ 
+Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và $GF(2)$, gọi là **trường hữu hạn**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
+Các đa thức bất kỳ trong **trường hữu hạn** có thể biểu diễn dưới dạng $bx+c$ trong đó $b$ là các phần trọng số cao còn $c$ là phần trọng số thấp, cả b và c đều thuộc trường có bậc thấp hơn so với trường ban đầu. Từ đó, một số nhị phân $a$ có thể được biểu diễn là $a_H \cdot x + a_L$.
+VD: Số nhị phân $a=1001_{2}$ có thể biểu diễn dưới dạng $a=10_{2} \cdot x+01_{2}$ với $a_H=10_{2}$ và $a_L=01_{2}$. Ngoài ra, $a_H$ và $a_L$ có thể tiếp tục được biểu diễn như sau:
+$$
+\begin{align*}
+a_{H}=1_{2} \cdot x+0_{2} \\ 
+a_{L}=0_{2}\cdot x+1_{2}
+\end{align*}
+$$
+Đây là ý tưởng được dùng để thực hiện các phép toán như cộng, nhân hay bình phương. Bên cạnh đó, quá trình hạ bậc đa thức để tính toán và biến đổi trong trường hỗn hợp sẽ sử dụng các **đa thức bất khả quy** sau đây:
+$$\begin{align*}
+GF(2^2) \rightarrow GF(2): x^2 + x + 1 \\
+GF((2^2)^2) \rightarrow GF(2^2): x^2 + x + \phi \\
+GF(((2^2)^2)^2) \rightarrow GF((2^2)^2): x^2 + x + \lambda
+\end{align*}
+$$
+với $\phi=10_{2}$ , $\lambda=1100_{2}$ 
+Ví dụ, chúng ta có thể xem $GF(2^8)$ là một **trường mở rộng** bậc 2 của trường cơ sở $GF(2^4)$, có nghĩa là trường $GF((2^4)^2)$. Khi đó, ta có thể ánh xạ các phần tử thuộc trường $GF(2^8)$ sang một phần tử A nào đó thuộc trường $GF((2^4)^2)$ có dạng như sau:
+$$A=s\cdot x+t$$
+- $s, t \in GF(2^4)$ (là các phần tử 4-bit).
+- $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \lambda = 0$ (với $\lambda \in GF(2^4)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \lambda$. 
+***Quá trình tìm nghịch đảo nhân $A^{-1}$
+
+Ta cần tìm một phần tử $A^{-1} = s' \cdot x + t'$ (với $s', t' \in GF(2^4)$) sao cho:
+$$A \cdot A^{-1} \equiv 1 \pmod{x^2 + x + \lambda}$$
+Bằng cách nhân hai đa thức và thay thế $x^2 = x \oplus \lambda$, ta có:
+$$\begin{flalign*}
+(s \cdot x + t)(s' \cdot x + t') &= s \cdot s' \cdot x^2 + (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
+&= s \cdot s' (x \oplus \lambda) \oplus (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
+&= (s \cdot s' \oplus s \cdot t' \oplus s' \cdot t) x \oplus (s \cdot s' \cdot \lambda \oplus t \cdot t') & \\
+&= 0 \cdot x + 1 &
+\end{flalign*}$$
+Để phương trình trên cân bằng, ta bắt buộc phải có hệ phương trình sau:
+$$\begin{cases}
+s \cdot s' \oplus s \cdot t' \oplus s' \cdot t = 0 \implies s' (s \oplus t) = s \cdot t' \\
+s \cdot s' \cdot \lambda \oplus t \cdot t' = 1
+\end{cases}$$
+Giải hệ phương trình này bằng đại số thế: Từ (1), ta rút ra:
+$$s' = s \cdot t' \cdot (s \oplus t)^{-1}$$
+Thế $s'$ vào (2):
+$$\begin{flalign*}
+s \cdot \left[ s \cdot t' \cdot (s \oplus t)^{-1} \right] \cdot \lambda \oplus t \cdot t' = 1 \\
+t' \cdot \left[ s^2 \cdot \lambda \cdot (s \oplus t)^{-1} \oplus t \right] = 1
+\end{flalign*}$$
+Nhân cả hai vế với $(s \oplus t)$:
+$$\begin{align*}
+t' \cdot \left[ s^2 \cdot \lambda \oplus t(s \oplus t) \right] = s \oplus t \\
+t' \cdot \left[ s^2 \cdot \lambda \oplus s \cdot t \oplus t^2 \right] = s \oplus t
+\end{align*}$$
+Đặt nhân tử chung ở vế trái là $\Delta$ với $\Delta \in GF(2^4)$:
+$$\Delta = s^2 \cdot \lambda \oplus s \cdot t \oplus t^2$$
+Khi đó, ta tìm được công thức tính toán cho hai thành phần $t'$ và $s'$:
+$$t' = (s \oplus t) \cdot \Delta^{-1}$$$$s' = s \cdot \Delta^{-1}$$
 ### 2.1. Sơ đồ khối
 ![[NghichDaoNhanGF28.png]]
 
@@ -75,22 +124,7 @@ $$
 Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
 #### 2.1.2. Khối S
 Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp** với nguyên tắc như sau: 
-Các đa thức bất kỳ trong **trường hữu hạn** có thể biểu diễn dưới dạng $bx+c$ trong đó $b$ là các phần trọng số cao còn $c$ là phần trọng số thấp. Từ đó, một số nhị phân $a$ có thể được biểu diễn là $a_H.x + a_L$.
-VD: Số nhị phân $a=1001_{2}$ có thể biểu diễn dưới dạng $a=10_{2}.x+01_{2}$ với $a_H=10_{2}$ và $a_L=01_{2}$. Ngoài ra, $a_H$ và $a_L$ có thể tiếp tục được biểu diễn như sau:
-$$
-\begin{align*}
-a_{H}=1_{2}.x+0_{2} \\ 
-a_{L}=0_{2}.x+1_{2}
-\end{align*}
-$$
-Đây là ý tưởng được dùng để thực hiện các phép toán như cộng, nhân hay bình phương. Bên cạnh đó, quá trình hạ bậc đa thức để tính toán và biến đổi trong trường hỗn hợp sẽ sử dụng các đa thức tối giản sau đây:
-$$\begin{align*}
-GF(2^2) \rightarrow GF(2): x^2 + x + 1 \\
-GF((2^2)^2) \rightarrow GF(2^2): x^2 + x + \phi \\
-GF(((2^2)^2)^2) \rightarrow GF((2^2)^2): x^2 + x + \lambda
-\end{align*}
-$$
-với $\phi=10_{2}$ , $\lambda=1100_{2}$ 
+
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
 Thiết kế Module C: [[Module C Design]] 
