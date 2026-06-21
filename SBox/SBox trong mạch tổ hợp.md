@@ -43,17 +43,17 @@ $$A=s\cdot x+t$$
 
 Ta cần tìm một phần tử $A^{-1} = s' \cdot x + t'$ (với $s', t' \in GF(2^4)$) sao cho:
 $$A \cdot A^{-1} \equiv 1 \pmod{x^2 + x + \lambda}$$
-Bằng cách nhân hai đa thức và thay thế $x^2 = x \oplus \lambda$, ta có:
+Triển khai nhân phân phối hai đa thức và thay thế $x^2 = x \oplus \lambda$, ta có:
 $$\begin{flalign*}
 (s \cdot x + t)(s' \cdot x + t') &= s \cdot s' \cdot x^2 + (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
 &= s \cdot s' (x \oplus \lambda) \oplus (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
 &= (s \cdot s' \oplus s \cdot t' \oplus s' \cdot t) x \oplus (s \cdot s' \cdot \lambda \oplus t \cdot t') & \\
 &= 0 \cdot x + 1 &
 \end{flalign*}$$
-Để phương trình trên cân bằng, ta bắt buộc phải có hệ phương trình sau:
+Để phương trình trên cân bằng, ta có hệ phương trình sau:
 $$\begin{cases}
-s \cdot s' \oplus s \cdot t' \oplus s' \cdot t = 0 \implies s' (s \oplus t) = s \cdot t' \\
-s \cdot s' \cdot \lambda \oplus t \cdot t' = 1
+s \cdot s' \oplus s \cdot t' \oplus s' \cdot t = 0 \implies s' (s \oplus t) = s \cdot t'  (1)\\
+s \cdot s' \cdot \lambda \oplus t \cdot t' = 1 (2)
 \end{cases}$$
 Giải hệ phương trình này bằng đại số thế: Từ (1), ta rút ra:
 $$s' = s \cdot t' \cdot (s \oplus t)^{-1}$$
@@ -70,7 +70,13 @@ t' \cdot \left[ s^2 \cdot \lambda \oplus s \cdot t \oplus t^2 \right] = s \oplus
 Đặt nhân tử chung ở vế trái là $\Delta$ với $\Delta \in GF(2^4)$:
 $$\Delta = s^2 \cdot \lambda \oplus s \cdot t \oplus t^2$$
 Khi đó, ta tìm được công thức tính toán cho hai thành phần $t'$ và $s'$:
-$$t' = (s \oplus t) \cdot \Delta^{-1}$$$$s' = s \cdot \Delta^{-1}$$
+$$\begin{align*}
+t' \cdot \Delta = s \oplus t \implies
+t' = (s \oplus t) \cdot \Delta^{-1}
+\end{align*}$$$$s' = s \cdot t' \cdot (s \oplus t)^{-1} \implies s' = s \cdot (s \oplus t) \cdot \Delta^{-1} \cdot (s \oplus t)^{-1} \implies s' = s \cdot \Delta^{-1}$$
+Từ đó ta thấy, để tính được nghịch đảo nhân $A^{-1}$ ta cần trải qua các bước sau:
+$$\begin{aligned} \text{Bước 1: } & s^2 \quad \text{(Bình phương 4-bit)} \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \text{(Nhân hằng số 4-bit)} \\ \text{Bước 3: } & s \cdot t \quad \text{(Nhân hai số 4-bit)} \\ \text{Bước 4: } & t^2 \quad \text{(Bình phương 4-bit)} \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus (s \cdot t) \oplus t^2 \quad \text{(Cổng XOR)} \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \text{(Nghịch đảo CHỈ trên trường nhỏ } GF(2^4)\text{!)} \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \text{(Nhân 4-bit)} \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \text{(Nhân 4-bit)} \end{aligned}$$
+
 ### 2.1. Sơ đồ khối
 ![[NghichDaoNhanGF28.png]]
 
@@ -123,7 +129,7 @@ $$
 $$
 Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
 #### 2.1.2. Khối S
-Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp** với nguyên tắc như sau: 
+Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp** 
 
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
