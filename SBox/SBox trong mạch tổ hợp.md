@@ -75,7 +75,7 @@ t' \cdot \Delta = s \oplus t \implies
 t' = (s \oplus t) \cdot \Delta^{-1}
 \end{align*}$$$$s' = s \cdot t' \cdot (s \oplus t)^{-1} \implies s' = s \cdot (s \oplus t) \cdot \Delta^{-1} \cdot (s \oplus t)^{-1} \implies s' = s \cdot \Delta^{-1}$$
 Từ đó ta thấy, để tính được nghịch đảo nhân $A^{-1}$ ta cần trải qua các bước sau:
-$$\begin{aligned} \text{Bước 1: } & s^2 \quad \text{(Bình phương 4-bit)} \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \text{(Nhân hằng số 4-bit)} \\ \text{Bước 3: } & s \cdot t \quad \text{(Nhân hai số 4-bit)} \\ \text{Bước 4: } & t^2 \quad \text{(Bình phương 4-bit)} \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus (s \cdot t) \oplus t^2 \quad \text{(Cổng XOR)} \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \text{(Nghịch đảo CHỈ trên trường nhỏ } GF(2^4)\text{!)} \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \text{(Nhân 4-bit)} \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \text{(Nhân 4-bit)} \end{aligned}$$
+$$\begin{aligned} \text{Bước 1: } & s^2 \quad \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \\ \text{Bước 3: } & s \cdot t \quad  \\ \text{Bước 4: } & t^2 \quad \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus (s \cdot t) \oplus t^2 \quad \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \end{aligned}$$
 
 ### 2.1. Sơ đồ khối
 ![[NghichDaoNhanGF28.png]]
