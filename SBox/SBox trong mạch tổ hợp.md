@@ -144,6 +144,8 @@ w^2 &= (h \cdot x + l)^2 \\
 &= h^2 \cdot x +(h^2 \cdot \phi + l^2)
 \end{flalign*}$$
 Lưu ý rằng $2 \cdot h \cdot l \cdot x = h \cdot l \cdot x \oplus h \cdot l \cdot x=0$
+Ta lại tiếp tục ánh xạ $h$ và $l$ xuống trường $GF(2)$ tiếp tục thực hiện các phép tính: 
+$$h^2=(w_{3}w_{2})^2=(w_{3}\cdot x+w_{2})^2=w_{3}^2\cdot (x+1)+w_{2}^2=w_{3}\cdot x+(w_{3}+w_{2})$$
 
 
 Thiết kế Module S: [[Module S Design]] 
