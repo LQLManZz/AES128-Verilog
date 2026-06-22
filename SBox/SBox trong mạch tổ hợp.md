@@ -90,7 +90,7 @@ Khối Imp (gọi là Isomorphic Mapping) là khối ánh xạ phần tử của
 ###### Khối Imp thực hiện phép nhân ma trận sau đây:
 $$
 \delta \times a = 
-\begin{bmatrix}
+\begin{pmatrix}
 1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
 1 & 1 & 0 & 1 & 1 & 1 & 1 & 0 \\
 1 & 0 & 1 & 0 & 1 & 1 & 0 & 0 \\
@@ -99,9 +99,9 @@ $$
 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\
 0 & 1 & 0 & 1 & 0 & 0 & 1 & 0 \\
 0 & 1 & 0 & 0 & 0 & 0 & 1 & 1
-\end{bmatrix}
+\end{pmatrix}
 \times
-\begin{bmatrix}
+\begin{pmatrix}
 a_7 \\
 a_6 \\
 a_5 \\
@@ -110,8 +110,8 @@ a_3 \\
 a_2 \\
 a_1 \\
 a_0
-\end{bmatrix} = 
-\begin{bmatrix}
+\end{pmatrix} = 
+\begin{pmatrix}
 a_7 \oplus a_5 \\
 a_7 \oplus a_6 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\
 a_7 \oplus a_5 \oplus a_3 \oplus a_2 \\
@@ -120,11 +120,11 @@ a_7 \oplus a_6 \oplus a_2 \oplus a_1 \\
 a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\
 a_6 \oplus a_4 \oplus a_1 \\
 a_6 \oplus a_1 \oplus a_0
-\end{bmatrix}
+\end{pmatrix}
 $$
 ###### Khối ImpInv thực hiện phép nhân ma trận sau đây:
 $$
-\delta^{-1} \times a = \begin{bmatrix} 1 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 0 & 1 \end{bmatrix} \times \begin{bmatrix} a_7 \\ a_6 \\ a_5 \\ a_4 \\ a_3 \\ a_2 \\ a_1 \\ a_0 \end{bmatrix} = \begin{bmatrix} a_7 \oplus a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_2 \\ a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_0 \end{bmatrix}
+\delta^{-1} \times a = \begin{pmatrix} 1 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 0 & 1 \end{pmatrix} \times \begin{pmatrix} a_7 \\ a_6 \\ a_5 \\ a_4 \\ a_3 \\ a_2 \\ a_1 \\ a_0 \end{pmatrix} = \begin{pmatrix} a_7 \oplus a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_2 \\ a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_0 \end{pmatrix}
 $$
 Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
 #### 2.1.2. Khối S
@@ -197,7 +197,7 @@ $$
 Thiết kế Module C: [[Module C Design]] 
 #### 2.1.4. Khối X
 Khối này dùng để tính nhân giữa 2 phần tử trong **trường hỗn hợp**. 
-Giả sử, hai phần tử cần tính nhân lần lượt là $a=(a_{3},a_{2},a_{1},a_{0})$ và $b=(b_{3},b_{2},b_{1},b_{0})$với $a,b \in GF(2^4)$, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân hai phần tử đó với nhau:
+Giả sử, hai phần tử cần tính nhân lần lượt là $a=(a_{3},a_{2},a_{1},a_{0})$ và $b=(b_{3},b_{2},b_{1},b_{0})$ với $a,b \in GF(2^4)$, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân hai phần tử đó với nhau:
 $$
 a=(a_{3}a_{2})\cdot x+(a_{1}a_{0})=h_{1}\cdot x+l_{1}
 $$
@@ -223,10 +223,30 @@ h_{1}l_{2} &= (a_{3}\cdot x+a_{2})\cdot(b_{1}\cdot x+b_{0}) \\
 h_{2}l_{1} &= (b_{3}\cdot x+b_{2})\cdot(a_{1}\cdot x+a_{0}) \\
 &=(a_{1}b_{3})\cdot x^2 +(a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{0}b_{2}) \\
 &=(a_{1}b_{3})\cdot (x+1) +(a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{0}b_{2}) \\
-&=(a_{1}b_{3}+a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{1}b_{3}+a_{0}b_{2}) \\ \\
-\implies &h_{1}h_{2}+h_{1}l_{2}+h_{2}l_{1} = 
+&=(a_{1}b_{3}+a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{1}b_{3}+a_{0}b_{2})
 \end{flalign*}$$
-
+Cộng các thành phần của phần trọng số cao:
+$$\begin{flalign*}
+&h_{1}h_{2}+h_{1}l_{2}+h_{2}l_{1} \\ &= (a_3 b_3 + a_3 b_2 + a_2 b_3 + a_3 b_1 + a_3 b_0 + a_2 b_1 + a_1 b_3 + a_0 b_3 + a_1 b_2) \cdot x \\
+&\quad + (a_3 b_3 + a_2 b_2 + a_3 b_1 + a_2 b_0 + a_1 b_3 + a_0 b_2)
+\end{flalign*}$$
+Tính các phần tử cho phần trọng số thấp:
+$$\begin{flalign*}
+l_1 l_2 &= (a_1 \cdot x + a_0)\cdot(b_1 \cdot x + b_0) \\
+&= a_1 b_1 \cdot x^2 + (a_1 b_0 + a_0 b_1)x + a_0 b_0 \\
+&= a_1 b_1 (x + 1) + (a_1 b_0 + a_0 b_1)x + a_0 b_0 \\
+&= (a_1 b_1 + a_1 b_0 + a_0 b_1) \cdot x + (a_1 b_1 + a_0 b_0) \\ \\
+h_1 h_2 \phi &= [ (a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot x + (a_3 b_3 + a_2 b_2) ] \cdot x \\
+&= (a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot x^2 + (a_3 b_3 + a_2 b_2)\cdot x \\
+&= (a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot (x + 1) + (a_3 b_3 + a_2 b_2)\cdot x \\
+&= (a_3 b_2 + a_2 b_3 + a_2 b_2) \cdot x + (a_3 b_3 + a_3 b_2 + a_2 b_3) \\ \\
+\implies h_1 h_2 \phi + l_1 l_2 &= (a_3 b_2 + a_2 b_3 + a_2 b_2 + a_1 b_1 + a_1 b_0 + a_0 b_1) \cdot x \\
+&\quad + (a_3 b_3 + a_3 b_2 + a_2 b_3 + a_1 b_1 + a_0 b_0)
+\end{flalign*}$$
+Chung quy lại, ta có thể biểu diễn tích $a \cdot b$ dưới dạng vector 4-bit như sau:
+$$
+a \cdot b = \begin{pmatrix} a_{3}b_{3}\oplus a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{3}b_{1}\oplus a_{3}b_{0}\oplus a_{2}b_{1}\oplus a_{1}b_{3}\oplus a_{0}b_{3}\oplus a_{1}b_{2} \\ a_{3}b_{3}\oplus a_{2}b_{2}\oplus a_{3}b_{1}\oplus a_{2}b_{0}\oplus a_{1}b_{3}\oplus a_{0}b_{2} \\ a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{2}b_{2}\oplus a_{1}b_{1}\oplus a_{1}b_{0}\oplus a_{0}b_{1} \\ a_{3}b_{3}\oplus a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{1}b_{1}\oplus a_{0}b_{0} \end{pmatrix}
+$$
 
 Thiết kế Module X: [[Module X Design]] 
 #### 2.1.5. Khối Inv
@@ -236,7 +256,7 @@ Thiết kế Module Inv: [[Module Inv Design]]
 ## 3. Phép biến đổi Affine
 ### 3.1. Biến đổi Affine
 Phép biến đổi **Affine** đã được quy định rõ trong chuẩn AES và thể hiện bằng phép nhân và cộng ma trận như sau (với $y_7, x_7$ là MSB):
-$$\begin{bmatrix}
+$$\begin{pmatrix}
 y_7 \\
 y_6 \\
 y_5 \\
@@ -245,9 +265,9 @@ y_3 \\
 y_2 \\
 y_1 \\
 y_0
-\end{bmatrix}
+\end{pmatrix}
 =
-\begin{bmatrix}
+\begin{pmatrix}
 1 & 1 & 1 & 1 & 1 & 0 & 0 & 0 \\
 0 & 1 & 1 & 1 & 1 & 1 & 0 & 0 \\
 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\
@@ -256,8 +276,8 @@ y_0
 1 & 1 & 0 & 0 & 0 & 1 & 1 & 1 \\
 1 & 1 & 1 & 0 & 0 & 0 & 1 & 1 \\
 1 & 1 & 1 & 1 & 0 & 0 & 0 & 1
-\end{bmatrix} \times
-\begin{bmatrix}
+\end{pmatrix} \times
+\begin{pmatrix}
 x_7 \\
 x_6 \\
 x_5 \\
@@ -266,9 +286,9 @@ x_3 \\
 x_2 \\
 x_1 \\
 x_0
-\end{bmatrix}
+\end{pmatrix}
 +
-\begin{bmatrix}
+\begin{pmatrix}
 0 \\
 1 \\
 1 \\
@@ -277,14 +297,14 @@ x_0
 0 \\
 1 \\
 1
-\end{bmatrix}$$
+\end{pmatrix}$$
 Có thể chuyển đổi thành dạng tổng quát như sau:
 $$y_i = x_i \oplus x_{(i+4)\bmod 8} \oplus x_{(i+5)\bmod 8} \oplus x_{(i+6)\bmod 8} \oplus x_{(i+7)\bmod 8} \oplus c_i$$
 Trong đó, với $0\le i\le 7$ ta có:
 - $y_i$ là bit thứ $i$ của byte kết quả sau khi chuyển đổi.
 - $x_i$ là bit thứ $i$ của byte đầu vào cần biến đổi.
 - $c_i$ là bit thứ $i$ của hằng số $63_{16}=01100011_{2}$.
-$$\begin{bmatrix}
+$$\begin{pmatrix}
 y_7 \\
 y_6 \\
 y_5 \\
@@ -293,8 +313,8 @@ y_3 \\
 y_2 \\
 y_1 \\
 y_0
-\end{bmatrix}
-= \begin{bmatrix}
+\end{pmatrix}
+= \begin{pmatrix}
 x_7 \oplus x_6 \oplus x_5 \oplus x_4 \oplus x_3 \\
 x_6 \oplus x_5 \oplus x_4 \oplus x_3 \oplus x_2 \oplus 1 \\
 x_5 \oplus x_4 \oplus x_3 \oplus x_2 \oplus x_1 \oplus 1 \\
@@ -303,10 +323,10 @@ x_7 \oplus x_3 \oplus x_2 \oplus x_1 \oplus x_0 \\
 x_7 \oplus x_6 \oplus x_2 \oplus x_1 \oplus x_0 \\
 x_7 \oplus x_6 \oplus x_5 \oplus x_1 \oplus x_0 \oplus 1 \\
 x_7 \oplus x_6 \oplus x_5 \oplus x_4 \oplus x_0 \oplus 1
-\end{bmatrix}$$
+\end{pmatrix}$$
 ### 3.2. Biến đổi Affine đảo
 Phép biến đổi **Affine** nghịch đảo thể hiện bằng phép nhân và cộng ma trận như sau (với $x_7, y_7$ là MSB):
-$$\begin{bmatrix}
+$$\begin{pmatrix}
 x_7 \\
 x_6 \\
 x_5 \\
@@ -315,9 +335,9 @@ x_3 \\
 x_2 \\
 x_1 \\
 x_0
-\end{bmatrix}
+\end{pmatrix}
 =
-\begin{bmatrix}
+\begin{pmatrix}
 0 & 1 & 0 & 1 & 0 & 0 & 1 & 0 \\
 0 & 0 & 1 & 0 & 1 & 0 & 0 & 1 \\
 1 & 0 & 0 & 1 & 0 & 1 & 0 & 0 \\
@@ -326,8 +346,8 @@ x_0
 1 & 0 & 0 & 1 & 0 & 0 & 1 & 0 \\
 0 & 1 & 0 & 0 & 1 & 0 & 0 & 1 \\
 1 & 0 & 1 & 0 & 0 & 1 & 0 & 0
-\end{bmatrix} \times
-\begin{bmatrix}
+\end{pmatrix} \times
+\begin{pmatrix}
 y_7 \\
 y_6 \\
 y_5 \\
@@ -336,9 +356,9 @@ y_3 \\
 y_2 \\
 y_1 \\
 y_0
-\end{bmatrix}
+\end{pmatrix}
 +
-\begin{bmatrix}
+\begin{pmatrix}
 0 \\
 0 \\
 0 \\
@@ -347,14 +367,14 @@ y_0
 1 \\
 0 \\
 1
-\end{bmatrix}$$
+\end{pmatrix}$$
 Có thể chuyển đổi thành dạng tổng quát như sau:
 $$x_i = y_{(i+2)\bmod 8} \oplus y_{(i+5)\bmod 8} \oplus y_{(i+7)\bmod 8} \oplus d_i$$
 Trong đó, với $0\le i\le 7$ ta có:
 - $x_i$ là bit thứ $i$ của byte kết quả sau khi chuyển đổi.
 - $y_i$ là bit thứ $i$ của byte đầu vào cần biến đổi.
 - $d_i$ là bit thứ $i$ của hằng số $05_{16}=00000101_{2}$.
-$$\begin{bmatrix}
+$$\begin{pmatrix}
 x_7 \\
 x_6 \\
 x_5 \\
@@ -363,8 +383,8 @@ x_3 \\
 x_2 \\
 x_1 \\
 x_0
-\end{bmatrix}
-= \begin{bmatrix}
+\end{pmatrix}
+= \begin{pmatrix}
 y_6 \oplus y_4 \oplus y_1 \\
 y_5 \oplus y_3 \oplus y_0 \\
 y_7 \oplus y_4 \oplus y_2 \\
@@ -373,5 +393,6 @@ y_5 \oplus y_2 \oplus y_0 \\
 y_7 \oplus y_4 \oplus y_1 \oplus 1 \\
 y_6 \oplus y_3 \oplus y_0 \\
 y_7 \oplus y_5 \oplus y_2 \oplus 1
-\end{bmatrix}$$
+\end{pmatrix}$$
+
 Thiết kế Module Biến đổi Affine & Biến đổi Affine đảo: [[Module Biến đổi Affine & Biến đổi Affine đảo]] 
