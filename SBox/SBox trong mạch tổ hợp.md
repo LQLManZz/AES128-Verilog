@@ -45,10 +45,10 @@ Ta cần tìm một phần tử $A^{-1} = s' \cdot x + t'$ (với $s', t' \in GF
 $$A \cdot A^{-1} \equiv 1 \pmod{x^2 + x + \lambda}$$
 Triển khai nhân phân phối hai đa thức và thay thế $x^2 = x \oplus \lambda$, ta có:
 $$\begin{flalign*}
-(s \cdot x + t)(s' \cdot x + t') &= s \cdot s' \cdot x^2 + (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
-&= s \cdot s' (x \oplus \lambda) \oplus (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t' & \\
-&= (s \cdot s' \oplus s \cdot t' \oplus s' \cdot t) x \oplus (s \cdot s' \cdot \lambda \oplus t \cdot t') & \\
-&= 0 \cdot x + 1 &
+(s \cdot x + t)(s' \cdot x + t') &= s \cdot s' \cdot x^2 + (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t'  \\
+&= s \cdot s' (x \oplus \lambda) \oplus (s \cdot t' \oplus s' \cdot t) x \oplus t \cdot t'  \\
+&= (s \cdot s' \oplus s \cdot t' \oplus s' \cdot t) x \oplus (s \cdot s' \cdot \lambda \oplus t \cdot t')  \\
+&= 0 \cdot x + 1 
 \end{flalign*}$$
 Để phương trình trên cân bằng, ta có hệ phương trình sau:
 $$\begin{cases}
@@ -64,27 +64,26 @@ t' \cdot \left[ s^2 \cdot \lambda \cdot (s \oplus t)^{-1} \oplus t \right] = 1
 \end{flalign*}$$
 Nhân cả hai vế với $(s \oplus t)$:
 $$\begin{align*}
-t' \cdot \left[ s^2 \cdot \lambda \oplus t(s \oplus t) \right] = s \oplus t \\
-t' \cdot \left[ s^2 \cdot \lambda \oplus s \cdot t \oplus t^2 \right] = s \oplus t
+t' \cdot \left[ s^2 \cdot \lambda \oplus t(s \oplus t) \right] = s \oplus t
 \end{align*}$$
 Đặt nhân tử chung ở vế trái là $\Delta$ với $\Delta \in GF(2^4)$:
-$$\Delta = s^2 \cdot \lambda \oplus s \cdot t \oplus t^2$$
+$$\Delta = s^2 \cdot \lambda \oplus t ( s \oplus t)$$
 Khi đó, ta tìm được công thức tính toán cho hai thành phần $t'$ và $s'$:
 $$\begin{align*}
 t' \cdot \Delta = s \oplus t \implies
 t' = (s \oplus t) \cdot \Delta^{-1}
 \end{align*}$$$$s' = s \cdot t' \cdot (s \oplus t)^{-1} \implies s' = s \cdot (s \oplus t) \cdot \Delta^{-1} \cdot (s \oplus t)^{-1} \implies s' = s \cdot \Delta^{-1}$$
 Từ đó ta thấy, để tính được nghịch đảo nhân $A^{-1}$ ta cần trải qua các bước sau:
-$$\begin{aligned} \text{Bước 1: } & s^2 \quad \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \\ \text{Bước 3: } & s \cdot t \quad  \\ \text{Bước 4: } & t^2 \quad \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus (s \cdot t) \oplus t^2 \quad \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \end{aligned}$$
+$$\begin{aligned} \text{Bước 1: } & s^2 \quad \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \\ \text{Bước 3: } & s \cdot t \quad  \\ \text{Bước 4: } & t^2 \quad \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus t(s \oplus t) \quad \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \end{aligned}$$
 
 ### 2.1. Sơ đồ khối
 ![[NghichDaoNhanGF28.png]]
 
 
-| Tín hiệu      | Hướng  | Độ rộng | Mô tả                                                                            |
-| :------------ | :----- | :------ | :------------------------------------------------------------------------------- |
-| `byte_a`      | Input  | 8 bit   | Byte đầu vào                                                                     |
-| `byte_a_mInv` | Output | 8 bit   | Nghịch đảo nhân (multiplicative inverse) của byte đầu vào trong trường $GF(2^8)$ |
+| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                             |
+| :--------- | :----- | :------ | :-------------------------------------------------------------------------------- |
+| `byte_in`  | Input  | 8 bit   | Byte đầu vào                                                                      |
+| `byte_out` | Output | 8 bit   | Nghịch đảo nhân (multiplicative inverse) của byte đầu vào trong trường $GF(2^8)$  |
 #### 2.1.1. Khối Imp và ImpInv
 Phép tính phần tử nghịch đảo trong trường hỗn hợp không thể được áp dụng trực tiếp vào phần tử trên trường $GF(2^8)$. Nó phải được ánh xạ vào trường hỗn hợp thông qua biến đổi Isomorphic.
 Khối Imp (gọi là Isomorphic Mapping) là khối ánh xạ phần tử của trường $GF(2^8)$ vào trong trường hỗn hợp và khối ImpInv (Inverse Isomorphic Mapping) là khối ánh xạ đảo của Imp, chuyển giá trị tính toán về trường $GF(2^8)$.
@@ -129,7 +128,18 @@ $$
 $$
 Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
 #### 2.1.2. Khối S
-Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp** 
+Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp**.
+Ta ánh xạ $s \in GF(2^4)$ xuống trường $GF((2^2)^2)$ là phần tử 
+$$w=h \cdot x + l$$
+- $l, h \in GF(2^2)$
+- $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \phi = 0$ (với $\phi \in GF(2^2)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \phi$ 
+Tiến hành bình phương $w$ ta được:
+$$\begin{flalign*}
+w^2 &= (h \cdot x + l)^2 \\
+&= h^2 \cdot x^2 + 2 \cdot h \cdot l \cdot x + l^2 \\
+&= h^2(x + \phi) + 2 \cdot h \cdot l \cdot x + l^2 \\
+&= (h^2+2 \cdot h \cdot l)x +(h^2 \cdot \phi + l^2)
+\end{flalign*}$$
 
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
