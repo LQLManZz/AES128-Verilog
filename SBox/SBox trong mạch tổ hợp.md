@@ -236,7 +236,7 @@ l_1 l_2 &= (a_1 \cdot x + a_0)\cdot(b_1 \cdot x + b_0) \\
 &= a_1 b_1 \cdot x^2 + (a_1 b_0 + a_0 b_1)x + a_0 b_0 \\
 &= a_1 b_1 (x + 1) + (a_1 b_0 + a_0 b_1)x + a_0 b_0 \\
 &= (a_1 b_1 + a_1 b_0 + a_0 b_1) \cdot x + (a_1 b_1 + a_0 b_0) \\ \\
-h_1 h_2 \phi &= ((a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot x + (a_3 b_3 + a_2 b_2))\cdot x \\
+h_1 h_2 \phi &= ((a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot x + (a_3 b_3 + a_2 b_2))\cdot (1_{2}\cdot x+0_{2}) \\
 &= (a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot x^2 + (a_3 b_3 + a_2 b_2)\cdot x \\
 &= (a_3 b_3 + a_3 b_2 + a_2 b_3)\cdot (x + 1) + (a_3 b_3 + a_2 b_2)\cdot x \\
 &= (a_3 b_2 + a_2 b_3 + a_2 b_2) \cdot x + (a_3 b_3 + a_3 b_2 + a_2 b_3) \\ \\
@@ -250,7 +250,10 @@ $$
 
 Thiết kế Module X: [[Module X Design]] 
 #### 2.1.5. Khối Inv
-Khối này dùng để tính nghịch đảo trong **trường hỗn hợp**. 
+Khối này dùng để tính nghịch đảo của phần tử $\Delta$ trong **trường hỗn hợp**. 
+Ta viết phần tử $\Delta = (\delta_{3},\delta_{2},\delta_{1},\delta_{0}) \in GF(2^4)$ dưới dạng: 
+$$\Delta =(\delta_{3}\delta_{2})\cdot x+(\delta_{1}\delta_{0})=h\cdot x+l$$
+
 
 Thiết kế Module Inv: [[Module Inv Design]] 
 ## 3. Phép biến đổi Affine
