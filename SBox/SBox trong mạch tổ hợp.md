@@ -134,33 +134,104 @@ $$\begin{flalign*}
 s&=h \cdot x + l \\
 s&=(s_{3}s_{2})\cdot x+(s_{1}s_{0})
 \end{flalign*}$$
-- $l, h \in GF(2^2)$ (là các phần tử 2 bit), ta quy định $h=w_{3}w_{2}$ và $l=w_{1}w_{0}$ 
+- $l, h \in GF(2^2)$ (là các phần tử 2 bit), ta quy định $h=s_{3}s_{2}$ và $l=s_{1}s_{0}$ 
 - $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \phi = 0$ (với $\phi \in GF(2^2)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \phi$ 
-Tiến hành bình phương $w$ ta được:
+Tiến hành bình phương $s$ ta được:
 $$\begin{flalign*}
-w^2 &= (h \cdot x + l)^2 \\
+s^2 &= (h \cdot x + l)^2 \\
 &= h^2 \cdot x^2 + 2 \cdot h \cdot l \cdot x + l^2 \\
 &= h^2(x + \phi) + l^2 \\
 &= h^2 \cdot x +(h^2 \cdot \phi + l^2)
 \end{flalign*}$$
 Lưu ý rằng $2 \cdot h \cdot l \cdot x = h \cdot l \cdot x \oplus h \cdot l \cdot x=0$
 Ta lại tiếp tục ánh xạ $h$ và $l$ xuống trường $GF(2)$ và tiếp tục thực hiện các phép tính $(\phi=10_{2}=1_{2}\cdot x+0_{2})$: 
-$$h^2=(w_{3}w_{2})^2=(w_{3}\cdot x+w_{2})^2=w_{3}^2\cdot (x+1)+w_{2}^2=w_{3}\cdot x+(w_{3}+w_{2})$$
-$$l^2=(w_{1}w_{0})^2=(w_{1}\cdot x+w_{0})^2=w_{1}^2\cdot (x+1)+w_{0}^2=w_{1}\cdot x+(w_{1}+w_{0})$$
+$$h^2=(s_{3}s_{2})^2=(s_{3}\cdot x+s_{2})^2=s_{3}^2\cdot (x+1)+s_{2}^2=s_{3}\cdot x+(s_{3}+s_{2})$$
+$$l^2=(s_{1}s_{0})^2=(s_{1}\cdot x+s_{0})^2=s_{1}^2\cdot (x+1)+s_{0}^2=s_{1}\cdot x+(s_{1}+s_{0})$$
 $$\begin{flalign*}
-h^2 \cdot \phi + l^2 &= (w_{3}\cdot x+(w_{3}+w_{2}))\cdot(1_{2}\cdot x+0_{2})+ (w_{1}\cdot x+(w_{1}+w_{0})) \\
-&=w_{3}\cdot x^2+(w_{3}+w_{2}+w_{1})\cdot x+(w_{1}+w_{0}) \\
-&=w_{3}\cdot(x+1) +(w_{3}+w_{2}+w_{1})\cdot x+(w_{1}+w_{0}) \\
-&=(w_{2}+w_{1})\cdot x+(w_{3}+w_{1}+w_{0})
+h^2 \cdot \phi + l^2 &= (s_{3}\cdot x+(s_{3}+s_{2}))\cdot(1_{2}\cdot x+0_{2})+ (s_{1}\cdot x+(s_{1}+s_{0})) \\
+&=s_{3}\cdot x^2+(s_{3}+s_{2}+s_{1})\cdot x+(s_{1}+s_{0}) \\
+&=s_{3}\cdot(x+1) +(s_{3}+s_{2}+s_{1})\cdot x+(s_{1}+s_{0}) \\
+&=(s_{2}+s_{1})\cdot x+(s_{3}+s_{1}+s_{0})
 \end{flalign*}$$
-Chung quy lại, khi ta bình phương phần tử $s=$
+Chung quy lại, khi ta bình phương phần tử $s=(s_3 s_2 s_1 s_0)$, kết quả thu được sẽ là:
+$$\begin{flalign*}
+s^2 &= h^2 \cdot x + (h^2 \cdot \phi + l^2) \\
+&= (s_3 \cdot x + (s_3 + s_2)) \cdot x + ((s_2 + s_1) \cdot x + (s_3 + s_1 + s_0))
+\end{flalign*}$$
+Biểu diễn dưới dạng vector 4-bit, ta có:
+$$s^2 = \begin{pmatrix}s_3\\ s_3 \oplus s_2 \\ s_2 \oplus s_1 \\ s_3 \oplus s_1 \oplus s_0\end{pmatrix}$$
 
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
+Khối này dùng để tính nhân với hằng số $\lambda=1100_{2}$ trong **trường hỗn hợp**. 
+Ta gọi $w=(w_{3},w_{2},w_{1},w_{0}) \in GF(2^4)$ là phần tử cần được nhân, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân với hằng số $\lambda$ :
+$$
+w=(w_{3}w_{2})\cdot x+(w_{1}w_{0})=h\cdot x+l
+$$
+$$\begin{flalign*}
+w \cdot \lambda &= (h\cdot x+l)\cdot(11_{2}\cdot x+00_{2}) \\
+&= (h\cdot 11_{2})\cdot x^2 + (h\cdot 00_{2}+l \cdot 11_{2})\cdot x+l \cdot 00_{2} \\
+&= (h\cdot 11_{2})\cdot(x+\phi) + l\cdot 11_{2} \cdot x \\
+&= (h\cdot 11_{2}+l\cdot 11_{2})\cdot x + h\cdot 11_{2} \cdot \phi
+\end{flalign*}$$
+Tiếp tục ánh xạ xuống trường $GF(2)$ và thực hiện phép nhân:
+$$\begin{flalign*}
+h\cdot 11_{2}+ l\cdot 11_{2} &= (w_{3}\cdot x+w_{2})\cdot(1_{2}\cdot x+1_{2})+(w_{1}\cdot x+w_{0})\cdot(1_{2}\cdot x+1_{2}) \\
+&= (w_{3}+w_{1})\cdot x^2 + (w_{3}+w_{2}+w_{1}+w_{0})\cdot x+(w_{2}+w_{0}) \\
+&= (w_{3}+w_{1})\cdot (x+1) + (w_{3}+w_{2}+w_{1}+w_{0})\cdot x+(w_{2}+w_{0}) \\
+&= (w_{2}+w_{0})\cdot x + (w_{3} + w_{2}+w_{1}+w_{0})
+\end{flalign*}$$
+$$\begin{flalign*}
+h\cdot 11_{2} \cdot \phi &= (w_{3}\cdot x+w_{2})\cdot(1_{2}\cdot x+1_{2})\cdot(1_{2}\cdot x+0_{2}) \\
+&= w_{3}\cdot x^3 + (w_{3}+w_{2})\cdot x^2 + w_{2}\cdot x \\
+&= (w_{3}\cdot x+w_{3}+w_{2})\cdot(x+1)+w_{2}\cdot x \\
+&= w_{3}\cdot x^2 + (w_{3}+w_{3}+w_{2}+w_{2})\cdot x+(w_{3}+w_{2}) \\
+&= w_{3}\cdot(x+1)+(w_{3}+w_{2}) \\
+&= w_{3} \cdot x+w_{2}
+\end{flalign*}$$
+Chung quy lại, ta có thể biểu diễn tích $w\cdot \lambda$ dưới dạng vector 4-bit như sau:
+$$
+w \cdot \lambda = \begin{pmatrix} w_{2}\oplus w_{0} \\ w_{3}\oplus w_{2}\oplus w_{1}\oplus w_{0} \\ w_{3} \\ w_{2} \end{pmatrix}
+$$
+
 Thiết kế Module C: [[Module C Design]] 
 #### 2.1.4. Khối X
+Khối này dùng để tính nhân giữa 2 phần tử trong **trường hỗn hợp**. 
+Giả sử, hai phần tử cần tính nhân lần lượt là $a=(a_{3},a_{2},a_{1},a_{0})$ và $b=(b_{3},b_{2},b_{1},b_{0})$với $a,b \in GF(2^4)$, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân hai phần tử đó với nhau:
+$$
+a=(a_{3}a_{2})\cdot x+(a_{1}a_{0})=h_{1}\cdot x+l_{1}
+$$
+$$
+b=(b_{3}b_{2})\cdot x+(b_{1}b_{0})=h_{2}\cdot x+l_{2}
+$$
+$$\begin{flalign*}
+a\cdot b &= (h_{1}\cdot x+l_{1})\cdot(h_{2}\cdot x+l_{2}) \\
+&= (h_{1}h_{2})\cdot x^2 + (h_{1}l_{2}+h_{2}l_{1})\cdot x + l_{1}l_{2} \\
+&= (h_{1}h_{2})\cdot(x+\phi)+(h_{1}l_{2}+h_{2}l_{1})\cdot x+l_{1}l_{2} \\
+&= (h_{1}h_{2}+h_{1}l_{2}+h_{2}l_{1})\cdot x+ (h_{1}h_{2}\phi+l_{1}l_{2})
+\end{flalign*}$$
+Tiếp tục ánh xạ xuống trường $GF(2)$ và thực hiện phép nhân:
+$$\begin{flalign*}
+h_{1}h_{2} &= (a_{3}\cdot x+a_{2})\cdot(b_{3}\cdot x+b_{2}) \\
+&=(a_{3}b_{3})\cdot x^2 + (a_{3}b_{2}+a_{2}b_{3})\cdot x +(a_{2}b_{2}) \\
+&=(a_{3}b_{3})\cdot (x+1) + (a_{3}b_{2}+a_{2}b_{3})\cdot x +(a_{2}b_{2}) \\
+&=(a_{3}b_{3}+a_{3}b_{2}+a_{2}b_{3})\cdot x+(a_{3}b_{3}+a_{2}b_{2}) \\ \\
+h_{1}l_{2} &= (a_{3}\cdot x+a_{2})\cdot(b_{1}\cdot x+b_{0}) \\
+&=(a_{3}b_{1})\cdot x^2 +(a_{3}b_{0}+a_{2}b_{1})\cdot x +(a_{2}b_{0}) \\
+&=(a_{3}b_{1})\cdot (x+1) +(a_{3}b_{0}+a_{2}b_{1})\cdot x +(a_{2}b_{0}) \\
+&=(a_{3}b_{1}+a_{3}b_{0}+a_{2}b_{1})\cdot x+(a_{3}b_{1}+a_{2}b_{0}) \\ \\
+h_{2}l_{1} &= (b_{3}\cdot x+b_{2})\cdot(a_{1}\cdot x+a_{0}) \\
+&=(a_{1}b_{3})\cdot x^2 +(a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{0}b_{2}) \\
+&=(a_{1}b_{3})\cdot (x+1) +(a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{0}b_{2}) \\
+&=(a_{1}b_{3}+a_{0}b_{3}+a_{1}b_{2})\cdot x+(a_{1}b_{3}+a_{0}b_{2}) \\ \\
+\implies &h_{1}h_{2}+h_{1}l_{2}+h_{2}l_{1} = 
+\end{flalign*}$$
+
+
 Thiết kế Module X: [[Module X Design]] 
 #### 2.1.5. Khối Inv
+Khối này dùng để tính nghịch đảo trong **trường hỗn hợp**. 
+
 Thiết kế Module Inv: [[Module Inv Design]] 
 ## 3. Phép biến đổi Affine
 ### 3.1. Biến đổi Affine
