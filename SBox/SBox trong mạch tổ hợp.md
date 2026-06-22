@@ -251,28 +251,28 @@ $$
 Thiết kế Module X: [[Module X Design]] 
 #### 2.1.5. Khối Inv
 Khối này dùng để tính nghịch đảo của phần tử $\Delta$ trong **trường hỗn hợp**. 
-Ta viết phần tử $\Delta = (\delta_{3},\delta_{2},\delta_{1},\delta_{0}) \in GF(2^4)$ dưới dạng: 
-$$\Delta =(\delta_{3}\delta_{2})\cdot x+(\delta_{1}\delta_{0})=h\cdot x+l$$
-$$\Delta^{-1}=h'\cdot x+l'$$
-Để tìm nghịch đảo của $\Delta$ ta thực hiện phép tính như tìm nghịch đảo của $A$ nhưng có phần đơn giản hơn.
-$$
-\Delta \cdot \Delta^{-1} \equiv 1 \pmod{x^2 + x + \phi}
-$$
-$$\begin{flalign*}
-\Delta \cdot \Delta^{-1} &= (h\cdot x+l)\cdot(h'\cdot x+l') \\
-&= (h\cdot h')\cdot x^2 + (hl'+lh')\cdot x + (l\cdot l') \\
-&= (h\cdot h')\cdot (x+\phi) + (hl'+lh')\cdot x + (l\cdot l') \\
-&= (hh'+hl'+lh')\cdot x + (hh'\phi + ll') = 0\cdot x +1 
-\end{flalign*}$$
-$$
-\begin{cases}
-h \cdot h' \oplus h \cdot l' \oplus h' \cdot l = 0 \implies h' (h \oplus l) = h \cdot l'\\
-h \cdot h' \cdot \phi \oplus l \cdot l' = 1
-\end{cases}
-$$
-$$
+Vì phần tử $\Delta \in GF(2^4)$ vốn chỉ có 4-bit nên ta có thể theo hướng đi sử dụng bảng tra trực tiếp, bỏ qua các bước tính toán sẽ giảm thiểu thời gian trễ do mạch tổ hợp gây ra và cũng đơn giản hơn trong thiết kế.
+***Bảng tra phần tử nghịch đảo trong trường $GF(2^4)$ 
 
-$$
+| $\Delta$ | hex | $\Delta^{-1}$ | hex |
+| -------- | --- | ------------- | --- |
+| `0000`   | 0   | `0000`        | 0   |
+| `0001`   | 1   | `0001`        | 1   |
+| `0010`   | 2   | `1001`        | 9   |
+| `0011`   | 3   | `1110`        | e   |
+| `0100`   | 4   | `1100`        | c   |
+| `0101`   | 5   | `1010`        | a   |
+| `0110`   | 6   | `1101`        | d   |
+| `0111`   | 7   | `1011`        | b   |
+| `1000`   | 8   | `1111`        | f   |
+| `1001`   | 9   | `0010`        | 2   |
+| `1010`   | a   | `0101`        | 5   |
+| `1011`   | b   | `0111`        | 7   |
+| `1100`   | c   | `0100`        | 4   |
+| `1101`   | d   | `0110`        | 6   |
+| `1110`   | e   | `0011`        | 3   |
+| `1111`   | f   | `1000`        | 8   |
+
 Thiết kế Module Inv: [[Module Inv Design]] 
 ## 3. Phép biến đổi Affine
 ### 3.1. Biến đổi Affine

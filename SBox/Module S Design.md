@@ -11,4 +11,5 @@ Module thực hiện phép tính bình phương (Square) trong trường $GF(2^4
 | :--------- | :----- | :------ | :----------------------------------------- |
 | `data_in`  | Input  | 4 bit   | Dữ liệu đầu vào trong trường $GF(2^4)$     |
 | `data_out` | Output | 4 bit   | Kết quả bình phương trong trường $GF(2^4)$ |
-
+## 4. Low level Block Design
+![[Module S low level.png]]
