@@ -35,7 +35,7 @@ GF(((2^2)^2)^2) \rightarrow GF((2^2)^2): x^2 + x + \lambda
 \end{align*}
 $$
 với $\phi=10_{2}$ , $\lambda=1100_{2}$ 
-Ví dụ, chúng ta có thể xem $GF(2^8)$ là một **trường mở rộng** bậc 2 của trường cơ sở $GF(2^4)$, có nghĩa là trường $GF((2^4)^2)$. Khi đó, ta có thể ánh xạ các phần tử thuộc trường $GF(2^8)$ sang một phần tử A nào đó thuộc trường $GF((2^4)^2)$ có dạng như sau:
+Ví dụ, chúng ta có thể xem $GF(2^8)$ là một **trường mở rộng** bậc 2 của trường cơ sở $GF(2^4)$, có nghĩa là trường $GF((2^4)^2)$. Khi đó, ta có thể ánh xạ các phần tử thuộc trường $GF(2^8)$ sang một phần tử A thuộc trường $GF((2^4)^2)$ có dạng như sau:
 $$A=s\cdot x+t$$
 - $s, t \in GF(2^4)$ (là các phần tử 4-bit).
 - $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \lambda = 0$ (với $\lambda \in GF(2^4)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \lambda$. 
@@ -131,8 +131,8 @@ Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]]
 Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp**.
 Ta ánh xạ $s \in GF(2^4)$ xuống trường $GF((2^2)^2)$ là phần tử 
 $$\begin{flalign*}
-w&=h \cdot x + l \\
-w&=(w_{3}w_{2})\cdot x+(w_{1}w_{0})
+s&=h \cdot x + l \\
+s&=(s_{3}s_{2})\cdot x+(s_{1}s_{0})
 \end{flalign*}$$
 - $l, h \in GF(2^2)$ (là các phần tử 2 bit), ta quy định $h=w_{3}w_{2}$ và $l=w_{1}w_{0}$ 
 - $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \phi = 0$ (với $\phi \in GF(2^2)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \phi$ 
@@ -144,9 +144,16 @@ w^2 &= (h \cdot x + l)^2 \\
 &= h^2 \cdot x +(h^2 \cdot \phi + l^2)
 \end{flalign*}$$
 Lưu ý rằng $2 \cdot h \cdot l \cdot x = h \cdot l \cdot x \oplus h \cdot l \cdot x=0$
-Ta lại tiếp tục ánh xạ $h$ và $l$ xuống trường $GF(2)$ tiếp tục thực hiện các phép tính: 
+Ta lại tiếp tục ánh xạ $h$ và $l$ xuống trường $GF(2)$ và tiếp tục thực hiện các phép tính $(\phi=10_{2}=1_{2}\cdot x+0_{2})$: 
 $$h^2=(w_{3}w_{2})^2=(w_{3}\cdot x+w_{2})^2=w_{3}^2\cdot (x+1)+w_{2}^2=w_{3}\cdot x+(w_{3}+w_{2})$$
-
+$$l^2=(w_{1}w_{0})^2=(w_{1}\cdot x+w_{0})^2=w_{1}^2\cdot (x+1)+w_{0}^2=w_{1}\cdot x+(w_{1}+w_{0})$$
+$$\begin{flalign*}
+h^2 \cdot \phi + l^2 &= (w_{3}\cdot x+(w_{3}+w_{2}))\cdot(1_{2}\cdot x+0_{2})+ (w_{1}\cdot x+(w_{1}+w_{0})) \\
+&=w_{3}\cdot x^2+(w_{3}+w_{2}+w_{1})\cdot x+(w_{1}+w_{0}) \\
+&=w_{3}\cdot(x+1) +(w_{3}+w_{2}+w_{1})\cdot x+(w_{1}+w_{0}) \\
+&=(w_{2}+w_{1})\cdot x+(w_{3}+w_{1}+w_{0})
+\end{flalign*}$$
+Chung quy lại, khi ta bình phương phần tử $s=$
 
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
