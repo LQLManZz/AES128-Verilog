@@ -130,16 +130,21 @@ Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]]
 #### 2.1.2. Khối S
 Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp**.
 Ta ánh xạ $s \in GF(2^4)$ xuống trường $GF((2^2)^2)$ là phần tử 
-$$w=h \cdot x + l$$
-- $l, h \in GF(2^2)$
+$$\begin{flalign*}
+w&=h \cdot x + l \\
+w&=(w_{3}w_{2})\cdot x+(w_{1}w_{0})
+\end{flalign*}$$
+- $l, h \in GF(2^2)$ (là các phần tử 2 bit), ta quy định $h=w_{3}w_{2}$ và $l=w_{1}w_{0}$ 
 - $x$ là biến đa thức thỏa mãn phương trình tạo trường: $x^2 + x + \phi = 0$ (với $\phi \in GF(2^2)$ là một hằng số tối ưu cấu trúc). Từ phương trình này ta có quan hệ: $x^2 = x \oplus \phi$ 
 Tiến hành bình phương $w$ ta được:
 $$\begin{flalign*}
 w^2 &= (h \cdot x + l)^2 \\
 &= h^2 \cdot x^2 + 2 \cdot h \cdot l \cdot x + l^2 \\
-&= h^2(x + \phi) + 2 \cdot h \cdot l \cdot x + l^2 \\
-&= (h^2+2 \cdot h \cdot l)x +(h^2 \cdot \phi + l^2)
+&= h^2(x + \phi) + l^2 \\
+&= h^2 \cdot x +(h^2 \cdot \phi + l^2)
 \end{flalign*}$$
+Lưu ý rằng $2 \cdot h \cdot l \cdot x = h \cdot l \cdot x \oplus h \cdot l \cdot x=0$
+
 
 Thiết kế Module S: [[Module S Design]] 
 #### 2.1.3. Khối C
@@ -148,7 +153,6 @@ Thiết kế Module C: [[Module C Design]]
 Thiết kế Module X: [[Module X Design]] 
 #### 2.1.5. Khối Inv
 Thiết kế Module Inv: [[Module Inv Design]] 
-### 2.2. Kiểm thử 
 ## 3. Phép biến đổi Affine
 ### 3.1. Biến đổi Affine
 Phép biến đổi **Affine** đã được quy định rõ trong chuẩn AES và thể hiện bằng phép nhân và cộng ma trận như sau (với $y_7, x_7$ là MSB):
