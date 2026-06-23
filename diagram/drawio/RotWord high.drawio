@@ -7,14 +7,14 @@
         <mxCell id="-1SBIF7h5vE3VcUKt5o2-7" edge="1" parent="1" source="2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="6" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;color:#000000;fontStyle=1;" value="SubWord" vertex="1">
+        <mxCell id="2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;color:#000000;fontStyle=1;" value="RotWord" vertex="1">
           <mxGeometry height="140" width="130" x="330" y="190" as="geometry" />
         </mxCell>
         <mxCell id="-1SBIF7h5vE3VcUKt5o2-6" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="2" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" value="word_in [31:0]" vertex="1">
-          <mxGeometry height="20" width="90" x="190" y="250" as="geometry" />
+        <mxCell id="4" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" value="word_in[31:0]" vertex="1">
+          <mxGeometry height="30" width="100" x="185" y="245" as="geometry" />
         </mxCell>
         <mxCell id="6" parent="1" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" value="word_out [31:0]" vertex="1">
           <mxGeometry height="20" width="100" x="510" y="250" as="geometry" />

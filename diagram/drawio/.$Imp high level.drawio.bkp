@@ -17,11 +17,11 @@
             <mxPoint x="310" y="430" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="0ht14DJUs7YBaBLg9xqc-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="byte_in[7:0]" vertex="1">
-          <mxGeometry height="30" width="70" x="230" y="415" as="geometry" />
+        <mxCell id="0ht14DJUs7YBaBLg9xqc-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="byte_a[7:0]" vertex="1">
+          <mxGeometry height="30" width="60" x="230" y="415" as="geometry" />
         </mxCell>
-        <mxCell id="0ht14DJUs7YBaBLg9xqc-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="byte_out[7:0]" vertex="1">
-          <mxGeometry height="30" width="60" x="540" y="415" as="geometry" />
+        <mxCell id="0ht14DJUs7YBaBLg9xqc-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="byte_a_imp[7:0]" vertex="1">
+          <mxGeometry height="30" width="60" x="550" y="415" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

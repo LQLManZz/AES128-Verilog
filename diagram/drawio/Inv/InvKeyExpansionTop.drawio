@@ -4,7 +4,7 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="module" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;fontStyle=1" value="Module InvKeyExpansion" vertex="1">
+        <mxCell id="module" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;fontStyle=1" value="InvKeyExpansion" vertex="1">
           <mxGeometry height="180" width="140" x="320" y="160" as="geometry" />
         </mxCell>
         <mxCell id="in_clk" edge="1" parent="1" style="endArrow=classic;html=1;entryX=0;entryY=0.15;entryDx=0;entryDy=0;" target="module" value="">
