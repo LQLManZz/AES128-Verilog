@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-06-24T16:12:00.000Z" agent="copilot-cli/1.0" etag="" version="20.4.3" type="device">
+  <diagram id="KEWaveform" name="KEWaveform">
+    <mxGraphModel dx="1207" dy="691" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Key Expansion Waveform" style="text;html=1;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="860" height="24" as="geometry"/>
+        </mxCell>
+
+        <!-- Signal labels and lanes -->
+        <!-- Helper: label_x = 20, lane_x = 140, lane_width = 740 -->
+
+        <!-- clk -->
+        <mxCell id="lbl_clk" value="clk" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="60" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_clk" style="shape=swimlane;startSize=0;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="140" y="60" width="740" height="30" as="geometry"/>
+        </mxCell>
+        <!-- clk pulses as small rectangles -->
+        <mxCell id="clk_pulse_0" value="" style="rounded=1;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_clk">
+          <mxGeometry x="6" y="6" width="40" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="clk_pulse_1" value="" style="rounded=1;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_clk">
+          <mxGeometry x="56" y="6" width="40" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="clk_pulse_2" value="" style="rounded=1;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_clk">
+          <mxGeometry x="106" y="6" width="40" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="clk_pulse_3" value="" style="rounded=1;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_clk">
+          <mxGeometry x="156" y="6" width="40" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- rst_n -->
+        <mxCell id="lbl_rst" value="rst_n" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="110" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_rst" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="110" width="740" height="26" as="geometry"/>
+        </mxCell>
+        <!-- rst low pulse at start -->
+        <mxCell id="rst_low" value="" style="shape=rectangle;fillColor=#f2f2f2;strokeColor=#000000;" vertex="1" parent="lane_rst">
+          <mxGeometry x="6" y="3" width="120" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ke_en (encryption enable) -->
+        <mxCell id="lbl_en" value="keyexp_en" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="150" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_en" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="150" width="740" height="26" as="geometry"/>
+        </mxCell>
+        <!-- enable high for a window -->
+        <mxCell id="en_high" value="" style="shape=rectangle;fillColor=#d9ead3;strokeColor=#000000;" vertex="1" parent="lane_en">
+          <mxGeometry x="40" y="3" width="360" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- data_in -->
+        <mxCell id="lbl_data_in" value="data_in [127:0]" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="190" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_data_in" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="190" width="740" height="28" as="geometry"/>
+        </mxCell>
+        <!-- initial key load region -->
+        <mxCell id="data_in_initial" value="Initial Key (128'h...)" style="shape=rectangle;fillColor=#fce4d6;strokeColor=#b45f06;fontSize=11;" vertex="1" parent="lane_data_in">
+          <mxGeometry x="6" y="4" width="420" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- round keys rows (0..10) -->
+        <!-- We'll create three representative round_key lanes and one for round_key[10] -->
+
+        <mxCell id="lbl_rk0" value="round_key[0]" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="235" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_rk0" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="235" width="740" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="rk0_val" value="128'h000102030405060708090a0b0c0d0e0f" style="shape=rectangle;fillColor=#e6e6fa;strokeColor=#6d6dff;fontSize=11;" vertex="1" parent="lane_rk0">
+          <mxGeometry x="6" y="1" width="480" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="lbl_rk1" value="round_key[1]" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="265" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_rk1" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="265" width="740" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="rk1_val" value="128'h2b7e151628aed2a6abf7158809cf4f3c" style="shape=rectangle;fillColor=#ffd1dc;strokeColor=#c21f3b;fontSize=11;" vertex="1" parent="lane_rk1">
+          <mxGeometry x="6" y="1" width="520" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ellipsis -->
+        <mxCell id="lbl_ellipsis" value="..." style="text;align=center;verticalAlign=middle;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="420" y="295" width="60" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- round_key[10] -->
+        <mxCell id="lbl_rk10" value="round_key[10]" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="325" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_rk10" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="325" width="740" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="rk10_val" value="128'h5a5aa5a5f00ff00f0c33cc33caa55aa55" style="shape=rectangle;fillColor=#9ad1f5;strokeColor=#2b75b5;fontSize=11;" vertex="1" parent="lane_rk10">
+          <mxGeometry x="6" y="3" width="620" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- data_out -->
+        <mxCell id="lbl_data_out" value="data_out [127:0]" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="365" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_out" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="365" width="740" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="data_out_val" value="(output produced during final cycles)" style="shape=rectangle;fillColor=#fff2cc;strokeColor=#b77900;fontSize=11;" vertex="1" parent="lane_out">
+          <mxGeometry x="520" y="4" width="360" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- encryption_finish -->
+        <mxCell id="lbl_finish" value="encryption_finish" style="text;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="410" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_finish" style="shape=rectangle;rounded=0;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="140" y="410" width="740" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="finish_pulse" value="" style="shape=rectangle;fillColor=#e6e6e6;strokeColor=#000000;" vertex="1" parent="lane_finish">
+          <mxGeometry x="6" y="1" width="100" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Notes box -->
+        <mxCell id="note" value="Notes: timeline aligned to clock edges; round keys are available after Key Expansion window; labels show example hex values." style="text;html=1;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="20" y="450" width="860" height="60" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
