@@ -84,8 +84,7 @@ Chính quy luật "cắt ngọn và XOR với `1B`" này khiến cho các hằng
 - [[KeyExpansion_Design|Thiết kế Module KeyExpansion (Top Level)]]
 - [[diagram/RotWord_Design.md|Thiết kế Module RotWord]]
 - [[diagram/SubWord_Design.md|Thiết kế Module SubWord]]
-- [[AddRcon_Design|Thiết kế Module Rcon]]
-- [[KE_Control_Unit_Design|Thiết kế Control Unit]]
+- [[AddRcon_Design|Thiết kế Module Rcon]] 
 
 Thuật toán điền các giá trị vào mảng $W[0 ... N_b \times (N_r + 1) - 1]$. Quy trình được chia làm 2 giai đoạn:
 ### Giai đoạn 1: Nạp khóa ban đầu

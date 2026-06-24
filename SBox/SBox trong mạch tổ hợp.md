@@ -10,12 +10,10 @@
 Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ liệu trong Word sang 1 byte tương ứng trong SBox như sau:
 ![[SBoxCombinationalLogic.png]]
 
-| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                           |
-| :--------- | :----- | :------ | :-------------------------------------------------------------- |
-| `byte_in`  | Input  | 8 bit   | Byte đầu vào                                                    |
-| `mode`     | Input  | 1 bit   | Tín hiệu điều khiển cho biết cần tra cứu theo SBox hay SBox đảo |
-| `byte_out` | Output | 8 bit   | Byte đầu ra sau khi đã tra cứu giá trị tương ứng trong SBox     |
-
+| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                       |
+| :--------- | :----- | :------ | :-------------------------------------------------------------------------- |
+| `byte_in`  | Input  | 8 bit   | Byte đầu vào                                                                |
+| `byte_out` | Output | 8 bit   | Byte đầu ra sau khi đã tra cứu giá trị tương ứng trong SBox (hoặc SBox đảo) |
 ## 2. Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$
 Có nhiều cách khác nhau để thực hiện logic tính toán nghịch đảo nhưng một cách được áp dụng rộng rãi là biến đổi giá trị đầu vào từ trường $GF(2^8)$ xuống các trường có bậc thấp hơn như $GF(2^4)$, $GF(2^2)$ và $GF(2)$, gọi là **trường hữu hạn**, để đơn giản hóa mạch logic các phép toán nhân và lũy thừa.
 Các đa thức bất kỳ trong **trường hữu hạn** có thể biểu diễn dưới dạng $bx+c$ trong đó $b$ là các phần trọng số cao còn $c$ là phần trọng số thấp, cả b và c đều thuộc trường có bậc thấp hơn so với trường ban đầu. Từ đó, một số nhị phân $a$ có thể được biểu diễn là $a_H \cdot x + a_L$.
