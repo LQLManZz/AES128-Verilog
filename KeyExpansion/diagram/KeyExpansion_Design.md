@@ -22,3 +22,5 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 
 ![[AESKeyExpansionLowDes.png]]
 
+- [[KE_Counter_Design|Thiết kế bộ đếm Counter]] 
+- [[KE_Round_Key_Array_Design|Thiết kế mảng lưu trữ Round Key]] 
