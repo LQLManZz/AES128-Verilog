@@ -13,10 +13,6 @@ module tb_AddRcon ();
       .word_out(word_out)
   );
 
-  // Bảng giá trị Rcon theo chuẩn FIPS 197 của NIST để tham chiếu:
-  // R1: 01, R2: 02, R3: 04, R4: 08, R5: 10
-  // R6: 20, R7: 40, R8: 80, R9: 1b, R10: 36
-
   initial begin
     $display("==================================================================");
     $display("BẮT ĐẦU TESTBENCH CHO MODULE ADDRCON");
@@ -24,10 +20,10 @@ module tb_AddRcon ();
     $display("Round Index |   Word In  |  Word Out  | Rcon trích xuất (XOR)");
     $display("------------------------------------------------------------------");
 
-    // Test case 1: Cố định một word_in, quét qua tất cả các round_index (từ 1 đến 10)
+    // Test case 1: Cố định một word_in, quét qua tất cả các round_index (từ 0 đến 9)
     word_in = 32'h12345678;
 
-    for (int i = 1; i <= 10; i++) begin
+    for (int i = 0; i <= 9; i++) begin
       round_index = i[3:0];
       #10;  // Đợi một khoảng thời gian để mạch tổ hợp xử lý xong
 
@@ -44,7 +40,7 @@ module tb_AddRcon ();
     // FF ^ 1B = E4 -> Đầu ra kỳ vọng: E4FFFFFF
     #10;
     word_in = 32'hFFFFFFFF;
-    round_index = 4'd9;
+    round_index = 4'd8;
     #10;
     if (word_out === 32'hE4FFFFFF)
       $display("Test biên 1 (Round 9,  In=FFFFFFFF) -> PASS (Output = %h)", word_out);
@@ -54,7 +50,7 @@ module tb_AddRcon ();
     // 00 ^ 36 = 36 -> Đầu ra kỳ vọng: 36000000
     #10;
     word_in = 32'h00000000;
-    round_index = 4'd10;
+    round_index = 4'd9;
     #10;
     if (word_out === 32'h36000000)
       $display("Test biên 2 (Round 10, In=00000000) -> PASS (Output = %h)", word_out);
