@@ -111,7 +111,19 @@ module ModuleX (
 
     output logic [3:0] data_out
 );
-
+  assign data_out[3] = (data_in1[3] & data_in2[2]) 
+                    ^ (data_in1[3] & data_in2[2]) ^ (data_in1[2] & data_in2[3])
+                    ^ (data_in1[3] & data_in2[1]) ^ (data_in1[1] & data_in2[3])
+                    ^ (data_in1[3] & data_in2[0]) ^ (data_in1[0] & data_in2[3])
+                    ^ (data_in1[2] & data_in2[1]) ^ (data_in1[1] & data_in2[2]);
+  assign data_out[2] = (data_in1[3] & data_in2[3]) ^ (data_in1[2] & data_in2[2])
+                    ^ (data_in1[3] & data_in2[1]) ^ (data_in1[1] & data_in2[3])
+                    ^ (data_in1[2] & data_in2[0]) ^ (data_in1[0] & data_in2[2]);
+  assign data_out[1] = (data_in1[3] & data_in2[2]) ^ (data_in1[2] & data_in2[3])
+                    ^ (data_in1[2] & data_in2[2]) ^ (data_in1[1] & data_in2[1])
+                    ^ (data_in1[1] & data_in2[0]) ^ (data_in1[0] & data_in2[1]);
+  assign data_out[0] = (data_in1[3] & data_in2[3]) ^ (data_in1[1] & data_in2[1]) ^ (data_in1[0] & data_in2[0])
+                    ^ (data_in1[3] & data_in2[2]) ^ (data_in1[2] & data_in2[3]);
 endmodule
 
 module Inv (
