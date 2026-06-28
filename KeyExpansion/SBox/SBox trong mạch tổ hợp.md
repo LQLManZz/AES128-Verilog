@@ -77,10 +77,10 @@ $$\begin{aligned} \text{Bước 1: } & s^2 \quad \\ \text{Bước 2: } & s^2 \cd
 ![[NghichDaoNhanGF28.png]]
 
 
-| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                             |
-| :--------- | :----- | :------ | :-------------------------------------------------------------------------------- |
-| `byte_in`  | Input  | 8 bit   | Byte đầu vào                                                                      |
-| `byte_out` | Output | 8 bit   | Nghịch đảo nhân (multiplicative inverse) của byte đầu vào trong trường $GF(2^8)$  |
+| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                            |
+| :--------- | :----- | :------ | :------------------------------------------------------------------------------- |
+| `byte_in`  | Input  | 8 bit   | Byte đầu vào                                                                     |
+| `byte_out` | Output | 8 bit   | Nghịch đảo nhân (multiplicative inverse) của byte đầu vào trong trường $GF(2^8)$ |
 #### 2.1.1. Khối Imp và ImpInv
 Phép tính phần tử nghịch đảo trong trường hỗn hợp không thể được áp dụng trực tiếp vào phần tử trên trường $GF(2^8)$. Nó phải được ánh xạ vào trường hỗn hợp thông qua biến đổi Isomorphic.
 Khối Imp (gọi là Isomorphic Mapping) là khối ánh xạ phần tử của trường $GF(2^8)$ vào trong trường hỗn hợp và khối ImpInv (Inverse Isomorphic Mapping) là khối ánh xạ đảo của Imp, chuyển giá trị tính toán về trường $GF(2^8)$.

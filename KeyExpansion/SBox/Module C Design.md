@@ -7,9 +7,9 @@ Module thực hiện phép nhân với hằng số $\lambda$ trong trường $GF
 ![[Module C high level.png]]
 
 ## 3. Mô tả tín hiệu
-| Tín hiệu | Hướng | Độ rộng | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `data_in` | Input | 4 bit | Dữ liệu đầu vào trong trường $GF(2^4)$ |
-| `data_out` | Output | 4 bit | Kết quả sau khi nhân với hằng số $\lambda$ |
+| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                      |
+| :--------- | :----- | :------ | :----------------------------------------- |
+| `data_in`  | Input  | 4 bit   | Dữ liệu đầu vào trong trường $GF(2^4)$     |
+| `data_out` | Output | 4 bit   | Kết quả sau khi nhân với hằng số $\lambda$ |
 ## 4. Low level Block Design
 ![[Module C low level.png]]
