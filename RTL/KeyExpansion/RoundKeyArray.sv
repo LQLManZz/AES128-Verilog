@@ -1,4 +1,4 @@
-module KErkArray (
+module RoundKeyArray (
     input logic clk,
     input logic expansion_en,
     input logic [3:0] round_index,

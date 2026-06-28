@@ -1,4 +1,4 @@
-module KECounter (
+module Counter (
     input logic clk,
     input logic rst_n,
     input logic expansion_en,

@@ -17,7 +17,7 @@ module KeyExpansion (
     if (!rst_n) begin
       rkey <= 128'h0;
     end else begin
-      rkey <= current_key;
+      rkey <= next_key;
     end
   end
   always_comb begin : FirstRoundKeyMUX
