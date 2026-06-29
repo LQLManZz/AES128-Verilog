@@ -15,9 +15,9 @@ module tb_AddRcon ();
 
   initial begin
     $display("==================================================================");
-    $display("BẮT ĐẦU TESTBENCH CHO MODULE ADDRCON");
+    $display("STARTING TESTBENCH FOR ADDRCON MODULE");
     $display("==================================================================");
-    $display("Round Index |   Word In  |  Word Out  | Rcon trích xuất (XOR)");
+    $display("Round Index |   Word In  |  Word Out  | Extracted Rcon (XOR)");
     $display("------------------------------------------------------------------");
 
     // Test case 1: Cố định một word_in, quét qua tất cả các round_index (từ 0 đến 9)
@@ -43,8 +43,8 @@ module tb_AddRcon ();
     round_index = 4'd8;
     #10;
     if (word_out === 32'hE4FFFFFF)
-      $display("Test biên 1 (Round 9,  In=FFFFFFFF) -> PASS (Output = %h)", word_out);
-    else $display("Test biên 1 (Round 9,  In=FFFFFFFF) -> FAIL (Output = %h)", word_out);
+      $display("Corner test 1 (Round 9,  In=FFFFFFFF) -> PASS (Output = %h)", word_out);
+    else $display("Corner test 1 (Round 9,  In=FFFFFFFF) -> FAIL (Output = %h)", word_out);
 
     // Biên 2: Tất cả các bit đều là 0 (00000000) ở Round 10 (Rcon = 8'h36)
     // 00 ^ 36 = 36 -> Đầu ra kỳ vọng: 36000000
@@ -53,8 +53,8 @@ module tb_AddRcon ();
     round_index = 4'd9;
     #10;
     if (word_out === 32'h36000000)
-      $display("Test biên 2 (Round 10, In=00000000) -> PASS (Output = %h)", word_out);
-    else $display("Test biên 2 (Round 10, In=00000000) -> FAIL (Output = %h)", word_out);
+      $display("Corner test 2 (Round 10, In=00000000) -> PASS (Output = %h)", word_out);
+    else $display("Corner test 2 (Round 10, In=00000000) -> FAIL (Output = %h)", word_out);
 
     $display("==================================================================");
 

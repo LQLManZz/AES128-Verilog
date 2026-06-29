@@ -4,7 +4,7 @@ module KeyExpansion (
     input logic expansion_en,
     input logic [127:0] cipher_key,
 
-    output logic [127:0] rkey,
+    output logic [127:0] round_key[0:10],
     output logic expansion_finish
 );
   logic [3:0] round_index;
@@ -13,18 +13,20 @@ module KeyExpansion (
   logic [31:0] after_GFunction;
   logic first_rkey;
 
+  assign round_key[0] = cipher_key;
+
   always_ff @(posedge clk, negedge rst_n) begin : RoundKeyReg
     if (!rst_n) begin
-      rkey <= 128'h0;
+      round_key[round_index+1] <= 128'h0;
     end else begin
-      rkey <= next_key;
+      round_key[round_index+1] <= next_key;
     end
   end
   always_comb begin : FirstRoundKeyMUX
     if (first_rkey) begin
       current_key = cipher_key;
     end else begin
-      current_key = rkey;
+      current_key = round_key[round_index];
     end
   end
 
@@ -33,7 +35,7 @@ module KeyExpansion (
   assign next_key[63:32]  = next_key[95:64] ^ current_key[63:32];
   assign next_key[31:0]   = next_key[63:32] ^ current_key[31:0];
 
-  KECounter cnt1 (
+  Counter cnt1 (
       .clk(clk),
       .rst_n(rst_n),
       .expansion_en(expansion_en),
@@ -42,15 +44,8 @@ module KeyExpansion (
       .expansion_finish(expansion_finish)
   );
   GFunction gfunc1 (
-      .word_in(current_key[127:96]),
+      .word_in(current_key[31:0]),
       .round_index(round_index),
       .word_out(after_GFunction)
-  );
-  KErkArray rkArr1 (
-      .clk(clk),
-      .expansion_en(expansion_en),
-      .round_index(round_index),
-      .cipher_key(cipher_key),
-      .rkey(rkey)
   );
 endmodule

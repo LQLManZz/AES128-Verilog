@@ -14,7 +14,7 @@ module tb_AffineTransform ();
   initial begin
 
     $display("=================================================");
-    $display("BẮT ĐẦU TESTBENCH CHO AFFINE TRANSFORM");
+    $display("STARTING TESTBENCH FOR AFFINE TRANSFORM");
     $display("=================================================");
     $display("  Byte In (Hex)  |  Byte Out (Hex) ");
     $display("-------------------------------------------------");
@@ -23,8 +23,8 @@ module tb_AffineTransform ();
     byte_in = 8'h00;
     #10;
     $display("      %h         |        %h      ", byte_in, byte_out);
-    if (byte_out === 8'h63) $display("-> [PASS] Điểm kiểm tra 0x00 thành công!");
-    else $display("-> [FAIL] LỖI ở ngõ vào 0x00. Kỳ vọng: 63, Thực tế: %h", byte_out);
+    if (byte_out === 8'h63) $display("-> [PASS] Test point 0x00 successful!");
+    else $display("-> [FAIL] ERROR at input 0x00. Expected: 63, Actual: %h", byte_out);
 
     $display("-------------------------------------------------");
 
@@ -36,7 +36,7 @@ module tb_AffineTransform ();
       $display("      %h         |        %h      ", byte_in, byte_out);
     end
 
-    $display("Hoàn tất mô phỏng quét 256 giá trị thành công!");
+    $display("Simulation sweep of 256 values completed successfully!");
     $display("=================================================");
 
     $finish;

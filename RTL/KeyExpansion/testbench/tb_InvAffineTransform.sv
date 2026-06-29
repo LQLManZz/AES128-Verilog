@@ -14,7 +14,7 @@ module tb_InvAffineTransform ();
   initial begin
 
     $display("=================================================");
-    $display("BẮT ĐẦU TESTBENCH CHO INVERSE AFFINE TRANSFORM");
+    $display("STARTING TESTBENCH FOR INVERSE AFFINE TRANSFORM");
     $display("=================================================");
     $display("  Byte In (Hex)  |  Byte Out (Hex) ");
     $display("-------------------------------------------------");
@@ -23,8 +23,8 @@ module tb_InvAffineTransform ();
     byte_in = 8'h63;
     #10;
     $display("      %h         |        %h      ", byte_in, byte_out);
-    if (byte_out === 8'h00) $display("-> [PASS] Điểm kiểm tra 0x63 thành công!");
-    else $display("-> [FAIL] LỖI ở ngõ vào 0x63. Kỳ vọng: 00, Thực tế: %h", byte_out);
+    if (byte_out === 8'h00) $display("-> [PASS] Test point 0x63 successful!");
+    else $display("-> [FAIL] ERROR at input 0x63. Expected: 00, Actual: %h", byte_out);
 
     $display("-------------------------------------------------");
 
@@ -38,7 +38,7 @@ module tb_InvAffineTransform ();
       $display("      %h         |        %h      ", byte_in, byte_out);
     end
 
-    $display("Hoàn tất mô phỏng quét 256 giá trị thành công!");
+    $display("Simulation sweep of 256 values completed successfully!");
     $display("=================================================");
 
     $finish;

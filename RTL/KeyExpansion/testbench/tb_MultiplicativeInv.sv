@@ -41,7 +41,7 @@ module tb_MultiplicativeInv ();
     error_count = 0;
 
     $display("=======================================================================");
-    $display("BẮT ĐẦU TESTBENCH CHO MULTIPLICATIVE INVERSE (TÌM NGHỊCH ĐẢO GF(2^8))");
+    $display("STARTING TESTBENCH FOR MULTIPLICATIVE INVERSE (FINDING INVERSE IN GF(2^8))");
     $display("=======================================================================");
 
     // Quét toàn vẹn (Exhaustive Testing) tất cả 256 trường hợp của byte_in
@@ -53,7 +53,7 @@ module tb_MultiplicativeInv ();
       if (byte_in == 8'h00) begin
         if (byte_out !== 8'h00) begin
           $display(
-              "[LỖI Ở BIÊN] In = 00 kỳ vọng ra 00, nhưng phần cứng trả về %h",
+              "[BOUNDARY ERROR] In = 00 expected 00, but hardware returned %h",
               byte_out);
           error_count++;
         end
@@ -61,7 +61,7 @@ module tb_MultiplicativeInv ();
       else begin
         check_product = gf_multiplication(byte_in, byte_out);
         if (check_product !== 8'h01) begin
-          $display("[LỖI TOÁN HỌC] In = %h, Out = %h. Tích GF(2^8) = %h (Kỳ vọng: 01)",
+          $display("[MATHEMATICAL ERROR] In = %h, Out = %h. GF(2^8) Product = %h (Expected: 01)",
                    byte_in, byte_out, check_product);
           error_count++;
         end
@@ -72,10 +72,10 @@ module tb_MultiplicativeInv ();
     $display("-----------------------------------------------------------------------");
     if (error_count == 0) begin
       $display(
-          ">> TẤT CẢ 256 TRƯỜNG HỢP ĐỀU CHÍNH XÁC. MODULE HOẠT ĐỘNG HOÀN HẢO! <<");
+          ">> ALL 256 CASES ARE CORRECT. MODULE WORKS PERFECTLY! <<");
     end else begin
       $display(
-          ">> CẢNH BÁO: PHÁT HIỆN %0d LỖI. VUI LÒNG KIỂM TRA LẠI THIẾT KẾ CỔNG LOGIC! <<",
+          ">> WARNING: DETECTED %0d ERRORS. PLEASE CHECK LOGIC GATES DESIGN! <<",
           error_count);
     end
     $display("=======================================================================");
