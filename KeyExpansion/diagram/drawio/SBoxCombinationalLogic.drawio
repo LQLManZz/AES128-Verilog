@@ -10,7 +10,7 @@
         <mxCell id="rKHHmg_4E7AhYQXtqUxq-15" parent="rKHHmg_4E7AhYQXtqUxq-14" style="whiteSpace=wrap;html=1;dashed=1;dashPattern=12 12;fillColor=none;" value="" vertex="1">
           <mxGeometry height="190" width="590" as="geometry" />
         </mxCell>
-        <mxCell id="rKHHmg_4E7AhYQXtqUxq-16" parent="rKHHmg_4E7AhYQXtqUxq-14" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Inverted SBox" vertex="1">
+        <mxCell id="rKHHmg_4E7AhYQXtqUxq-16" parent="rKHHmg_4E7AhYQXtqUxq-14" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="SBoxInv" vertex="1">
           <mxGeometry height="30" width="100" x="245" as="geometry" />
         </mxCell>
         <mxCell id="rKHHmg_4E7AhYQXtqUxq-2" edge="1" parent="rKHHmg_4E7AhYQXtqUxq-14" source="SEovqvB-IS9J3Y__d_nL-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="SEovqvB-IS9J3Y__d_nL-29" value="">
