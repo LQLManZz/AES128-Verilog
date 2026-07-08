@@ -1,9 +1,14 @@
 # High level Design
 ![[GHASH high level.png]]
 
-| Tín hiệu   | Hướng  | Độ rộng | Mô tả                                      |
-| :--------- | :----- | :------ | :----------------------------------------- |
-| `data_in`  | Input  | 4 bit   | Dữ liệu đầu vào trong trường $GF(2^4)$     |
-| `data_out` | Output | 4 bit   | Kết quả sau khi nhân với hằng số $\lambda$ |
+| Tín hiệu       | Hướng  | Độ rộng | Mô tả                                                |
+| :------------- | :----- | :------ | :--------------------------------------------------- |
+| `clk`          | Input  | 1 bit   | Xung clock                                           |
+| `rst_n`        | Input  | 1 bit   | Reset (tích cực thấp)                                |
+| `ghash_en`     | Input  | 1 bit   | Lệnh bắt đầu tạo khóa băm GHASH                      |
+| `data_in`      | Input  | 128 bit | Dữ liệu vào (AAD, Ciphertext, Length Block)          |
+| `H`            | Input  | 128 bit | Khóa $H=AES(K,0)$                                    |
+| `ghash_out`    | Output | 128 bit | Khóa băm GHASH sau khi nhận khối `data_in` cuối cùng |
+| `ghash_finish` | Output | 1 bit   | Báo hiệu đã hoàn tất quá trình băm                   |
 # Low level Design
 ![[GHASH low level.png]]

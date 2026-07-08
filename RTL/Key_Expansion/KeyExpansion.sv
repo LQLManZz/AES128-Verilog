@@ -5,8 +5,7 @@ module KeyExpansion (
     input logic [127:0] cipher_key,
 
     output logic [127:0] round_key[0:10],
-    output logic expansion_finish,
-    output logic expansion_error
+    output logic expansion_finish
 );
   logic [3:0] round_index;
   logic [127:0] current_key;
@@ -57,12 +56,10 @@ module KeyExpansion (
     end
   end
 
-  assign expansion_error = (expansion_en == 1'b0) & (expansion_finish == 1'b0) & (round_index != 4'd0);
-
   assign next_key[127:96] = after_GFunction ^ current_key[127:96];
-  assign next_key[95:64] = next_key[127:96] ^ current_key[95:64];
-  assign next_key[63:32] = next_key[95:64] ^ current_key[63:32];
-  assign next_key[31:0] = next_key[63:32] ^ current_key[31:0];
+  assign next_key[95:64]  = next_key[127:96] ^ current_key[95:64];
+  assign next_key[63:32]  = next_key[95:64] ^ current_key[63:32];
+  assign next_key[31:0]   = next_key[63:32] ^ current_key[31:0];
 
   Counter cnt1 (
       .clk(clk),
