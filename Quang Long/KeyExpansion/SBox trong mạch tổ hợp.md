@@ -1,4 +1,4 @@
-#Nguồn[Bài 5 - Tối ưu logic tính S-Box dựa trên biến đổi toán học](https://nguyenquanicd.blogspot.com/2019/10/aes-bai-5-toi-uu-logic-tinh-s-box-dua.html)
+﻿#Nguồn[Bài 5 - Tối ưu logic tính S-Box dựa trên biến đổi toán học](https://nguyenquanicd.blogspot.com/2019/10/aes-bai-5-toi-uu-logic-tinh-s-box-dua.html)
 
 ## 1. Lý thuyết tổng quan
 Để tối ưu tài nguyên cho việc tra cứu bằng SBox, có thể xây dựng SBox theo hướng mạch tổ hợp. Để thực hiện mong đó, cần sử dụng các phép biến đổi toán học:
@@ -8,7 +8,7 @@
 - Thực hiện biến đổi **Affine** nghịch đảo trên $GF(2)$.
 - Tính nghịch đảo nhân trong trường hữu hạn $GF(2^8)$. Giá trị 0 có nghịch đảo là 0. Các giá trị khác phải biến đổi để tìm nghịch đảo.
 Từ đó, ta có **sơ đồ tổng thể*** quá trình chuyển 1 byte dữ liệu trong Word sang 1 byte tương ứng trong SBox như sau:
-![[SBoxCombinationalLogic.png]]
+![[../_media/SBoxCombinationalLogic.png]]
 
 | Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                       |
 | :--------- | :----- | :------ | :-------------------------------------------------------------------------- |
@@ -74,7 +74,7 @@ Từ đó ta thấy, để tính được nghịch đảo nhân $A^{-1}$ ta cầ
 $$\begin{align*} \text{Bước 1: } & s^2 \quad \\ \text{Bước 2: } & s^2 \cdot \lambda \quad \\ \text{Bước 3: } & s \cdot t \quad  \\ \text{Bước 4: } & t^2 \quad \\ \text{Bước 5: } & \Delta = (s^2 \cdot \lambda) \oplus t(s \oplus t) \quad \\ \text{Bước 6: } & \mathbf{\Delta^{-1}} \quad \\ \text{Bước 7: } & t' = (s \oplus t) \cdot \Delta^{-1} \quad \\ \text{Bước 8: } & s' = s \cdot \Delta^{-1} \quad \end{align*}$$
 
 ### 2.1. Sơ đồ khối
-![[NghichDaoNhanGF28.png]]
+![[../_media/NghichDaoNhanGF28.png]]
 
 
 | Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                                            |
@@ -123,7 +123,7 @@ $$
 $$
 \delta^{-1} \times a = \begin{pmatrix} 1 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 1 & 1 & 0 & 0 & 0 & 1 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 & 1 & 1 & 1 & 0 \\ 0 & 0 & 1 & 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 1 & 1 & 0 & 1 & 0 & 1 \end{pmatrix} \times \begin{pmatrix} a_7 \\ a_6 \\ a_5 \\ a_4 \\ a_3 \\ a_2 \\ a_1 \\ a_0 \end{pmatrix} = \begin{pmatrix} a_7 \oplus a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_2 \\ a_6 \oplus a_5 \oplus a_1 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_7 \oplus a_4 \oplus a_3 \oplus a_2 \oplus a_1 \\ a_5 \oplus a_4 \\ a_6 \oplus a_5 \oplus a_4 \oplus a_2 \oplus a_0 \end{pmatrix}
 $$
-Thiết kế Module Imp & ImpInv: [[Module Imp & ImpInv Design]] 
+Thiết kế Module Imp & ImpInv: [[_design/SBox/Module Imp & ImpInv Design.md]] 
 #### 2.1.2. Khối S
 Khối này dùng để tính bình phương (Square) trong **trường hỗn hợp**.
 Ta ánh xạ $s \in GF(2^4)$ xuống trường $GF((2^2)^2)$ là phần tử 
@@ -158,7 +158,7 @@ s^2 &= h^2 \cdot x + (h^2 \cdot \phi + l^2) \\
 Biểu diễn dưới dạng vector 4-bit, ta có:
 $$s^2 = \begin{pmatrix}s_3\\ s_3 \oplus s_2 \\ s_2 \oplus s_1 \\ s_3 \oplus s_1 \oplus s_0\end{pmatrix}$$
 
-Thiết kế Module S: [[Module S Design]] 
+Thiết kế Module S: [[_design/SBox/Module S Design.md]] 
 #### 2.1.3. Khối C
 Khối này dùng để tính nhân với hằng số $\lambda=1100_{2}$ trong **trường hỗn hợp**. 
 Ta gọi $w=(w_{3},w_{2},w_{1},w_{0}) \in GF(2^4)$ là phần tử cần được nhân, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân với hằng số $\lambda$ :
@@ -191,7 +191,7 @@ $$
 w \cdot \lambda = \begin{pmatrix} w_{2}\oplus w_{0} \\ w_{3}\oplus w_{2}\oplus w_{1}\oplus w_{0} \\ w_{3} \\ w_{2} \end{pmatrix}
 $$
 
-Thiết kế Module C: [[Module C Design]] 
+Thiết kế Module C: [[_design/SBox/Module C Design.md]] 
 #### 2.1.4. Khối X
 Khối này dùng để tính nhân giữa 2 phần tử trong **trường hỗn hợp**. 
 Giả sử, hai phần tử cần tính nhân lần lượt là $a=(a_{3},a_{2},a_{1},a_{0})$ và $b=(b_{3},b_{2},b_{1},b_{0})$ với $a,b \in GF(2^4)$, ta thực hiện phép ánh xạ xuống trường $GF((2^2)^2)$ và nhân hai phần tử đó với nhau:
@@ -245,7 +245,7 @@ $$
 a \cdot b = \begin{pmatrix} a_{3}b_{3}\oplus a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{3}b_{1}\oplus a_{3}b_{0}\oplus a_{2}b_{1}\oplus a_{1}b_{3}\oplus a_{0}b_{3}\oplus a_{1}b_{2} \\ a_{3}b_{3}\oplus a_{2}b_{2}\oplus a_{3}b_{1}\oplus a_{2}b_{0}\oplus a_{1}b_{3}\oplus a_{0}b_{2} \\ a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{2}b_{2}\oplus a_{1}b_{1}\oplus a_{1}b_{0}\oplus a_{0}b_{1} \\ a_{3}b_{3}\oplus a_{3}b_{2}\oplus a_{2}b_{3}\oplus a_{1}b_{1}\oplus a_{0}b_{0} \end{pmatrix}
 $$
 
-Thiết kế Module X: [[Module X Design]] 
+Thiết kế Module X: [[_design/SBox/Module X Design.md]] 
 #### 2.1.5. Khối Inv
 Khối này dùng để tính nghịch đảo của phần tử $\Delta$ trong **trường hỗn hợp**. 
 Vì phần tử $\Delta \in GF(2^4)$ vốn chỉ có 4-bit nên ta có thể theo hướng đi sử dụng bảng tra trực tiếp, bỏ qua các bước tính toán sẽ giảm thiểu thời gian trễ do mạch tổ hợp gây ra và cũng đơn giản hơn trong thiết kế.
@@ -270,7 +270,7 @@ Vì phần tử $\Delta \in GF(2^4)$ vốn chỉ có 4-bit nên ta có thể the
 | `1110`   | e   | `1101`        | d   |
 | `1111`   | f   | `0100`        | 4   |
 
-Thiết kế Module Inv: [[Module Inv Design]] 
+Thiết kế Module Inv: [[_design/SBox/Module Inv Design.md]] 
 ## 3. Phép biến đổi Affine
 ### 3.1. Biến đổi Affine
 Phép biến đổi **Affine** đã được quy định rõ trong chuẩn AES và thể hiện bằng phép nhân và cộng ma trận như sau (với $y_7, x_7$ là MSB):
@@ -413,4 +413,4 @@ y_6 \oplus y_3 \oplus y_0 \\
 y_7 \oplus y_5 \oplus y_2 \oplus 1
 \end{pmatrix}$$
 
-Thiết kế Module Biến đổi Affine & Biến đổi Affine đảo: [[Module Biến đổi Affine & Biến đổi Affine đảo]] 
+Thiết kế Module Biến đổi Affine & Biến đổi Affine đảo: [[_design/SBox/Module Biến đổi Affine & Biến đổi Affine đảo.md]] 

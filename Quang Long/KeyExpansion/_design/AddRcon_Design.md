@@ -1,13 +1,13 @@
-# Module AddRcon Design
+﻿# Module AddRcon Design
 
-**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[Inverted Key Expansion.md|Tài liệu thuật toán đảo]] | [[KeyExpansion_Design|Thiết kế Top Level]]
+**Liên kết:** [[../Key Expansion.md|Tài liệu thuật toán]] | Tài liệu thuật toán đảo | [[KeyExpansion_Design.md|Thiết kế Top Level]]
 
 ## 1. Chức năng
 Module `Rcon` (Round Constant) cung cấp một từ 32-bit hằng số cho mỗi vòng lặp. 
 Định dạng: `Rcon[i] = [RC[i], 8'h00, 8'h00, 8'h00]`.
 
 ## 2. Top-level Block Design
-![[Module RCon high level.png]]
+![[../../_media/Module RCon high level.png]]
 ## 3. Mô tả tín hiệu
 | Tín hiệu      | Hướng  | Độ rộng | Mô tả                        |
 | :------------ | :----- | :------ | :--------------------------- |
@@ -29,4 +29,4 @@ Module `Rcon` (Round Constant) cung cấp một từ 32-bit hằng số cho mỗ
 | 9     | `4'd8`      | 1B     | 1B000000 |
 | 10    | `4'd9`      | 36     | 36000000 |
 ## 5. Low-level Block Design
-![[Module RCon low level.png]]
+![[../../_media/Module RCon low level.png]]

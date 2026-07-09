@@ -1,5 +1,5 @@
-# High level Design
-![[TagGen high level.png]]
+﻿# High level Design
+![[../../_media/TagGen high level.png]]
 
 | Tín hiệu    | Hướng  | Độ rộng | Mô tả                              |
 | :---------- | :----- | :------ | :--------------------------------- |
@@ -11,4 +11,4 @@
 | `tag`       | Output | 128 bit | Authentication Tag (Nhãn xác thực) |
 | `tag_ready` | Output | 1 bit   | Báo hiệu hoàn tất tạo Tag          |
 # Low level Design
-![[TagGen low level.png]]
+![[../../_media/TagGen low level.png]]

@@ -1,12 +1,12 @@
-# Module KeyExpansion High Level
+﻿# Module KeyExpansion High Level
 
-**Liên kết:** [[Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[AddRcon_Design|Thiết kế Rcon]] | [[AddRoundKey_Design.md|Thiết kế AddRoundKey]]
+**Liên kết:** [[../Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[AddRcon_Design.md|Thiết kế Rcon]] | [[../../_media/Module AddRoundKey high level.png|Thiết kế AddRoundKey]]
 
 ## 1. Chức năng
 Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 
 ## 2. Top-level Block Design
-![[Module Key Expansion high level.png]]
+![[../../_media/Module Key Expansion high level.png]]
 
 ## 3. Mô tả tín hiệu
 | Tín hiệu           | Hướng  | Độ rộng | Mô tả                                       |
@@ -19,7 +19,7 @@ Module quản lý toàn bộ quá trình mở rộng khóa (AES-128).
 | `expansion_finish` | Output | 1 bit   | Báo hiệu hoàn tất quá trình sinh khóa       |
 # Module KeyExpansion Low Level
 
-![[AESKeyExpansionLowDes.png]]
-![[KECounter Low.png]]
+![[../../_media/AESKeyExpansionLowDes.png]]
+![[../../_media/KECounter Low.png]]
 
-- [[KE_Counter_Design|Thiết kế bộ đếm Counter]] 
+- [[KE_Counter_Design.md|Thiết kế bộ đếm Counter]] 

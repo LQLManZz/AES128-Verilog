@@ -1,5 +1,5 @@
 # High level Design
-![[Module X128 high level.png]]
+![[../../_media/Module X128 high level.png]]
 
 | Tín hiệu    | Hướng  | Độ rộng | Mô tả                                       |
 | :---------- | :----- | :------ | :------------------------------------------ |
@@ -10,4 +10,4 @@
 | `H`         | Input  | 128 bit | Khóa $H=AES(K,0)$                           |
 | `ghash_out` | Output | 128 bit | GHASH đầu ra                                |
 # Low level Design
-![[Module X128 low level.png]]
+

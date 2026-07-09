@@ -1,5 +1,5 @@
-# High level Design
-![[KECounter High.png]]
+﻿# High level Design
+![[../../_media/KECounter High.png]]
 
 | Tín hiệu           | Hướng  | Độ rộng | Mô tả                                                     |
 | :----------------- | :----- | :------ | :-------------------------------------------------------- |
@@ -10,4 +10,4 @@
 | `round_index`      | Output | 4 bit   | Chỉ số vòng                                               |
 | `expansion_finish` | Output | 1 bit   | Báo hiệu hoàn tất quá trình mở rộng                       |
 # Low level Design
-![[KECounter Low.png]]
+![[../../_media/KECounter Low.png]]

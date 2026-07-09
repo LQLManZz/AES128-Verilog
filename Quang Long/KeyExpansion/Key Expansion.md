@@ -1,4 +1,4 @@
-#backlink [[NIST.FIPS.197_specs.pdf]] | [[Inverted Key Expansion.md]]
+﻿#backlink [[NIST.FIPS.197_specs.pdf]] 
 [Link video ví dụ](https://www.youtube.com/watch?v=gP4PqVGudtg)
 Thuật toán Sinh Khóa Vòng (Key Expansion)
 ## 1. Một số thuật ngữ và ký hiệu sử dụng
@@ -26,9 +26,9 @@ $$RotWord([a_0, a_1, a_2, a_3]) = [a_1, a_2, a_3, a_0]$$
 Nhận đầu vào là một word 4-byte và áp dụng độc lập bảng thay thế S-Box của AES cho từng byte để tạo ra một word mới. Đây là bước cung cấp tính phi tuyến cho khóa.
 $$SubWord([a_0, a_1, a_2, a_3]) = [SBox(a_0), SBox(a_1), SBox(a_2), SBox(a_3)]$$
 [Tra cứu bảng SBox](https://docs.google.com/spreadsheets/d/1B7bFCWHM951GlbzD5aeAdbtgTKTDbiDaLbq5svjwcV0/edit?usp=sharing)
-![[SBox.png|624]]
+![[../_media/SBox.png|624]]
 Để tối ưu về mặt tài nguyên, cần thực hiện việc tra cứu SBox thông qua phương pháp mạch tổ hợp:
-[[SBox trong mạch tổ hợp]]
+[[SBox trong mạch tổ hợp.md]]
 ### 2.3. Mảng hằng số `Rcon[]` (Round Constant)
 Là một mảng các word hằng số, được sử dụng để loại bỏ tính đối xứng trong quá trình sinh khóa. Giá trị của `Rcon` tại chỉ số $i$ được định nghĩa:
 $$Rcon[i] = [RC_i, 00, 00, 00]$$
@@ -74,17 +74,17 @@ Giả sử ta cần tính giá trị $\text{02} \bullet Y$:
     - Vậy $RC_{10} = \text{36}$.
         
 Chính quy luật "cắt ngọn và XOR với `1B`" này khiến cho các hằng số Rcon biến đổi một cách phi tuyến tính và rất khó đoán, giúp phá vỡ mọi tính lặp đối xứng.
-![[RCon AES-128.png]]
+![[../_media/RCon AES-128.png]]
 
-**Ứng dụng:** Kết quả của quá trình mở rộng khóa (Round Keys) sẽ được đưa trực tiếp vào [[diagram/AddRoundKey_Design.md|Module AddRoundKey]] để thực hiện mã hóa dữ liệu.
+**Ứng dụng:** Kết quả của quá trình mở rộng khóa (Round Keys) sẽ được đưa trực tiếp vào [[../_media/Module AddRoundKey high level.png|Module AddRoundKey]] để thực hiện mã hóa dữ liệu.
 ## 3. Lưu đồ thuật toán và Công thức sinh khóa (Key Expansion Algorithm) (AES-128)
 
-![[AES Key Expansion.png]]
+![[../_media/AES Key Expansion.png]]
 
-- [[KeyExpansion_Design|Thiết kế Module KeyExpansion (Top Level)]]
-- [[diagram/RotWord_Design.md|Thiết kế Module RotWord]]
-- [[diagram/SubWord_Design.md|Thiết kế Module SubWord]]
-- [[AddRcon_Design|Thiết kế Module Rcon]] 
+- [[_design/KeyExpansion_Design.md|Thiết kế Module KeyExpansion (Top Level)]]
+- [[_design/RotWord_Design.md|Thiết kế Module RotWord]]
+- [[_design/SubWord_Design.md|Thiết kế Module SubWord]]
+- [[_design/AddRcon_Design.md|Thiết kế Module Rcon]] 
 
 Thuật toán điền các giá trị vào mảng $W[0 ... N_b \times (N_r + 1) - 1]$. Quy trình được chia làm 2 giai đoạn:
 ### Giai đoạn 1: Nạp khóa ban đầu

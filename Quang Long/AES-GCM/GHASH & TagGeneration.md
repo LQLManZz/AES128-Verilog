@@ -1,4 +1,4 @@
-![[AES-GCM (2).png]]
+﻿![[../_media/AES-GCM (2).png]]
 # 1. Trường Galois $GF(2^{128})$
 Trong AES-GCM, GHASH nhân các block 128 bit trong trường nhị phân $GF(2^{128})$ với đa thức bất khả quy:
 $$P(x)=x^{128}+x^7+x^2+x+1$$
