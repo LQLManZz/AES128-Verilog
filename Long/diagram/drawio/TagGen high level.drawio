@@ -25,8 +25,8 @@
         <mxCell id="ej5Q60Viu6MkP_2DRHoH-6" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="tagen_en" vertex="1">
           <mxGeometry height="30" width="60" x="130" y="428" as="geometry" />
         </mxCell>
-        <mxCell id="ej5Q60Viu6MkP_2DRHoH-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="E[127:0" vertex="1">
-          <mxGeometry height="30" width="50" x="140" y="380" as="geometry" />
+        <mxCell id="ej5Q60Viu6MkP_2DRHoH-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="E_key[127:0]" vertex="1">
+          <mxGeometry height="30" width="80" x="110" y="380" as="geometry" />
         </mxCell>
         <mxCell id="ej5Q60Viu6MkP_2DRHoH-11" edge="1" parent="1" source="ej5Q60Viu6MkP_2DRHoH-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.291;entryDx=0;entryDy=0;entryPerimeter=0;" target="ej5Q60Viu6MkP_2DRHoH-2">
           <mxGeometry relative="1" as="geometry" />
