@@ -1,165 +1,146 @@
-﻿![[../_media/AES-GCM (2).png]]
+![[AES-GCM (2).png]]
 # 1. Trường Galois $GF(2^{128})$
-Trong AES-GCM, GHASH nhân các block 128 bit trong trường nhị phân $GF(2^{128})$ với đa thức bất khả quy:
-$$P(x)=x^{128}+x^7+x^2+x+1$$
-Một block 128 bit $A=a_0a_1\dots a_{127}$ được xem là:
-$$A(x)=a_0+a_1x+a_2x^2+\dots+a_{127}x^{127}$$
-Quy ước GCM là **little-endian theo hệ số đa thức**: bit trái nhất của chuỗi 128 bit là hệ số $x^0$, bit phải nhất là hệ số $x^{127}$. Khi viết RTL phải chốt rõ ánh xạ, ví dụ `block[127] = a_0` hoặc `block[0] = a_0`, rồi đảo bit ở biên module nếu cần.
+Trường Galois hữu hạn $GF(2^{128})$ là không gian toán học chứa các phần tử dưới dạng các đa thức có hệ số nhị phân $\{0, 1\}$ với cấp tối đa là 127:
+$$A(x) = a_0 + a_1 x + a_2 x^2 + \dots + a_{127} x^{127}$$
+Trong đó $a_i \in \{0, 1\}$.
+*   **Phép cộng (XOR):** Phép cộng giữa hai phần tử đa thức trong trường $GF(2^{128})$ tương đương với phép toán **XOR** từng bit tương ứng. Không có bit nhớ (carry) trong phép cộng này.
+*   **Phép nhân (Carry-less Multiplication):** Phép nhân hai phần tử đa thức được thực hiện mà không có phần nhớ thông thường (carryless). Kết quả thu được là một đa thức tích có bậc tối đa là 254.
+*   **Đa thức tối giản (Irreducible Polynomial):** Để tích của hai phần tử vẫn nằm trong trường $GF(2^{128})$, ta phải lấy số dư của đa thức tích cho đa thức bất khả quy tiêu chuẩn:
+$$P(x) = x^{128} + x^7 + x^2 + x + 1$$
+Mọi phép nhân trong GHASH đều được thu gọn theo modulo $P(x)$.
+# 2. Thuật toán băm GHASH 
+Hàm băm GHASH xử lý một chuỗi đầu vào gồm $m$ khối dữ liệu bổ sung AAD ($A_1 \dots A_m$), $n$ khối Ciphertext ($C_1 \dots C_n$), cùng khối thông tin độ dài Length block ($Len$). Phép toán được định nghĩa như sau:
+1.  **Khởi tạo:** Thanh ghi tích lũy $X_0 = 0^{128}$.
+2.  **Tính toán với các khối AAD ($i = 1 \dots m$):
+$$X_i = (X_{i-1} \oplus A_i) \cdot H \pmod{P(x)}$$
+3.  **Tính toán với các khối Ciphertext ($j = 1 \dots n$):     
+$$X_{m+j} = (X_{m+j-1} \oplus C_j) \cdot H \pmod{P(x)}$$
+4.  **Tính toán với khối Length Block:** Biểu diễn dưới dạng ghép cặp hai số nguyên 64-bit gồm độ dài bit của AAD và độ dài bit của Ciphertext: $Len = Len(A) \parallel Len(C)$.
+$$X_{m+n+1} = (X_{m+n} \oplus [Len(A) \parallel Len(C)]) \cdot H \pmod{P(x)}$$
+Tất cả các phép nhân dấu chấm ($\cdot$) trong công thức trên là phép nhân đa thức trong trường $GF(2^{128})$. 
+# 3. Authentication Tag
+Để bảo vệ khóa băm phụ $H$ khỏi các cuộc tấn công khôi phục khóa từ kết quả băm, kết quả đầu ra $X_{m+n+1}$ từ GHASH sẽ được làm mờ (blinded) bằng cách XOR với bản mã hóa của bộ đếm khởi tạo $J_0$ (mã hóa bằng khóa AES gốc $K$):
+$$Tag = X_{m+n+1} \oplus AES(K,J_0)$$
+# 4. Thuật toán nhân Karatsuba-Ofman
+Phép nhân hai đa thức 128-bit trong trường $GF(2^{128})$ là phép toán tốn kém tài nguyên nhất trong module GHASH. Nếu sử dụng phương pháp nhân truyền thống (Schoolbook Multiplication), độ phức tạp về tài nguyên phần cứng sẽ tăng theo cấp số mũ $O(N^2)$. Thuật toán **Karatsuba-Ofman** được áp dụng để giải quyết bài toán tối ưu diện tích này bằng cách giảm số lượng bộ nhân song song.
+## 4.1. Nguyên lý toán học trong trường $GF(2)$
+Xét hai đa thức $A(x)$ và $B(x)$ có bậc tối đa là $N-1$ (với $N$ chẵn). Ta chia đôi mỗi đa thức thành hai phần có độ rộng $N/2$:
+$$A(x) = A_H(x) \cdot x^{N/2} \oplus A_L(x)$$
+$$B(x) = B_H(x) \cdot x^{N/2} \oplus B_L(x)$$
+Trong đó $A_H, B_H$ là phần bậc cao (High) và $A_L, B_L$ là phần bậc thấp (Low).
 
-| Thành phần | Ý nghĩa phần cứng |
-|---|---|
-| Cộng trong $GF(2^{128})$ | XOR từng bit, không có carry |
-| Nhân carry-less | AND tạo tích riêng, XOR cộng các hệ số cùng bậc |
-| Tích trung gian | $C(x)=A(x)B(x)=\sum_{i=0}^{254}c_ix^i$ |
-| Thu gọn trường | $R(x)=C(x)\bmod P(x)=\sum_{i=0}^{127}r_ix^i$ |
+Tích của hai đa thức $C(x) = A(x) \cdot B(x)$ được khai triển như sau:
+$$C(x) = (A_H \cdot B_H) \cdot x^N \oplus \left[ (A_H \cdot B_L) \oplus (A_L \cdot B_H) \right] \cdot x^{N/2} \oplus (A_L \cdot B_L)$$
 
-# 2. GHASH chuẩn AES-GCM
-Khóa băm phụ:
-$$H=AES_K(0^{128})$$
-Chuỗi được đưa vào GHASH:
-$$X=A\parallel0^v\parallel C\parallel0^u\parallel[len(A)]_{64}\parallel[len(C)]_{64}$$
-Trong đó $A$ là AAD, $C$ là ciphertext, $u=(128-(len(C)\bmod128))\bmod128$, $v=(128-(len(A)\bmod128))\bmod128$. Hai trường $[len(A)]_{64}$ và $[len(C)]_{64}$ là độ dài theo bit, mã hóa 64 bit.
+Thông thường, ta cần **4 bộ nhân** có kích thước $N/2$ để tính các tích thành phần:
+1. $P_{HH} = A_H \cdot B_H$
+2. $P_{HL} = A_H \cdot B_L$
+3. $P_{LH} = A_L \cdot B_H$
+4. $P_{LL} = A_L \cdot B_L$
 
-Chia $X$ thành các block 128 bit: $X=X_1\parallel X_2\parallel\dots\parallel X_m$. GHASH được tính:
-$$Y_0=0^{128}$$
-$$Y_i=(Y_{i-1}\oplus X_i)\cdot H,\quad1\le i\le m$$
-$$S=Y_m=GHASH_H(X)$$
-Biểu thức tương đương để kiểm tra:
-$$S=X_1H^m\oplus X_2H^{m-1}\oplus\dots\oplus X_{m-1}H^2\oplus X_mH$$
+Với thuật toán Karatsuba-Ofman, ta tính toán **3 tích thành phần** sau:
+*   $P_0 = A_L \cdot B_L$
+*   $P_1 = A_H \cdot B_H$
+*   $P_2 = (A_L \oplus A_H) \cdot (B_L \oplus B_H)$
 
-| Khối dữ liệu | Có padding? | Vai trò |
-|---|---:|---|
-| AAD $A$ | Có, thêm $0^v$ | Xác thực nhưng không mã hóa |
-| Ciphertext $C$ | Có, thêm $0^u$ | Xác thực dữ liệu đã mã hóa |
-| Length block | Luôn 128 bit | Chống nhập nhằng giữa các cách chia block |
+Khi đó, thành phần hạng tử ở giữa được tính gián tiếp dựa trên $P_0, P_1, P_2$:
+$$(A_H \cdot B_L) \oplus (A_L \cdot B_H) = P_2 \oplus P_0 \oplus P_1$$
 
-# 3. Tag Generation
-Với pre-counter block $J_0$:
-$$J_0=IV\parallel0^{31}\parallel1,\quad\text{khi }len(IV)=96$$
-$$J_0=GHASH_H(IV\parallel0^s\parallel0^{64}\parallel[len(IV)]_{64}),\quad\text{khi }len(IV)\ne96$$
-Trong đó $s=(128-(len(IV)\bmod128))\bmod128$.
+*Chứng minh:*
+Trong trường nhị phân $GF(2)$, phép cộng và phép trừ đều tương đương với phép toán **XOR** ($\oplus$), do đó:
+$$P_2 = (A_L \oplus A_H)(B_L \oplus B_H) = (A_L \cdot B_L) \oplus (A_L \cdot B_H) \oplus (A_H \cdot B_L) \oplus (A_H \cdot B_H)$$
+$$P_2 = P_0 \oplus (A_L \cdot B_H \oplus A_H \cdot B_L) \oplus P_1$$
+$$\Rightarrow A_L \cdot B_H \oplus A_H \cdot B_L = P_2 \oplus P_0 \oplus P_1$$
 
-Authentication tag chuẩn:
-$$T=MSB_t(AES_K(J_0)\oplus S)$$
-Nếu dùng tag đủ 128 bit:
-$$T=AES_K(J_0)\oplus S$$
+Như vậy, tích cuối cùng $C(x)$ bậc 254 được tổng hợp bằng công thức:
+$$C(x) = P_1 \cdot x^N \oplus (P_2 \oplus P_0 \oplus P_1) \cdot x^{N/2} \oplus P_0$$
+## 4.2. Đệ quy phân cấp
+Đối với phần tử 128-bit ($N = 128$), thuật toán có thể được thiết kế theo cấu trúc phân tầng đệ quy:
+1. **Tầng 1 (128-bit):** Phân rã thành **3 bộ nhân đa thức 64-bit**.
+2. **Tầng 2 (64-bit):** Mỗi bộ nhân 64-bit tiếp tục được phân rã thành **3 bộ nhân đa thức 32-bit** (tổng cộng $3 \times 3 = 9$ bộ nhân 32-bit).
+3. **Tầng 3 (32-bit):** Mỗi bộ nhân 32-bit tiếp tục được phân rã thành **3 bộ nhân đa thức 16-bit** (tổng cộng $9 \times 3 = 27$ bộ nhân 16-bit).
+4. **Tầng 4 (16-bit):** Mỗi bộ nhân 16-bit tiếp tục được phân rã thành **3 bộ nhân đa thức 8-bit** (tổng cộng $27 \times 3 = 81$ bộ nhân 8-bit).
+Quá trình đệ quy này dừng lại ở mức thiết kế cơ bản phù hợp (ví dụ: các bộ nhân 16-bit hoặc 8-bit được thiết kế theo dạng Schoolbook song song trực tiếp).
+## 4.3. Đánh giá tài nguyên phần cứng
+Để chứng minh cụ thể sự đánh đổi tài nguyên giữa cổng AND và cổng XOR qua từng tầng đệ quy Karatsuba (với kích thước cơ sở giảm dần từ 128-bit xuống 1-bit), ta có bảng số liệu tính toán chi tiết dưới đây:
 
-| Khối | Tài nguyên chính | Ghi chú |
-|---|---|---|
-| `AES_K(J0)` | 1 lõi AES encryption | Có thể dùng lại datapath AES sẵn có |
-| XOR tag 128 bit | 128 XOR 2-ngõ vào | Chỉ áp dụng trước khi cắt `MSB_t` |
-| Cắt tag `MSB_t` | Dây nối | Không tốn logic nếu chỉ lấy bit |
+| Phương pháp nhân (Kích thước cơ sở $M$) | Số tầng đệ quy ($L$) | Số lượng cổng AND | Số lượng cổng XOR | Độ sâu trễ XOR (Logic Depth) | Nhận xét                                                                           |
+| :-------------------------------------- | :------------------: | :---------------: | :---------------: | :--------------------------: | :--------------------------------------------------------------------------------- |
+| **Schoolbook (128-bit)**                |         $0$          |      $16384$      |      $16129$      |             $7$              | Diện tích AND cực lớn, đường trễ tối thiểu.                                        |
+| **Karatsuba Tầng 1 (64-bit)**           |         $1$          |      $12288$      |      $12415$      |             $10$             | Giảm 25.0% AND, giảm 23.0% XOR. Trễ tăng nhẹ.                                      |
+| **Karatsuba Tầng 2 (32-bit)**           |         $2$          |      $9216$       |      $9913$       |             $13$             | Giảm 43.8% AND, giảm 38.5% XOR. Trễ tăng vừa phải.                                 |
+| **Karatsuba Tầng 3 (16-bit)**           |         $3$          |      $6912$       |      $8455$       |             $16$             | Giảm 57.8% AND, giảm 47.6% XOR.                                                    |
+| **Karatsuba Tầng 4 (8-bit)**            |         $4$          |      $5184$       |     **7969**      |             $19$             | **Điểm tối ưu:** Số cổng XOR đạt mức cực tiểu (giảm 50.6% XOR, giảm 68.4% AND).    |
+| **Karatsuba Tầng 5 (4-bit)**            |         $5$          |      $3888$       |      $8455$       |             $22$             | AND tiếp tục giảm, nhưng XOR bắt đầu **tăng ngược lại** (+486 cổng so với Tầng 4). |
+| **Karatsuba Tầng 6 (2-bit)**            |         $6$          |      $2916$       |      $9913$       |             $25$             | XOR tăng mạnh (+1944 cổng so với Tầng 4). Trễ rất lớn.                             |
+| **Karatsuba Tầng 7 (1-bit)**            |         $7$          |      $2187$       |      $12100$      |             $28$             | Số cổng AND tối thiểu, nhưng XOR bùng nổ. Trễ gấp 4 lần Schoolbook.                |
+### Phân tích và Chứng minh Toán học về Sự đánh đổi (Trade-off)
 
-# 4. Nhân Karatsuba-Ofman
-Schoolbook $N$ bit có chi phí AND xấp xỉ $O(N^2)$, tức tăng theo bậc hai. Karatsuba-Ofman giảm số bộ nhân con bằng cách đổi một phần AND lấy XOR.
+Trong trường Galois $GF(2)$, bộ nhân Schoolbook kích thước $K$-bit có số lượng cổng logic là:
+* $\text{AND}_{\text{Schoolbook}}(K) = K^2$
+* $\text{XOR}_{\text{Schoolbook}}(K) = (K-1)^2$
 
-Với $N$ chẵn:
-$$A=A_Hx^{N/2}\oplus A_L,\quad B=B_Hx^{N/2}\oplus B_L$$
-Tính ba tích:
-$$P_0=A_LB_L,\quad P_1=A_HB_H,\quad P_2=(A_L\oplus A_H)(B_L\oplus B_H)$$
-Hạng giữa:
-$$A_HB_L\oplus A_LB_H=P_2\oplus P_0\oplus P_1$$
-Tích carry-less chưa thu gọn:
-$$C=P_1x^N\oplus(P_2\oplus P_0\oplus P_1)x^{N/2}\oplus P_0$$
+Khi áp dụng thuật toán Karatsuba-Ofman để phân rã bộ nhân $2k$-bit thành 3 bộ nhân $k$-bit, ta cần:
+* 3 bộ nhân $k$-bit.
+* Chi phí XOR phát sinh thêm (Overhead): 
+  * Giai đoạn chuẩn bị toán hạng đầu vào: $(A_L \oplus A_H)$ và $(B_L \oplus B_H)$ tốn $2 \times k = 2k$ cổng XOR.
+  * Giai đoạn ghép tích đầu ra: $C(x) = P_1 \cdot x^{2k} \oplus (P_2 \oplus P_0 \oplus P_1) \cdot x^k \oplus P_0$ tốn $3 \times (2k) - 4 = 6k - 4$ cổng XOR.
+  * Tổng chi phí XOR phát sinh tại mỗi bước phân rã: $\text{Overhead}_{\text{XOR}} = 2k + (6k - 4) = 8k - 4$ cổng XOR.
 
-## 4.1. Bảng tiêu thụ phần cứng của bộ nhân 128 bit
-Bảng dưới dùng mô hình đếm cổng trực tiếp: cổng AND 2-ngõ vào, XOR 2-ngõ vào, chưa tính tối ưu của synthesis, chia sẻ biểu thức con, fanout, retiming hoặc pipeline.
+Nếu dừng đệ quy ở mức $k$-bit (sử dụng bộ nhân Schoolbook cho cơ sở $k$-bit), tổng số cổng XOR của bộ nhân $2k$-bit Karatsuba là:
+$$\text{XOR}_{\text{Karatsuba}}(2k) = 3 \times \text{XOR}_{\text{Schoolbook}}(k) + \text{Overhead}_{\text{XOR}} = 3(k-1)^2 + 8k - 4 = 3k^2 + 2k - 1$$
 
-| Phương pháp          | Tầng đệ quy | Lá schoolbook |      AND |      XOR | Độ sâu XOR ước lượng | Nhận xét                    |
-| -------------------- | ----------: | ------------: | -------: | -------: | -------------------: | --------------------------- |
-| Schoolbook trực tiếp |           0 |       128 bit |    16384 |    16129 |                    7 | AND lớn nhất, trễ thấp      |
-| Karatsuba T1         |           1 |        64 bit |    12288 |    12415 |                   10 | Giảm 25.0% AND              |
-| Karatsuba T2         |           2 |        32 bit |     9216 |     9913 |                   13 | Cân bằng hơn                |
-| Karatsuba T3         |           3 |        16 bit |     6912 |     8455 |                   16 | Giảm mạnh AND/XOR           |
-| **Karatsuba T4**     |       **4** |     **8 bit** | **5184** | **7969** |               **19** | **Điểm dừng tốt theo XOR**  |
-| Karatsuba T5         |           5 |         4 bit |     3888 |     8455 |                   22 | XOR bắt đầu tăng            |
-| Karatsuba T6         |           6 |         2 bit |     2916 |     9913 |                   25 | Trễ và XOR tăng rõ          |
-| Karatsuba T7         |           7 |         1 bit |     2187 |    12100 |                   28 | AND thấp nhất nhưng XOR cao |
+So sánh lượng cổng XOR của Karatsuba với Schoolbook trực tiếp trên khối $2k$-bit:
+$$\text{XOR}_{\text{Schoolbook}}(2k) = (2k-1)^2 = 4k^2 - 4k + 1$$
 
-## 4.2. Công thức đếm nhanh
-Với schoolbook $K$ bit:
-$$AND_{SB}(K)=K^2,\quad XOR_{SB}(K)=(K-1)^2$$
-Khi tách bộ nhân $2k$ bit thành 3 bộ nhân $k$ bit:
-$$XOR_{KO}(2k)=3(k-1)^2+(8k-4)=3k^2+2k-1$$
-So với schoolbook trực tiếp:
-$$XOR_{SB}(2k)=(2k-1)^2=4k^2-4k+1$$
-Karatsuba giảm XOR khi:
-$$3k^2+2k-1<4k^2-4k+1\Leftrightarrow k^2-6k+2>0$$
-Với $k$ nguyên dương, điều kiện hữu ích là $k\ge6$. Vì vậy tách 16 bit xuống 8 bit còn lợi, nhưng tách 8 bit xuống 4 bit làm XOR tăng.
+Bộ nhân Karatsuba chỉ tiết kiệm được cổng XOR so với Schoolbook khi và chỉ khi:
+$$\text{XOR}_{\text{Karatsuba}}(2k) < \text{XOR}_{\text{Schoolbook}}(2k)$$
+$$\Leftrightarrow 3k^2 + 2k - 1 < 4k^2 - 4k + 1$$
+$$\Leftrightarrow k^2 - 6k + 2 > 0$$
+Giải bất phương trình trên với $k$ nguyên dương:
+* Các nghiệm của phương trình $k^2 - 6k + 2 = 0$ là $k \approx 5.65$ và $k \approx 0.35$.
+* Vì vậy, bất phương trình thỏa mãn khi $k > 5.65$ (tức là $k \ge 6$).
+* Ngược lại, nếu $k \le 5$ (tức là khi phân rã xuống mức cơ sở $4$-bit, $2$-bit hoặc $1$-bit), việc phân rã Karatsuba sẽ làm **tăng** số lượng cổng XOR so với việc giữ nguyên bộ nhân Schoolbook.
+#### Minh chứng cụ thể ở các mức chuyển đổi cơ sở:
+* **Từ 16-bit xuống 8-bit ($k = 8 \ge 6$):**
+  * Bộ nhân Schoolbook 16-bit cần: $(16-1)^2 = 225$ cổng XOR.
+  * Bộ nhân Karatsuba 16-bit (dùng cơ sở 8-bit Schoolbook) cần: $3 \times (8-1)^2 + (8 \times 8 - 4) = 3 \times 49 + 60 = 207$ cổng XOR.
+  * **Kết quả:** Tiết kiệm được $225 - 207 = 18$ cổng XOR cho mỗi bộ nhân 16-bit. Do đó, tổng số cổng XOR toàn mạch 128-bit giảm xuống mức tối thiểu là **7969** tại Tầng 4.
+* **Từ 8-bit xuống 4-bit ($k = 4 \le 5$):**
+  * Bộ nhân Schoolbook 8-bit cần: $(8-1)^2 = 49$ cổng XOR.
+  * Bộ nhân Karatsuba 8-bit (dùng cơ sở 4-bit Schoolbook) cần: $3 \times (4-1)^2 + (8 \times 4 - 4) = 3 \times 9 + 28 = 55$ cổng XOR.
+  * **Kết quả:** Ta bị **tốn thêm** $55 - 49 = 6$ cổng XOR cho mỗi bộ nhân 8-bit được phân rã. Vì ở Tầng 4 có 81 bộ nhân 8-bit, việc chuyển sang Tầng 5 làm tăng tổng số cổng XOR toàn mạch thêm $81 \times 6 = 486$ cổng (tăng từ 7969 lên 8455).
+### Kết luận về Điểm dừng tối ưu
+Từ phân tích định lượng trên, **Tầng 4 (sử dụng bộ nhân cơ sở 8-bit)** là điểm dừng đệ quy tối ưu nhất của thuật toán Karatsuba-Ofman cho phép nhân 128-bit trong GHASH:
+1. **Tối ưu diện tích toàn cục (Gate Count):** Đạt mức cân bằng tốt nhất khi số cổng AND giảm sâu còn **5184** (giảm 68.4%) và số cổng XOR đạt giá trị cực tiểu **7969** (giảm 50.6%). Nếu đệ quy sâu hơn, diện tích XOR sẽ bùng nổ và triệt tiêu lợi ích từ việc giảm cổng AND.
+2. **Tối ưu hiệu năng tốc độ (Logic Delay):** Giới hạn độ sâu trễ XOR ở mức **19** tầng logic. Nếu đệ quy xuống 1-bit, độ trễ sẽ tăng vọt lên **28** tầng logic, khiến tần số hoạt động cực đại ($F_{max}$) của GHASH giảm nghiêm trọng.
+# 5. Khối thu gọn Modulo (Reduction Block)
 
-# 5. Thu gọn modulo $P(x)$ để tổng hợp phần cứng
-Từ $P(x)=0$:
-$$x^{128}\equiv x^7+x^2+x+1\pmod{P(x)}$$
-Vì vậy:
-$$c_ix^i\equiv c_ix^{i-128}(x^7+x^2+x+1),\quad i\ge128$$
+Sau khi bộ nhân Karatsuba thực hiện nhân hai phần tử 128-bit, ta thu được một đa thức tích $C(x)$ có bậc tối đa là 254 (biểu diễn bởi 255 bit từ $c_0 \dots c_{254}$). Để kết quả nằm trong trường $GF(2^{128})$, đa thức tích này cần được thu gọn theo modulo đa thức bất khả quy:
+$$P(x) = x^{128} + x^7 + x^2 + x + 1$$
+## 5.1. Nguyên lý hoạt động
+Vì phép toán được thực hiện trong trường $GF(2)$, ta có tính chất:
+$$P(x) \equiv 0 \pmod{P(x)} \Rightarrow x^{128} \equiv x^7 + x^2 + x + 1 \pmod{P(x)}$$
 
-## 5.1. Biểu thức vector hai bước
-Tách tích trung gian:
-$$C(x)=C_L(x)\oplus x^{128}C_H(x)$$
-$$C_L(x)=\sum_{i=0}^{127}c_ix^i,\quad C_H(x)=\sum_{i=0}^{126}c_{128+i}x^i$$
-Gập bước 1:
-$$D(x)=C_L(x)\oplus C_H(x)\oplus xC_H(x)\oplus x^2C_H(x)\oplus x^7C_H(x)$$
-Sau bước này chỉ còn tràn ở bậc 128 đến 133. Gọi:
-$$Q(x)=\sum_{i=0}^{5}d_{128+i}x^i$$
-Biểu thức rút gọn cuối cùng:
-$$R(x)=D_{[0:127]}(x)\oplus Q(x)\oplus xQ(x)\oplus x^2Q(x)\oplus x^7Q(x)$$
-Đây là dạng thuận tiện để tổng hợp: chỉ cần dây dịch chỉ số và XOR, không cần AND trong khối reduction.
+Do đó, bất kỳ hạng tử bậc cao $c_i x^i$ (với $i \ge 128$) nào cũng có thể được quy đổi về các bậc thấp hơn bằng cách nhân với đa thức thu gọn:
+$$c_i x^i \equiv c_i x^{i-128} (x^7 + x^2 + x + 1) \pmod{P(x)}$$
 
-## 5.2. Dạng bit tổng quát
-Định nghĩa $c_i=0$ nếu chỉ số ngoài $0\le i\le254$. Với $0\le j\le127$:
-$$d_j=c_j\oplus c_{128+j}\oplus c_{127+j}\oplus c_{126+j}\oplus c_{121+j}$$
-Sáu bit tràn:
-$$d_{128}=c_{249}\oplus c_{254},\quad d_{129}=c_{250},\quad d_{130}=c_{251}$$
-$$d_{131}=c_{252},\quad d_{132}=c_{253},\quad d_{133}=c_{254}$$
-Gọi $q_i=d_{128+i}$ với $0\le i\le5$, $q_k=0$ nếu $k<0$ hoặc $k>5$:
-$$r_j=d_j\oplus q_j\oplus q_{j-1}\oplus q_{j-2}\oplus q_{j-7}$$
-Ví dụ:
-$$r_0=c_0\oplus c_{128}\oplus c_{249}\oplus c_{254}$$
-$$r_1=c_1\oplus c_{128}\oplus c_{129}\oplus c_{249}\oplus c_{250}\oplus c_{254}$$
-$$r_2=c_2\oplus c_{128}\oplus c_{129}\oplus c_{130}\oplus c_{249}\oplus c_{250}\oplus c_{251}\oplus c_{254}$$
-$$r_3=c_3\oplus c_{129}\oplus c_{130}\oplus c_{131}\oplus c_{250}\oplus c_{251}\oplus c_{252}$$
+Quá trình thu gọn này được thiết kế hoàn toàn bằng mạch logic tổ hợp (combinational logic) song song, thực hiện gập các bit bậc cao $c_{128} \dots c_{254}$ về vùng bộ nhớ 128-bit thấp hơn ($c_0 \dots c_{127}$). Mạch thực thi gồm 2 bước gập chính:
+1. **Gập bước 1:** Đưa các bit từ $c_{128} \dots c_{254}$ về dải bậc từ $0 \dots 133$ bằng cách dịch và XOR các phiên bản của nửa cao $C_H(x)$.
+2. **Gập bước 2:** Thu gọn nốt các bit tràn từ bậc $128 \dots 133$ (chỉ gồm 6 bit) về dải từ $0 \dots 12$.
 
-## 5.3. Bảng tiêu thụ phần cứng của reduction
-| Hạng mục | Giá trị | Ghi chú |
-|---|---:|---|
-| AND | 0 | Reduction chỉ là XOR và nối dây |
-| XOR 2-ngõ vào | 527 | Nếu mỗi $r_j$ tổng hợp độc lập |
-| Toán hạng XOR tối đa trên một $r_j$ | 8 | Xảy ra ở các bit thấp như $r_2$ |
-| Độ sâu XOR cân bằng | 3 | $\lceil\log_2(8)\rceil=3$ |
-| Pipeline khuyến nghị | Sau multiplier hoặc sau reduction | Tùy mục tiêu Fmax |
+Các phương trình logic cụ thể cho từng bit đầu ra $r_j$ ($0 \le j \le 127$) được tổng hợp trực tiếp từ các bit tích đầu vào $c_i$. Ví dụ một số phương trình bit đầu tiên:
+* $r_0 = c_0 \oplus c_{128} \oplus c_{249} \oplus c_{254}$
+* $r_1 = c_1 \oplus c_{128} \oplus c_{129} \oplus c_{249} \oplus c_{250} \oplus c_{254}$
+* $r_2 = c_2 \oplus c_{128} \oplus c_{129} \oplus c_{130} \oplus c_{249} \oplus c_{250} \oplus c_{251} \oplus c_{254}$
+* $r_3 = c_3 \oplus c_{129} \oplus c_{130} \oplus c_{131} \oplus c_{250} \oplus c_{251} \oplus c_{252}$
+## 5.2. Đánh giá tài nguyên và Độ trễ phần cứng
+Do đa thức tối giản $P(x)$ là đa thức thưa (sparse polynomial - chỉ có 5 số hạng), cấu trúc thu gọn cực kỳ tối ưu về mặt tài nguyên phần cứng:
 
-# 6. Ước lượng tài nguyên datapath GHASH/Tag
-Các bảng dưới chỉ tính phần logic GHASH/tag, không tính lõi AES tạo $H$ và `AES_K(J0)` nếu lõi AES được dùng lại từ datapath mã hóa.
-
-| Khối | Register | AND | XOR | Nhận xét |
-|---|---:|---:|---:|---|
-| XOR tiền nhân $(Y_{i-1}\oplus X_i)$ | 0 | 0 | 128 | Có thể đặt trước multiplier |
-| Multiplier Karatsuba T4 | 0 | 5184 | 7969 | Tích carry-less 128x128 -> 255 bit |
-| Reduction modulo $P(x)$ | 0 | 0 | 527 | 255 bit -> 128 bit |
-| Thanh ghi tích lũy $Y_i$ | 128 FF | 0 | 0 | Cập nhật mỗi block |
-| XOR tag 128 bit | 0 | 0 | 128 | $AES_K(J0)\oplus S$ |
-
-Tổng logic tổ hợp cho một datapath GHASH 1 block/chu kỳ dùng Karatsuba T4:
-
-| Cấu hình | AND | XOR | FF tối thiểu |
-|---|---:|---:|---:|
-| GHASH core không tính tag XOR | 5184 | 8624 | 128 |
-| GHASH core có tag XOR 128 bit | 5184 | 8752 | 128 |
-| Schoolbook + reduction, không tag XOR | 16384 | 16784 | 128 |
-
-So sánh nhanh:
-
-| Cấu hình | AND giảm so với schoolbook | XOR giảm so với schoolbook | Ghi chú |
-|---|---:|---:|---|
-| Karatsuba T4 + reduction | 68.4% | 48.6% | Tính cả XOR tiền nhân và reduction |
-| Karatsuba T4 + reduction + tag XOR | 68.4% | 48.3% | Tag XOR làm chênh lệch nhỏ hơn |
-# 7. Kết luận
-Các công thức cốt lõi về GHASH, tag 128 bit, Karatsuba và reduction theo $P(x)$ là đúng hướng. Các điểm đã cụ thể hóa để đúng chuẩn AES-GCM và thuận tiện viết RTL:
-
-| Điểm cần đúng | Kết luận |
-|---|---|
-| Khóa băm phụ | $H=AES_K(0^{128})$ |
-| Đầu vào GHASH | $A\parallel0^v\parallel C\parallel0^u\parallel[len(A)]_{64}\parallel[len(C)]_{64}$ |
-| Tag chuẩn | $T=MSB_t(AES_K(J_0)\oplus S)$ |
-| Quy ước bit | Phải cố định ánh xạ bit chuỗi sang hệ số đa thức |
-| Reduction cuối | $R(x)=D_{[0:127]}(x)\oplus Q(x)\oplus xQ(x)\oplus x^2Q(x)\oplus x^7Q(x)$ |
+1. **Số lượng cổng AND:** **0 cổng**.
+   * Việc nhân với đa thức $P(x)$ cố định thực chất chỉ là việc nối dây (routing) và XOR các đường tín hiệu với nhau, không cần sử dụng cổng AND hay các bộ nhân linh hoạt.
+2. **Số lượng cổng XOR:** Chỉ tiêu tốn **527 cổng XOR** nhị phân đối với mạch triển khai song song trực tiếp (naive parallel). Số cổng này có thể giảm thêm nếu áp dụng kỹ thuật chia sẻ biểu thức con trùng lặp (Common Sub-expression Sharing).
+3. **Độ sâu trễ logic (Logic Depth):** 
+   * Số lượng toán hạng đầu vào tối đa cho bất kỳ phương trình bit đầu ra $r_j$ nào chỉ là **8** toán hạng (xảy ra ở các bit thấp như $r_1, r_2$).
+   * Khi sử dụng cây XOR nhị phân để cộng 8 số hạng này, độ trễ lan truyền tối đa chỉ là:
+$$\text{Depth}_{\text{reduction}} = \lceil \log_2(8) \rceil = \mathbf{3 \text{ tầng trễ XOR}}$$

@@ -1,3 +1,4 @@
 .agents
 .obsidian
 *.bkp
+.codexignore
