@@ -4,7 +4,9 @@
 | Tín hiệu   | Hướng  | Độ rộng | Mô tả                                                 |
 | :--------- | :----- | :------ | :---------------------------------------------------- |
 | `data_in`  | Input  | 128 bit | Dữ liệu vào để thực hiện phép nhân trên $GF(2^{128})$ |
-| `H`        | Input  | 128 bit | Khóa $H=AES(K,0)$                                     |
+| `H_key`    | Input  | 128 bit | Khóa $H=AES(K,0)$                                     |
 | `data_out` | Output | 128 bit | Kết quả thực hiện phép nhân trên trường $GF(2^{128})$ |
 # Low level Design
+![[Module X8 low level.png]]
 ![[Module X128 low level.png]]
+![[Module X128 ReductionBlock low level.png]]

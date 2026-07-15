@@ -1,4 +1,4 @@
-﻿![[../_media/AES-GCM.png]]
+![[../_media/AES-GCM.png]]
 
 Trong thế giới an toàn thông tin hiện đại, việc bảo vệ dữ liệu truyền tải qua mạng không chỉ dừng lại ở việc "xáo trộn" thông tin để kẻ xấu không đọc được (**Confidentiality - Tính bảo mật**), mà còn phải đảm bảo dữ liệu đó không bị thay đổi hay giả mạo trên đường truyền (**Integrity & Authentication - Tính toàn vẹn và xác thực**).
 Để giải quyết đồng thời hai bài toán này một cách tối ưu nhất, hệ mã hóa **AES-GCM** (Advanced Encryption Standard - Galois/Counter Mode) đã ra đời và nhanh chóng trở thành tiêu chuẩn vàng được áp dụng rộng rãi trong các giao thức mạng phổ biến như TLS 1.2/1.3, IPsec (VPN), SSH và các hệ thống lưu trữ đám mây.
