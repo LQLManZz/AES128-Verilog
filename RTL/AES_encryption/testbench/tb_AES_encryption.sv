@@ -2,130 +2,165 @@
 
 module tb_AES_encryption;
 
-    //-----------------------------------------
-    // Testbench signals
-    //-----------------------------------------
-    logic clk;
-    logic rst_n;
-    logic encryption_en;
+logic clk;
+logic rst_n;
 
-    logic [127:0] data_in;
+logic [127:0] data_in;
+logic [127:0] round_key [0:10];
+logic [1:0] data_type_in;
 
-    // 11 round keys dùng cho DUT
-    logic [127:0] round_key [0:10];
+logic [127:0] data_out;
+logic [1:0] data_type_out;
+logic data_req;
+logic AES_finish;
 
-    // 11 tín hiệu riêng để xem waveform
-    logic [127:0] rk0;
-    logic [127:0] rk1;
-    logic [127:0] rk2;
-    logic [127:0] rk3;
-    logic [127:0] rk4;
-    logic [127:0] rk5;
-    logic [127:0] rk6;
-    logic [127:0] rk7;
-    logic [127:0] rk8;
-    logic [127:0] rk9;
-    logic [127:0] rk10;
+AES_encryption dut(
+    .clk(clk),
+    .rst_n(rst_n),
+    .data_in(data_in),
+    .round_key(round_key),
+    .data_type_in(data_type_in),
+    .data_out(data_out),
+    .data_type_out(data_type_out),
+    .data_req(data_req),
+    .AES_finish(AES_finish)
+);
 
-    logic [127:0] data_out;
-    logic encryption_finish;
+//////////////////////////////////////////////////////
+// Clock
+//////////////////////////////////////////////////////
 
-    //-----------------------------------------
-    // DUT
-    //-----------------------------------------
-    AES_encryption dut(
-        .clk(clk),
-        .rst_n(rst_n),
-        .encryption_en(encryption_en),
-        .data_in(data_in),
-        .round_key(round_key),
-        .data_out(data_out),
-        .encryption_finish(encryption_finish)
-    );
+initial begin
+    clk = 0;
+    forever #5 clk = ~clk;
+end
 
-    //-----------------------------------------
-    // Clock
-    //-----------------------------------------
-    initial clk = 0;
-    always #5 clk = ~clk;
+//////////////////////////////////////////////////////
+// Test vector
+//////////////////////////////////////////////////////
 
-    //-----------------------------------------
-    // Waveform
-    //-----------------------------------------
-    initial begin
-        $dumpfile("wave.vcd");
-        $dumpvars(0, tb_AES_encryption);
+logic [127:0] key;
+logic [95:0]  IV;
+
+initial begin
+
+    //--------------------------------------------
+    // AES-128 key
+    //--------------------------------------------
+    key = 128'h2b7e151628aed2a6abf7158809cf4f3c;
+
+    //--------------------------------------------
+    // 96-bit IV
+    //--------------------------------------------
+    IV = 96'hcafebabefacedbaddecaf888;
+
+    //--------------------------------------------
+    // Chỉ để test pipeline.
+    // Sau này thay bằng key expansion thật.
+    //--------------------------------------------
+    round_key[0]  = key;
+    round_key[1]  = key ^ 128'h00000000000000000000000000000001;
+    round_key[2]  = key ^ 128'h00000000000000000000000000000002;
+    round_key[3]  = key ^ 128'h00000000000000000000000000000003;
+    round_key[4]  = key ^ 128'h00000000000000000000000000000004;
+    round_key[5]  = key ^ 128'h00000000000000000000000000000005;
+    round_key[6]  = key ^ 128'h00000000000000000000000000000006;
+    round_key[7]  = key ^ 128'h00000000000000000000000000000007;
+    round_key[8]  = key ^ 128'h00000000000000000000000000000008;
+    round_key[9]  = key ^ 128'h00000000000000000000000000000009;
+    round_key[10] = key ^ 128'h0000000000000000000000000000000A;
+
+    //--------------------------------------------
+    // Reset
+    //--------------------------------------------
+    rst_n = 0;
+    data_in = 0;
+    data_type_in = 2'b00;
+
+    repeat(3) @(posedge clk);
+
+    rst_n = 1;
+
+    /////////////////////////////////////////////////////////
+    // H = AES(K,0)
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in      <= 128'h0;
+    data_type_in <= 2'b01;
+
+    /////////////////////////////////////////////////////////
+    // Counter = 2
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in      <= {IV,32'h00000002};
+    data_type_in <= 2'b10;
+
+    /////////////////////////////////////////////////////////
+    // Counter = 3
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in      <= {IV,32'h00000003};
+    data_type_in <= 2'b10;
+
+    /////////////////////////////////////////////////////////
+    // Counter = 4
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in      <= {IV,32'h00000004};
+    data_type_in <= 2'b10;
+
+    /////////////////////////////////////////////////////////
+    // J0
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in      <= {IV,32'h00000001};
+    data_type_in <= 2'b11;
+
+    /////////////////////////////////////////////////////////
+    // Không còn dữ liệu
+    /////////////////////////////////////////////////////////
+
+    @(posedge clk);
+    data_in <= 0;
+    data_type_in <= 2'b00;
+
+    repeat(20) @(posedge clk);
+
+    $finish;
+
+end
+
+//////////////////////////////////////////////////////
+// Monitor
+//////////////////////////////////////////////////////
+
+always @(posedge clk) begin
+
+    $display("time=%0t", $time);
+    $display("type_in=%b  type_out=%b  req=%b  finish=%b",
+             data_type_in,
+             data_type_out,
+             data_req,
+             AES_finish);
+
+    if(data_type_out!=2'b00) begin
+        $display("Output = %032h",data_out);
     end
 
-    //-----------------------------------------
-    // Test
-    //-----------------------------------------
-    initial begin
+end
 
-        rst_n = 0;
-        encryption_en = 0;
-        data_in = 0;
+//////////////////////////////////////////////////////
+// Dump
+//////////////////////////////////////////////////////
 
-        #20;
-        rst_n = 1;
-
-        //-----------------------------
-        // Plaintext
-        //-----------------------------
-        data_in = 128'h00112233445566778899AABBCCDDEEFF;
-
-        //-----------------------------
-        // Round Keys
-        //-----------------------------
-        rk0  = 128'h000102030405060708090A0B0C0D0E0F;
-        rk1  = 128'h11111111111111111111111111111111;
-        rk2  = 128'h22222222222222222222222222222222;
-        rk3  = 128'h33333333333333333333333333333333;
-        rk4  = 128'h44444444444444444444444444444444;
-        rk5  = 128'h55555555555555555555555555555555;
-        rk6  = 128'h66666666666666666666666666666666;
-        rk7  = 128'h77777777777777777777777777777777;
-        rk8  = 128'h88888888888888888888888888888888;
-        rk9  = 128'h99999999999999999999999999999999;
-        rk10 = 128'hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;
-
-        // Copy vào mảng truyền cho DUT
-        round_key[0]  = rk0;
-        round_key[1]  = rk1;
-        round_key[2]  = rk2;
-        round_key[3]  = rk3;
-        round_key[4]  = rk4;
-        round_key[5]  = rk5;
-        round_key[6]  = rk6;
-        round_key[7]  = rk7;
-        round_key[8]  = rk8;
-        round_key[9]  = rk9;
-        round_key[10] = rk10;
-
-        //-----------------------------
-        // Start
-        //-----------------------------
-        @(posedge clk);
-        encryption_en = 1;
-
-        @(posedge clk);
-        encryption_en = 0;
-
-        //-----------------------------
-        // Wait finish
-        //-----------------------------
-        wait(encryption_finish);
-
-        @(posedge clk);
-
-        $display("------------------------------------");
-        $display("Plaintext  : %h", data_in);
-        $display("Ciphertext : %h", data_out);
-        $display("------------------------------------");
-
-        #100;
-        $finish;
-
-    end
+initial begin
+    $dumpfile("AES_encryption.vcd");
+    $dumpvars(0,tb_AES_encryption);
+end
 
 endmodule
