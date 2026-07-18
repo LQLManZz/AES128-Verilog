@@ -54,7 +54,7 @@ $$\Rightarrow A_L \cdot B_H \oplus A_H \cdot B_L = P_2 \oplus P_0 \oplus P_1$$
 
 Như vậy, tích cuối cùng $C(x)$ bậc 254 được tổng hợp bằng công thức:
 $$C(x) = P_1 \cdot x^N \oplus (P_2 \oplus P_0 \oplus P_1) \cdot x^{N/2} \oplus P_0$$
-Tích có bậc không vượt quá 254 và cần 255 hệ số. Trong phần cứng, kết quả được lưu trên bus 256 bit để thuận tiện ghép các tích thành phần, $C[]$ luôn bằng 0.
+Tích có bậc không vượt quá 254 và cần 255 hệ số. Trong phần cứng, kết quả được lưu trên bus 256 bit để thuận tiện ghép các tích thành phần, $C[255]$ luôn bằng 0.
 
 **Biểu diễn nhị phân 256 bit
 
@@ -161,14 +161,36 @@ Quá trình thu gọn này được thiết kế hoàn toàn bằng mạch logic
 1. **Gập bước 1:** Đưa các bit từ $c_{128} \dots c_{254}$ về dải bậc từ $0 \dots 133$ bằng cách dịch và XOR các phiên bản của nửa cao $C_H(x)$.
 2. **Gập bước 2:** Thu gọn nốt các bit tràn từ bậc $128 \dots 133$ (chỉ gồm 6 bit) về dải từ $0 \dots 12$.
 
-Các phương trình logic cụ thể cho từng bit đầu ra $r_j$ ($0 \le j \le 127$) được tổng hợp trực tiếp từ các bit tích đầu vào $c_i$. Ví dụ một số phương trình bit đầu tiên:
-* $r_0 = c_0 \oplus c_{128} \oplus c_{249} \oplus c_{254}$
-* $r_1 = c_1 \oplus c_{128} \oplus c_{129} \oplus c_{249} \oplus c_{250} \oplus c_{254}$
-* $r_2 = c_2 \oplus c_{128} \oplus c_{129} \oplus c_{130} \oplus c_{249} \oplus c_{250} \oplus c_{251} \oplus c_{254}$
-* $r_3 = c_3 \oplus c_{129} \oplus c_{130} \oplus c_{131} \oplus c_{250} \oplus c_{251} \oplus c_{252}$
+Tiến hành thu gọn đa thức $C(x)$ , đầu tiên ta viết dưới dạng như sau:
+$$C(x)=C_L(x)+x^{128}C_H(x)$$
+Trong đó:
+$$C_L=C[127:0], \qquad C_H=C[255:128]$$
+Ta có **đa thức bất khả quy** $P(x)$ trong trường $GF(2)$:
+$$\begin{flalign*}
+&P(x)=x^{128}+x^7+x^2+x+1=0 \\ \\
+&x^{128}\equiv x^7+x^2+x+1\pmod{P(x)}
+\end{flalign*}$$
+Do đó:
+$$x^{128}C_H(x) \equiv C_H(x)x^7 \oplus C_H(x)x^2 \oplus C_H(x)x \oplus C_H(x)$$
+Suy ra bước rút gọn đầu tiên:
+$$\begin{flalign*}
+&T(x)=C_L(x) \oplus C_H(x) \oplus C_H(x)x \oplus C_H(x)x^2 \oplus C_H(x)x^7​ \\ \\
+&T=C_L \oplus C_H \oplus(C_H\ll1) \oplus(C_H\ll2) \oplus(C_H\ll7)
+\end{flalign*}$$
+Tuy nhiên, $T$ có thể rộng tới 135 bit, nên đây ta phải tiến hành thêm một bước gập nữa để ép giá trị cuối về 128 bit.
+Ta tiếp tục viết $T(x)$ dưới dạng như sau:
+$$T(x)=T_L(x)+x^{128}T_H(x)$$
+Trong đó:
+$$T_L=T[127:0], \qquad T_H=T[134:128]$$
+Tiếp tục thực hiện biến đổi giống như ở trên, ta được:
+$$\begin{flalign*}
+&x^{128}T_H(x) \equiv T_H(x)x^7 \oplus T_H(x)x^2 \oplus T_H(x)x \oplus T_H(x) \\ \\
+&R(x)=T_L(x) \oplus T_H(x) \oplus T_H(x)x \oplus T_H(x)x^2 \oplus T_H(x)x^7​ \\ \\
+&R=T_L \oplus T_H \oplus(T_H\ll1) \oplus(T_H\ll2) \oplus(T_H\ll7)
+\end{flalign*}$$
+Biểu thức $R$ chính là **đầu ra cuối cùng** của khối rút gọn.
 ## 5.2. Đánh giá tài nguyên và Độ trễ phần cứng
 Do đa thức tối giản $P(x)$ là đa thức thưa (sparse polynomial - chỉ có 5 số hạng), cấu trúc thu gọn cực kỳ tối ưu về mặt tài nguyên phần cứng:
-
 1. **Số lượng cổng AND:** **0 cổng**.
    * Việc nhân với đa thức $P(x)$ cố định thực chất chỉ là việc nối dây (routing) và XOR các đường tín hiệu với nhau, không cần sử dụng cổng AND hay các bộ nhân linh hoạt.
 2. **Số lượng cổng XOR:** Chỉ tiêu tốn **527 cổng XOR** nhị phân đối với mạch triển khai song song trực tiếp (naive parallel). Số cổng này có thể giảm thêm nếu áp dụng kỹ thuật chia sẻ biểu thức con trùng lặp (Common Sub-expression Sharing).

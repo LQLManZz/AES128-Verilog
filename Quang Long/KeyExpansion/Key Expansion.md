@@ -1,6 +1,7 @@
-﻿#backlink [[NIST.FIPS.197_specs.pdf]] 
+#backlink [[NIST.FIPS.197_specs.pdf]] 
 [Link video ví dụ](https://www.youtube.com/watch?v=gP4PqVGudtg)
 Thuật toán Sinh Khóa Vòng (Key Expansion)
+![[Key-Expansion_waveform.png]]
 ## 1. Một số thuật ngữ và ký hiệu sử dụng
 
 - **Word (Từ):** Một chuỗi gồm 32 bit (tương đương 4 byte), tương ứng với các cột của State Block. Quá trình sinh khóa của AES hoạt động chủ yếu trên các word.
