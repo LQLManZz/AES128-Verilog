@@ -6,5 +6,8 @@ module TagGeneration (
     output logic [127:0] tag,
     output logic tag_ready
 );
+  wire [127:0] ghash_out = tagen_en ? data_in : 128'h0;
 
+  assign tag = ghash_out ^ E_key;
+  assign tag_ready = (tag != 128'h0);
 endmodule
