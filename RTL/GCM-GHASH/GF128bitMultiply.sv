@@ -1,5 +1,5 @@
 module GF128bitMultiply (
-    input logic [127:0] H_key,
+    input logic [127:0] H_reg,
     input logic [127:0] data_in,
 
     output logic [127:0] data_out
@@ -18,7 +18,7 @@ module GF128bitMultiply (
   //   end
 
   X128 Product (
-      .H_key(H_key),
+      .H_reg(H_reg),
       .data_in(data_in),
       .data_out(X128_result)
   );
@@ -152,7 +152,7 @@ module X64 (
 endmodule
 
 module X128 (
-    input logic [127:0] H_key,
+    input logic [127:0] H_reg,
     input logic [127:0] data_in,
 
     output logic [255:0] data_out

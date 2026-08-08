@@ -1,10 +1,10 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="tHwbQeAdJCgrkR5S7bsJ">
-    <mxGraphModel dx="2968" dy="1861" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2950" dy="1894" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="Y5X7UB-ElJ9bdB_NZFZB-4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="H_key[127:0]" vertex="1">
+        <mxCell id="Y5X7UB-ElJ9bdB_NZFZB-4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="H_reg[127:0]" vertex="1">
           <mxGeometry height="30" width="80" x="-820" y="-490" as="geometry" />
         </mxCell>
         <mxCell id="Y5X7UB-ElJ9bdB_NZFZB-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="data_out[127:0]" vertex="1">
@@ -127,7 +127,7 @@
         <mxCell id="SubmPFX-p1d9upldZ3CO-39" edge="1" parent="SubmPFX-p1d9upldZ3CO-48" source="SubmPFX-p1d9upldZ3CO-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="SubmPFX-p1d9upldZ3CO-38">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="SubmPFX-p1d9upldZ3CO-40" parent="SubmPFX-p1d9upldZ3CO-48" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="H_key[127:0]" vertex="1">
+        <mxCell id="SubmPFX-p1d9upldZ3CO-40" parent="SubmPFX-p1d9upldZ3CO-48" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="H_reg[127:0]" vertex="1">
           <mxGeometry height="30" width="90" x="660" y="180" as="geometry" />
         </mxCell>
         <mxCell id="SubmPFX-p1d9upldZ3CO-41" edge="1" parent="SubmPFX-p1d9upldZ3CO-48" source="SubmPFX-p1d9upldZ3CO-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" target="SubmPFX-p1d9upldZ3CO-38">
