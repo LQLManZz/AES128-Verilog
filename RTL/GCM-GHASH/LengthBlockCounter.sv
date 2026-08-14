@@ -1,15 +1,14 @@
 module LengthBlockCounter (
-    input logic clk,
-    input logic reset,
-    input logic AAD_valid,
-    input logic CT_valid,
-
-    output logic length_block_valid,
+    input  logic         clk,
+    input  logic         reset,
+    input  logic         AAD_valid,
+    input  logic         CT_valid,
+    output logic         length_block_valid,
     output logic [127:0] length_block
 );
   logic [60:0] AAD_cnt;
   logic [60:0] CT_cnt;
-  logic condition;
+  logic        condition;
 
   assign length_block = {AAD_cnt, 3'd0, CT_cnt, 3'd0};
   assign condition = !(AAD_valid && CT_valid && (length_block == 128'h0));

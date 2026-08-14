@@ -1,27 +1,16 @@
 module GF128bitMultiply (
-    input logic [127:0] H_reg,
-    input logic [127:0] data_in,
-
+    input  logic [127:0] H_reg,
+    input  logic [127:0] data_in,
     output logic [127:0] data_out
 );
   logic [255:0] X128_result;
-  //   logic [127:0] H_reg_reversed;
-  //   logic [127:0] data_in_reversed;
-  //   logic [127:0] data_out_reversed;
-
-  //   always_comb begin
-  //     for (int i = 0; i < 128; i++) begin
-  //       H_reg_reversed[i] = H_reg[127-i];
-  //       data_in_reversed[i] = data_in[127-i];
-  //       data_out[i] = data_out_reversed[127-i];
-  //     end
-  //   end
 
   X128 Product (
       .H_reg(H_reg),
       .data_in(data_in),
       .data_out(X128_result)
   );
+
   ReductionBlock RB (
       .data_in (X128_result),
       .data_out(data_out)
@@ -29,9 +18,8 @@ module GF128bitMultiply (
 endmodule
 
 module X8 (
-    input logic [7:0] data_in1,
-    input logic [7:0] data_in2,
-
+    input  logic [ 7:0] data_in1,
+    input  logic [ 7:0] data_in2,
     output logic [15:0] data_out
 );
   wire [15:0] product0 = {8'd0, data_in1} & {16{data_in2[0]}};
@@ -50,9 +38,8 @@ module X8 (
 endmodule
 
 module X16 (
-    input logic [15:0] data_in1,
-    input logic [15:0] data_in2,
-
+    input  logic [15:0] data_in1,
+    input  logic [15:0] data_in2,
     output logic [31:0] data_out
 );
   wire [ 7:0] data_in1_P2 = data_in1[15:8] ^ data_in1[7:0];
@@ -84,9 +71,8 @@ module X16 (
 endmodule
 
 module X32 (
-    input logic [31:0] data_in1,
-    input logic [31:0] data_in2,
-
+    input  logic [31:0] data_in1,
+    input  logic [31:0] data_in2,
     output logic [63:0] data_out
 );
   wire [15:0] data_in1_P2 = data_in1[31:16] ^ data_in1[15:0];
@@ -118,9 +104,8 @@ module X32 (
 endmodule
 
 module X64 (
-    input logic [63:0] data_in1,
-    input logic [63:0] data_in2,
-
+    input  logic [ 63:0] data_in1,
+    input  logic [ 63:0] data_in2,
     output logic [127:0] data_out
 );
   wire [31:0] data_in1_P2 = data_in1[63:32] ^ data_in1[31:0];
@@ -152,9 +137,8 @@ module X64 (
 endmodule
 
 module X128 (
-    input logic [127:0] H_reg,
-    input logic [127:0] data_in,
-
+    input  logic [127:0] H_reg,
+    input  logic [127:0] data_in,
     output logic [255:0] data_out
 );
   wire [ 63:0] data_in1_P2 = H_reg[127:64] ^ H_reg[63:0];
@@ -181,13 +165,12 @@ module X128 (
 
   assign data_out[255:192] = P1_result[127:64];
   assign data_out[191:128] = P1_result[63:0] ^ Pm[127:64];
-  assign data_out[127:64] = P0_result[127:64] ^ Pm[63:0];
-  assign data_out[63:0] = P0_result[63:0];
+  assign data_out[127:64]  = P0_result[127:64] ^ Pm[63:0];
+  assign data_out[63:0]    = P0_result[63:0];
 endmodule
 
 module ReductionBlock (
-    input logic [255:0] data_in,
-
+    input  logic [255:0] data_in,
     output logic [127:0] data_out
 );
   wire [134:0] xor_1 = {7'd0, data_in[127:0]}
@@ -195,9 +178,10 @@ module ReductionBlock (
                         ^ {6'd0, data_in[255:128], 1'd0}
                         ^ {5'd0, data_in[255:128], 2'd0}
                         ^ {data_in[255:128], 7'd0};
+
   assign data_out = xor_1[127:0]
-                        ^ {121'd0, xor_1[134:128]}
-                        ^ {120'd0, xor_1[134:128], 1'd0}
-                        ^ {119'd0, xor_1[134:128], 2'd0}
-                        ^ {114'd0, xor_1[134:128], 7'd0};
+                    ^ {121'd0, xor_1[134:128]}
+                    ^ {120'd0, xor_1[134:128], 1'd0}
+                    ^ {119'd0, xor_1[134:128], 2'd0}
+                    ^ {114'd0, xor_1[134:128], 7'd0};
 endmodule

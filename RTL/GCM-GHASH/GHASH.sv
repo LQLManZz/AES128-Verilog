@@ -1,18 +1,17 @@
 module GHASH (
-    input logic clk,
-    input logic reset,
-    input logic AAD_valid,
-    input logic CT_valid,
-    input logic length_block_valid,
-    input logic [127:0] AAD,
-    input logic [127:0] CT,
-    input logic [127:0] length_block,
-    input logic [127:0] H_reg,
-
-    output logic ghash_finish,
+    input  logic         clk,
+    input  logic         reset,
+    input  logic         AAD_valid,
+    input  logic         CT_valid,
+    input  logic         length_block_valid,
+    input  logic [127:0] AAD,
+    input  logic [127:0] CT,
+    input  logic [127:0] length_block,
+    input  logic [127:0] H_reg,
+    output logic         ghash_finish,
     output logic [127:0] ghash_out
 );
-  logic ghash_en;
+  logic         ghash_en;
   logic [127:0] data_in;
   logic [127:0] multiply_in;
   logic [127:0] multiply_out;
@@ -30,7 +29,6 @@ module GHASH (
   end
 
   assign ghash_en = (AAD_valid ^ CT_valid ^ length_block_valid) & !ghash_finish;
-
   assign multiply_in = ghash_out ^ data_in;
 
   GF128bitMultiply GFMultiply1 (
