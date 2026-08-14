@@ -5,13 +5,13 @@ module GF128bitMultiply (
     output logic [127:0] data_out
 );
   logic [255:0] X128_result;
-  //   logic [127:0] H_key_reversed;
+  //   logic [127:0] H_reg_reversed;
   //   logic [127:0] data_in_reversed;
   //   logic [127:0] data_out_reversed;
 
   //   always_comb begin
   //     for (int i = 0; i < 128; i++) begin
-  //       H_key_reversed[i] = H_key[127-i];
+  //       H_reg_reversed[i] = H_reg[127-i];
   //       data_in_reversed[i] = data_in[127-i];
   //       data_out[i] = data_out_reversed[127-i];
   //     end
@@ -157,19 +157,19 @@ module X128 (
 
     output logic [255:0] data_out
 );
-  wire [ 63:0] data_in1_P2 = H_key[127:64] ^ H_key[63:0];
+  wire [ 63:0] data_in1_P2 = H_reg[127:64] ^ H_reg[63:0];
   wire [ 63:0] data_in2_P2 = data_in[127:64] ^ data_in[63:0];
   wire [127:0] Pm = P0_result ^ P1_result ^ P2_result;
 
   logic [127:0] P0_result, P1_result, P2_result;
 
   X64 P1 (
-      .data_in1(H_key[127:64]),
+      .data_in1(H_reg[127:64]),
       .data_in2(data_in[127:64]),
       .data_out(P1_result)
   );
   X64 P0 (
-      .data_in1(H_key[63:0]),
+      .data_in1(H_reg[63:0]),
       .data_in2(data_in[63:0]),
       .data_out(P0_result)
   );

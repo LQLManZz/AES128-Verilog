@@ -20,20 +20,28 @@ module TagProcessing (
     output logic verify_pass
 );
   logic reset;
-  logic ghash_en;
   logic length_block_valid;
-  logic final_valid;
+  logic E_loaded;
+  logic ghash_finish;
+  logic [127:0] tagMUX;
   logic [127:0] H_reg;
   logic [127:0] E_reg;
   logic [127:0] tag_ref_reg;
   logic [127:0] length_block;
   logic [127:0] ghash_out;
 
-  assign reset = rst_n && !finish_reset;
-  assign ghash_en = AAD_valid || CT_valid || length_block_valid;
+  assign reset = ~rst_n & finish_reset;
   assign tag = ghash_out ^ E_reg;
-  assign tag_valid = final_valid && !mode;
-  assign verify_pass = final_valid && mode && (tag == tag_ref_reg);
+  assign tag_valid = ghash_finish & E_loaded;
+
+  always_comb begin : VerifyPassLogic
+    if (mode) begin
+      tagMUX = tag;
+    end else begin
+      tagMUX = 128'h0;
+    end
+    verify_pass = (tagMUX == tag_ref_reg);
+  end
 
   always_ff @(posedge clk, negedge rst_n) begin : HLoadedReg
     if (!rst_n) begin
@@ -51,10 +59,18 @@ module TagProcessing (
     end
   end
 
-  always_ff @(posedge clk, negedge reset) begin : EKeyReg
-    if (!reset) begin
+  always_ff @(posedge clk, posedge reset) begin : ELoadedReg
+    if (reset) begin
+      E_loaded <= 1'b0;
+    end else if (E_valid && !E_loaded) begin
+      E_loaded <= 1'b1;
+    end
+  end
+
+  always_ff @(posedge clk, posedge reset) begin : EKeyReg
+    if (reset) begin
       E_reg <= 128'h0;
-    end else if (E_valid) begin
+    end else if (E_valid && !E_loaded) begin
       E_reg <= E;
     end
   end
@@ -67,15 +83,7 @@ module TagProcessing (
     end
   end
 
-  always_ff @(posedge clk, negedge reset) begin : FinalValidReg
-    if (!reset) begin
-      final_valid <= 1'b0;
-    end else begin
-      final_valid <= length_block_valid;
-    end
-  end
-
-  LengthBlockCTR LengthCounter (
+  LengthBlockCounter LengthCounter (
       .clk(clk),
       .reset(reset),
       .AAD_valid(AAD_valid),
@@ -87,7 +95,6 @@ module TagProcessing (
   GHASH GHASHCore (
       .clk(clk),
       .reset(reset),
-      .ghash_en(ghash_en),
       .AAD(AAD),
       .AAD_valid(AAD_valid),
       .CT(CT),
@@ -95,6 +102,7 @@ module TagProcessing (
       .length_block(length_block),
       .length_block_valid(length_block_valid),
       .H_reg(H_reg),
+      .ghash_finish(ghash_finish),
       .ghash_out(ghash_out)
   );
 endmodule
