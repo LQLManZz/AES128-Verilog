@@ -19,8 +19,8 @@
         <mxCell id="awxu9XesgPcCVuABY07T-19" edge="1" parent="1" source="awxu9XesgPcCVuABY07T-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" target="awxu9XesgPcCVuABY07T-13">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="awxu9XesgPcCVuABY07T-15" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="reset" vertex="1">
-          <mxGeometry height="30" width="40" x="1300" y="22" as="geometry" />
+        <mxCell id="awxu9XesgPcCVuABY07T-15" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="finish_reset" vertex="1">
+          <mxGeometry height="30" width="70" x="1270" y="22" as="geometry" />
         </mxCell>
         <mxCell id="awxu9XesgPcCVuABY07T-21" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ghash_out[127:0]" vertex="1">
           <mxGeometry height="30" width="100" x="1660" y="-21" as="geometry" />
@@ -236,8 +236,8 @@
         <mxCell id="wqJIIYYETFeHKRLa5inU-22" edge="1" parent="1" source="wqJIIYYETFeHKRLa5inU-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" target="wqJIIYYETFeHKRLa5inU-19">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="wqJIIYYETFeHKRLa5inU-23" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="reset" vertex="1">
-          <mxGeometry height="30" width="40" x="1300" y="-222" as="geometry" />
+        <mxCell id="wqJIIYYETFeHKRLa5inU-23" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="finish_reset" vertex="1">
+          <mxGeometry height="30" width="70" x="1270" y="-222" as="geometry" />
         </mxCell>
         <mxCell id="wqJIIYYETFeHKRLa5inU-24" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ghash_finish" vertex="1">
           <mxGeometry height="30" width="80" x="1580" y="-266" as="geometry" />

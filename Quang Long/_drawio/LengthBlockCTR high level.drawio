@@ -1,6 +1,6 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="5KRXiRAp9L7-t2ZDYRgO">
-    <mxGraphModel dx="1000" dy="475" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1014" dy="489" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -37,8 +37,8 @@
         <mxCell id="yt3arn1NXiZ4YWeKkTMT-11" edge="1" parent="1" source="yt3arn1NXiZ4YWeKkTMT-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;" target="yt3arn1NXiZ4YWeKkTMT-3">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="yt3arn1NXiZ4YWeKkTMT-12" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="reset" vertex="1">
-          <mxGeometry height="30" width="40" x="770" y="642" as="geometry" />
+        <mxCell id="yt3arn1NXiZ4YWeKkTMT-12" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="finish_reset" vertex="1">
+          <mxGeometry height="30" width="70" x="740" y="642" as="geometry" />
         </mxCell>
         <mxCell id="0M0Q1QiXd5MTNGOzcg9F-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="length_block_valid" vertex="1">
           <mxGeometry height="30" width="110" x="1115" y="642" as="geometry" />

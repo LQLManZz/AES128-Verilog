@@ -6,6 +6,7 @@
 | `clk`           | Input  | 1 bit   | Xung clock                                                      |
 | `rst_n`         | Input  | 1 bit   | Tín hiệu reset mức thấp                                         |
 | `finish_reset`  | Input  | 1 bit   | Tín hiệu reset khi khối AES-CTR hoàn thành quá trình            |
+| `load_key`      | Input  | 1 bit   | Cờ báo có Cipherkey mới đi vào                                  |
 | `mode`          | Input  | 1 bit   | Lựa chọn giữa chế độ mã hóa hoặc giải mã                        |
 | `AAD`           | Input  | 128 bit | Dữ liệu vào (AAD)                                               |
 | `CT`            | Input  | 128 bit | Dữ liệu vào (Ciphertext)                                        |
