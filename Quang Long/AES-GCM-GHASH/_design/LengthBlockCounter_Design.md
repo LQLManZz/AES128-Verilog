@@ -5,8 +5,9 @@
 | :------------------- | :----- | :------ | :---------------------------------------- |
 | `clk`                | Input  | 1 bit   | Xung clock                                |
 | `finish_reset`       | Input  | 1 bit   | Tín hiệu reset đặc biệt, tích cực mức cao |
-| `AAD_valid`          | Input  | 1 bit   | Cờ báo AAD hợp lệ                         |
-| `CT_valid`           | Input  | 1 bit   | Cờ báo Ciphertext hợp lệ                  |
+| `load_AAD`           | Input  | 1 bit   | Cờ báo AAD hợp lệ                         |
+| `load_CT`            | Input  | 1 bit   | Cờ báo Ciphertext hợp lệ                  |
+| `CT_last`            | Input  | 1 bit   | Cờ báo Ciphertext cuối cùng               |
 | `length_block`       | Output | 128 bit | Length Block AAD \|\| Ciphertext          |
 | `length_block_valid` | Output | 1 bit   | Cờ báo Length Block hợp lệ                |
 # Low level Design

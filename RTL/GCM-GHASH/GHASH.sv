@@ -1,8 +1,8 @@
 module GHASH (
     input logic         clk,
     input logic         finish_reset,
-    input logic         AAD_valid,
-    input logic         CT_valid,
+    input logic         load_AAD,
+    input logic         load_CT,
     input logic         length_block_valid,
     input logic [127:0] AAD,
     input logic [127:0] CT,
@@ -18,9 +18,9 @@ module GHASH (
   logic [127:0] multiply_out;
 
   always_comb begin : DataInputMUX
-    if (AAD_valid) begin
+    if (load_AAD) begin
       data_in = AAD;
-    end else if (CT_valid) begin
+    end else if (load_CT) begin
       data_in = CT;
     end else if (length_block_valid) begin
       data_in = length_block;
@@ -29,7 +29,7 @@ module GHASH (
     end
   end
 
-  assign ghash_en = (AAD_valid ^ CT_valid ^ length_block_valid) & !ghash_finish;
+  assign ghash_en = (load_AAD ^ load_CT ^ length_block_valid) & !ghash_finish;
   assign multiply_in = ghash_out ^ data_in;
 
   GF128bitMultiply GFMultiply1 (

@@ -34,10 +34,10 @@
         <mxCell id="C2kAhSkDtCC1PWh0Fs56-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="length_block[127:0]" vertex="1">
           <mxGeometry height="30" width="110" x="160" y="544.5" as="geometry" />
         </mxCell>
-        <mxCell id="-_1aJa-os9_gf1fDspPp-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="AAD_valid" vertex="1">
+        <mxCell id="-_1aJa-os9_gf1fDspPp-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load_AAD" vertex="1">
           <mxGeometry height="30" width="70" x="200" y="454.5" as="geometry" />
         </mxCell>
-        <mxCell id="-_1aJa-os9_gf1fDspPp-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="CT_valid" vertex="1">
+        <mxCell id="-_1aJa-os9_gf1fDspPp-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load_CT" vertex="1">
           <mxGeometry height="30" width="60" x="210" y="514.5" as="geometry" />
         </mxCell>
         <mxCell id="-_1aJa-os9_gf1fDspPp-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="length_block_valid" vertex="1">

@@ -6,9 +6,9 @@
 | `clk`                | Input  | 1 bit   | Xung clock                                |
 | `finish_reset`       | Input  | 1 bit   | Tín hiệu reset đặc biệt, tích cực mức cao |
 | `AAD`                | Input  | 128 bit | Dữ liệu vào (AAD)                         |
-| `AAD_valid`          | Input  | 1 bit   | Cờ báo AAD hợp lệ                         |
+| `load_AAD`           | Input  | 1 bit   | Cờ báo AAD hợp lệ                         |
 | `CT`                 | Input  | 128 bit | Dữ liệu vào (Ciphertext)                  |
-| `CT_valid`           | Input  | 1 bit   | Cờ báo Ciphertext hợp lệ                  |
+| `load_CT`            | Input  | 1 bit   | Cờ báo Ciphertext hợp lệ                  |
 | `length_block`       | Input  | 128 bit | Dữ liệu vào (Length Block)                |
 | `length_block_valid` | Input  | 1 bit   | Cờ báo Length Block hợp lệ                |
 | `H_reg`              | Input  | 128 bit | Khóa $H=AES(K,0)$                         |

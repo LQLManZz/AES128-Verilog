@@ -9,11 +9,12 @@ module TagProcessing (
     input logic [127:0] tag_ref,
     input logic [127:0] H,
     input logic [127:0] E,
-    input logic         AAD_valid,
-    input logic         CT_valid,
+    input logic         load_AAD,
+    input logic         load_CT,
     input logic         H_valid,
     input logic         E_valid,
     input logic         tag_ref_valid,
+    input logic         CT_last,
 
     output logic         H_loaded,
     output logic [127:0] tag,
@@ -87,8 +88,9 @@ module TagProcessing (
   LengthBlockCounter LengthCounter (
       .clk               (clk),
       .finish_reset      (finish_reset),
-      .AAD_valid         (AAD_valid),
-      .CT_valid          (CT_valid),
+      .load_AAD          (load_AAD),
+      .load_CT           (load_CT),
+      .CT_last           (CT_last),
       .length_block_valid(length_block_valid),
       .length_block      (length_block)
   );
@@ -96,8 +98,8 @@ module TagProcessing (
   GHASH GHASHCore (
       .clk               (clk),
       .finish_reset      (finish_reset),
-      .AAD_valid         (AAD_valid),
-      .CT_valid          (CT_valid),
+      .load_AAD          (load_AAD),
+      .load_CT           (load_CT),
       .length_block_valid(length_block_valid),
       .AAD               (AAD),
       .CT                (CT),

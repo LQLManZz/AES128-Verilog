@@ -1,6 +1,6 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="RM-j-PCXj4zMzLfiwHgS">
-    <mxGraphModel dx="1664" dy="1446" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1414" dy="1289" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -104,7 +104,7 @@
         <mxCell id="wqJIIYYETFeHKRLa5inU-3" edge="1" parent="1" source="7LkU8A62iULvmZyrzXgo-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="7LkU8A62iULvmZyrzXgo-2">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="7LkU8A62iULvmZyrzXgo-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="AAD_valid" vertex="1">
+        <mxCell id="7LkU8A62iULvmZyrzXgo-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load_AAD" vertex="1">
           <mxGeometry height="30" width="60" x="161.25" y="-200" as="geometry" />
         </mxCell>
         <mxCell id="7LkU8A62iULvmZyrzXgo-7" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="data_in[127:0]" vertex="1">
@@ -134,7 +134,7 @@
         <mxCell id="wqJIIYYETFeHKRLa5inU-2" edge="1" parent="1" source="7LkU8A62iULvmZyrzXgo-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="7LkU8A62iULvmZyrzXgo-12">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="7LkU8A62iULvmZyrzXgo-16" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="CT_valid" vertex="1">
+        <mxCell id="7LkU8A62iULvmZyrzXgo-16" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load_CT" vertex="1">
           <mxGeometry height="30" width="60" x="161.25" y="-160" as="geometry" />
         </mxCell>
         <mxCell id="7LkU8A62iULvmZyrzXgo-17" edge="1" parent="1" source="7LkU8A62iULvmZyrzXgo-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;" target="7LkU8A62iULvmZyrzXgo-3">
