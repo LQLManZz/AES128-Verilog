@@ -13,10 +13,11 @@ module TagProcessing (
     input logic         load_CT,
     input logic         H_valid,
     input logic         E_valid,
-    input logic         tag_ref_valid,
+    input logic         load_tag_ref,
     input logic         CT_last,
 
     output logic         H_loaded,
+    output logic         tag_ref_loaded,
     output logic [127:0] tag,
     output logic         tag_process_valid,
     output logic         verify_pass
@@ -77,10 +78,18 @@ module TagProcessing (
     end
   end
 
+  always_ff @(posedge clk, posedge finish_reset) begin : TagRefLoadedReg
+    if (finish_reset) begin
+      tag_ref_loaded <= 1'b0;
+    end else if (load_tag_ref && !tag_ref_loaded) begin
+      tag_ref_loaded <= 1'b1;
+    end
+  end
+
   always_ff @(posedge clk, posedge finish_reset) begin : TagReferenceReg
     if (finish_reset) begin
       tag_ref_reg <= 128'h0;
-    end else if (tag_ref_valid) begin
+    end else if (load_tag_ref && !tag_ref_loaded) begin
       tag_ref_reg <= tag_ref;
     end
   end

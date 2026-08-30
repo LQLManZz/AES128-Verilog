@@ -17,9 +17,10 @@
 | `load_CT`           | Input  | 1 bit   | Cờ báo Ciphertext hợp lệ                                        |
 | `H_valid`           | Input  | 1 bit   | Cờ báo khóa $H$ hợp lệ                                          |
 | `E_valid`           | Input  | 1 bit   | Cờ báo khóa $E$ hợp lệ                                          |
-| `tag_ref_valid`     | Input  | 1 bit   | Cờ báo `tag_ref` hợp lệ                                         |
+| `load_tag_ref`      | Input  | 1 bit   | Cờ báo `tag_ref` hợp lệ                                         |
 | `CT_last`           | Input  | 1 bit   | Cờ báo Ciphertext cuối cùng                                     |
 | `H_loaded`          | Output | 1 bit   | Cờ báo đã hoàn tất load khóa $H$                                |
+| `tag_ref_loaded`    | Output | 1 bit   | Cờ báo đã hoàn tất load Tag Reference                           |
 | `tag`               | Output | 128 bit | Authentication Tag                                              |
 | `tag_process_valid` | Output | 1 bit   | Báo hiệu đã hoàn tất quá trình sinh Tag, dùng cho chế độ mã hóa |
 | `verify_pass`       | Output | 1 bit   | Cờ báo Tag hợp lệ, dùng cho chế độ giải mã                      |

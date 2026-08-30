@@ -8,8 +8,11 @@
 //   - Mode 1 (Decryption / Auth): Tag Verification:
 //       * Valid Tag: tag_ref == expected_tag  -> verify_pass == 1'b1.
 //       * Tampered Tag: tag_ref != expected_tag -> verify_pass == 1'b0.
-//   - Subkey H & Mask E loading handshake (H_loaded, E_loaded, load_key).
-//   - Handshake timing: tag_process_valid (1-cycle pulse).
+//   - Handshakes:
+//       * Subkey H: H_valid -> H_loaded.
+//       * Mask E: E_valid -> E_loaded.
+//       * Reference Tag: load_tag_ref -> tag_ref_loaded.
+//       * Output Valid: tag_process_valid (1-cycle pulse).
 //   - Full NIST SP 800-38D Appendix B Test Vectors (TC1 to TC4).
 //
 // Reference: References/aes_gcm_golden_appendixB.c
@@ -34,10 +37,11 @@ module TagProcessing_tb;
   logic         load_CT;
   logic         H_valid;
   logic         E_valid;
-  logic         tag_ref_valid;
+  logic         load_tag_ref;
   logic         CT_last;
 
   logic         H_loaded;
+  logic         tag_ref_loaded;
   logic [127:0] tag;
   logic         tag_process_valid;
   logic         verify_pass;
@@ -60,9 +64,10 @@ module TagProcessing_tb;
       .load_CT           (load_CT),
       .H_valid           (H_valid),
       .E_valid           (E_valid),
-      .tag_ref_valid     (tag_ref_valid),
+      .load_tag_ref      (load_tag_ref),
       .CT_last           (CT_last),
       .H_loaded          (H_loaded),
+      .tag_ref_loaded    (tag_ref_loaded),
       .tag               (tag),
       .tag_process_valid (tag_process_valid),
       .verify_pass       (verify_pass)
@@ -149,20 +154,20 @@ module TagProcessing_tb;
   task automatic reset_all();
     begin
       @(posedge clk);
-      rst_n         <= 1'b0;
-      finish_reset  <= 1'b1;
-      load_key      <= 1'b0;
-      load_AAD      <= 1'b0;
-      load_CT       <= 1'b0;
-      H_valid       <= 1'b0;
-      E_valid       <= 1'b0;
-      tag_ref_valid <= 1'b0;
-      CT_last       <= 1'b0;
-      AAD           <= 128'h0;
-      CT            <= 128'h0;
-      tag_ref       <= 128'h0;
-      H             <= 128'h0;
-      E             <= 128'h0;
+      rst_n        <= 1'b0;
+      finish_reset <= 1'b1;
+      load_key     <= 1'b0;
+      load_AAD     <= 1'b0;
+      load_CT      <= 1'b0;
+      H_valid      <= 1'b0;
+      E_valid      <= 1'b0;
+      load_tag_ref <= 1'b0;
+      CT_last      <= 1'b0;
+      AAD          <= 128'h0;
+      CT           <= 128'h0;
+      tag_ref      <= 128'h0;
+      H            <= 128'h0;
+      E            <= 128'h0;
 
       repeat (2) @(posedge clk);
       rst_n        <= 1'b1;
@@ -178,14 +183,14 @@ module TagProcessing_tb;
   task automatic reset_message();
     begin
       @(posedge clk);
-      finish_reset  <= 1'b1;
-      load_AAD      <= 1'b0;
-      load_CT       <= 1'b0;
-      E_valid       <= 1'b0;
-      tag_ref_valid <= 1'b0;
-      CT_last       <= 1'b0;
-      AAD           <= 128'h0;
-      CT            <= 128'h0;
+      finish_reset <= 1'b1;
+      load_AAD     <= 1'b0;
+      load_CT      <= 1'b0;
+      E_valid      <= 1'b0;
+      load_tag_ref <= 1'b0;
+      CT_last      <= 1'b0;
+      AAD          <= 128'h0;
+      CT           <= 128'h0;
 
       repeat (2) @(posedge clk);
       finish_reset <= 1'b0;
@@ -253,17 +258,17 @@ module TagProcessing_tb;
 
       // Load tag_ref (used for Mode 1 verification)
       if (test_mode == 1'b1) begin
-        tag_ref       <= tag_ref_in;
-        tag_ref_valid <= 1'b1;
+        tag_ref      <= tag_ref_in;
+        load_tag_ref <= 1'b1;
       end else begin
-        tag_ref       <= 128'h0;
-        tag_ref_valid <= 1'b0;
+        tag_ref      <= 128'h0;
+        load_tag_ref <= 1'b0;
       end
 
       @(posedge clk);
-      H_valid       <= 1'b0;
-      E_valid       <= 1'b0;
-      tag_ref_valid <= 1'b0;
+      H_valid      <= 1'b0;
+      E_valid      <= 1'b0;
+      load_tag_ref <= 1'b0;
 
       // 4. Stream AAD blocks continuously
       for (int i = 0; i < num_aad; i++) begin
@@ -313,14 +318,14 @@ module TagProcessing_tb;
       $display("--------------------------------------------------");
       $display("Test %0d: %s [Mode: %s]", test_count, test_name,
                test_mode ? "DECRYPT/VERIFY" : "ENCRYPT/GEN_TAG");
-      $display("  [Handshake] valid       = %b  (expected: 1),  H_loaded = %b",
-               tag_process_valid, H_loaded);
-      $display("  [Tag Check] Tag DUT     = %032h", tag);
-      $display("              Tag EXP     = %032h", exp_tag);
+      $display("  [Handshake] valid          = %b  (expected: 1)", tag_process_valid);
+      $display("              H_loaded       = %b, tag_ref_loaded = %b", H_loaded, tag_ref_loaded);
+      $display("  [Tag Check] Tag DUT        = %032h", tag);
+      $display("              Tag EXP        = %032h", exp_tag);
 
       if (test_mode == 1'b1) begin
-        $display("  [Tag Ref]   tag_ref     = %032h", tag_ref_in);
-        $display("  [Auth Check]verify_pass = %b  (expected: %b)", verify_pass, expect_pass);
+        $display("  [Tag Ref]   tag_ref        = %032h", tag_ref_in);
+        $display("  [Auth Check]verify_pass    = %b  (expected: %b)", verify_pass, expect_pass);
       end
 
       // Assertions
@@ -330,6 +335,9 @@ module TagProcessing_tb;
       end else if (tag !== exp_tag) begin
         error_count++;
         $display("  [FAIL] Tag value mismatch! (XOR diff = %032h)", tag ^ exp_tag);
+      end else if (test_mode == 1'b1 && tag_ref_loaded !== 1'b1) begin
+        error_count++;
+        $display("  [FAIL] tag_ref_loaded should be 1 after loading tag_ref in Mode 1!");
       end else if (test_mode == 1'b1 && verify_pass !== expect_pass) begin
         error_count++;
         $display("  [FAIL] verify_pass flag mismatch! (got %b, expected %b)",
@@ -357,21 +365,21 @@ module TagProcessing_tb;
   //=======================================================================
   initial begin
     // Time 0 initialization: Power-on Reset
-    rst_n         = 1'b0;
-    finish_reset  = 1'b1;
-    load_key      = 1'b0;
-    mode          = 1'b0;
-    AAD           = 128'h0;
-    CT            = 128'h0;
-    tag_ref       = 128'h0;
-    H             = 128'h0;
-    E             = 128'h0;
-    load_AAD      = 1'b0;
-    load_CT       = 1'b0;
-    H_valid       = 1'b0;
-    E_valid       = 1'b0;
-    tag_ref_valid = 1'b0;
-    CT_last       = 1'b0;
+    rst_n        = 1'b0;
+    finish_reset = 1'b1;
+    load_key     = 1'b0;
+    mode         = 1'b0;
+    AAD          = 128'h0;
+    CT           = 128'h0;
+    tag_ref      = 128'h0;
+    H            = 128'h0;
+    E            = 128'h0;
+    load_AAD     = 1'b0;
+    load_CT      = 1'b0;
+    H_valid      = 1'b0;
+    E_valid      = 1'b0;
+    load_tag_ref = 1'b0;
+    CT_last      = 1'b0;
 
     #20;
     @(posedge clk);
@@ -392,7 +400,8 @@ module TagProcessing_tb;
     test_count++;
     $display("--------------------------------------------------");
     $display("Test %0d: Global Reset verification", test_count);
-    if (tag_process_valid !== 1'b0 || H_loaded !== 1'b0 || verify_pass !== 1'b0) begin
+    if (tag_process_valid !== 1'b0 || H_loaded !== 1'b0 ||
+        tag_ref_loaded !== 1'b0 || verify_pass !== 1'b0) begin
       error_count++;
       $display("  [FAIL] Reset failed (signals not cleared)");
     end else begin
@@ -431,7 +440,6 @@ module TagProcessing_tb;
     end
 
     // TC3: AAD=0B, CT=64B (4 blocks)
-    // Key change: reload H with load_key pulse
     begin
       logic [127:0] h_tc3, e_tc3;
       logic [127:0] aad_tc3[];
