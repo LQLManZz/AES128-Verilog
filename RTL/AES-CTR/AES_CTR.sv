@@ -46,12 +46,13 @@ module AES_CTR(
                         .data_type_out(data_type_out),.data_req(data_req),
                         .AES_finish(AES_finish));
     logic [127:0] keystream;
+    logic keystream_valid;
     always_comb begin
         H = 128'b0;
         E = 128'b0;
         keystream = 128'b0;
         H_valid = 1'b0;
-        data_valid = 1'b0;
+        keystream_valid = 1'b0;
         E_valid = 1'b0;
         case(data_type_out)
             2'b01: begin
@@ -60,25 +61,40 @@ module AES_CTR(
             end
             2'b10: begin
                 keystream = AES_data_out;
-                data_valid = 1'b1;
+                keystream_valid = 1'b1;
             end
             2'b11: begin
                 E = AES_data_out;
                 E_valid = 1'b1;
             end
             default: begin
-                H = 128'b0;
-                E = 128'b0;
-                keystream = 128'b0;
-                H_valid = 1'b0;
-                data_valid = 1'b0;
-                E_valid = 1'b0;
+                H                = 128'b0;
+                E                = 128'b0;
+                keystream        = 128'b0;
+                H_valid          = 1'b0;
+                keystream_valid  = 1'b0;
+                E_valid          = 1'b0;
             end
         endcase
     end
-    assign data_out = FIFO_data [127:0] ^ keystream;
-    assign data_out_last = data_valid & FIFO_data [128];
-    assign CT = mode? FIFO_data : data_out; 
-    assign CT_valid = data_valid;
-    assign CT_last  = data_out_last;
+    
+    always_ff @(posedge clk or negedge rst_n) begin: outReg
+        if(!rst_n) begin
+            data_valid    <= 1'b0;
+            data_out_last <= 1'b0;
+            data_out      <= 128'b0;
+        end
+        else begin
+            data_valid <= keystream_valid;
+            data_out_last <= FIFO_data[128] & keystream_valid;
+            if (keystream_valid)
+                data_out <= FIFO_data[127:0] ^ keystream;
+            else
+                data_out <= 128'b0;
+        end
+    end
+
+    assign CT = mode? FIFO_data : (FIFO_data [127:0] ^ keystream); 
+    assign CT_valid = keystream_valid;
+    assign CT_last  = keystream_valid & FIFO_data[128];
 endmodule
