@@ -1,0 +1,9 @@
+alo
+alo
+cái này em chỉ làm để nói vài cái trong thiết kế a thôi
+đã fix theo ý t rồi, a xem thấy thế nào r nhắc lại
+lỗi 1: cho verify_pass lên 1 ở chế độ mã hóa, do dùng cái tag_MUX, t xóa r,
+lỗi 2: chỉ cho tag_process_valid lên 1 trong 1 chu kỳ, t muốn nó lên đến khi finish reset lại
+lỗi 3: cái tag của a ko dùng thanh ghi chặn lại lấy tag cuối cùng nên nó cứ chạy ra đống tag, t biết là mình sẽ dựa vào tag_valid để biết cái nào là tag chuẩn nhưng t ko muốn thế
+
+  
