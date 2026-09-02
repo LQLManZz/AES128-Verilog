@@ -6,12 +6,14 @@ module CU(
     input logic tag_ref_loaded, mode,
     input logic load_AAD, no_AAD, AAD_last,
     input logic load_data, data_in_last,
-    input logic process_finish,
+    input logic process_finish, verify_checked,
+    input logic CTR_counter_overflow,
     output logic expansion_en,
     output logic finish,
     output logic key_ready, IV_ready,
     output logic tag_ref_ready,
-    output logic AAD_ready, data_ready
+    output logic AAD_ready, data_ready,
+    output logic verify_done
     );
     
     typedef enum logic [3:0] {
@@ -24,6 +26,7 @@ module CU(
         WAIT_DATA,
         LOAD_DATA,
         WAIT_PROCESS_FINISH,
+        VERIFY_PASS,
         FINISH
         } state;
     state Current, Next;
@@ -91,7 +94,15 @@ module CU(
                     Next = WAIT_PROCESS_FINISH;
             end
             WAIT_PROCESS_FINISH: begin
-                if(process_finish)
+                if(process_finish) begin
+                    if (mode) 
+                        Next = VERIFY_PASS;
+                    else
+                        Next = FINISH;
+                end
+            end
+            VERIFY_PASS: begin
+                if(verify_checked)
                     Next = FINISH;
             end
             FINISH: begin
@@ -111,6 +122,7 @@ module CU(
         tag_ref_ready = 1'b0;
         AAD_ready     = 1'b0;
         data_ready    = 1'b0;
+        verify_done   = 1'b0;
         case(Current)
             IDLE: begin
                 key_ready = 1'b1;
@@ -144,7 +156,13 @@ module CU(
                 data_ready = 1'b1;
             end
             LOAD_DATA: begin
-                data_ready = 1'b1;
+                if (!CTR_counter_overflow)
+                    data_ready = 1'b1;
+                else
+                    data_ready = 1'b0;
+            end
+            VERIFY_PASS: begin
+                verify_done = 1'b1;
             end
             FINISH: begin
                 finish = 1'b1;
@@ -157,6 +175,7 @@ module CU(
                 tag_ref_ready = 1'b0;
                 AAD_ready     = 1'b0;
                 data_ready    = 1'b0;
+                verify_done   = 1'b0;
             end
         endcase
     end
