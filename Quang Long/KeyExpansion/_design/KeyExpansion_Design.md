@@ -1,4 +1,4 @@
-﻿# Module KeyExpansion High Level
+# Module KeyExpansion High Level
 
 **Liên kết:** [[../Key Expansion.md|Tài liệu thuật toán]] | [[RotWord_Design.md|Thiết kế RotWord]] | [[SubWord_Design.md|Thiết kế SubWord]] | [[AddRcon_Design.md|Thiết kế Rcon]] | [[../../_media/Module AddRoundKey high level.png|Thiết kế AddRoundKey]]
 

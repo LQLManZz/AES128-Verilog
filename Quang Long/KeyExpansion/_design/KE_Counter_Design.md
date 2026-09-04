@@ -1,4 +1,4 @@
-﻿# High level Design
+# High level Design
 ![[../../_media/KECounter High.png]]
 
 | Tín hiệu           | Hướng  | Độ rộng | Mô tả                                                     |
