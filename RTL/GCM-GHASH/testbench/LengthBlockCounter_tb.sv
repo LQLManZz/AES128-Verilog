@@ -46,12 +46,12 @@ module LengthBlockCounter_tb;
   //-----------------------------------------------------------------------
   LengthBlockCounter dut (
       .clk               (clk),
-      .finish_reset       (finish_reset),
-      .load_AAD           (load_AAD),
-      .load_CT            (load_CT),
-      .CT_last            (CT_last),
-      .length_block_valid (length_block_valid),
-      .length_block       (length_block)
+      .finish_reset      (finish_reset),
+      .load_AAD          (load_AAD),
+      .load_CT           (load_CT),
+      .CT_last           (CT_last),
+      .length_block_valid(length_block_valid),
+      .length_block      (length_block)
   );
 
   //-----------------------------------------------------------------------
@@ -73,7 +73,7 @@ module LengthBlockCounter_tb;
   //-----------------------------------------------------------------------
   // Scoreboard
   //-----------------------------------------------------------------------
-  int test_count  = 0;
+  int test_count = 0;
   int error_count = 0;
 
   //=======================================================================
@@ -100,17 +100,13 @@ module LengthBlockCounter_tb;
   //   Drives AAD and CT data synchronously on @(posedge clk) using '<='.
   //   Transitions seamlessly from AAD to CT without any idle cycles.
   //=======================================================================
-  task automatic run_gcm_case(
-      input string test_name,
-      input int    aad_blocks,
-      input int    ct_blocks
-  );
-    logic [63:0]  aad_bits;
-    logic [63:0]  ct_bits;
+  task automatic run_gcm_case(input string test_name, input int aad_blocks, input int ct_blocks);
+    logic [ 63:0] aad_bits;
+    logic [ 63:0] ct_bits;
     logic [127:0] expected_block;
     begin
       aad_bits       = 64'(aad_blocks) * 64'd128;
-      ct_bits        = 64'(ct_blocks)  * 64'd128;
+      ct_bits        = 64'(ct_blocks) * 64'd128;
       expected_block = {aad_bits, ct_bits};
 
       reset_dut();
@@ -130,7 +126,7 @@ module LengthBlockCounter_tb;
           load_AAD <= 1'b0;
           load_CT  <= 1'b1;
           if (j == ct_blocks - 1) begin
-            CT_last <= 1'b1; // Asserted on the last CT block
+            CT_last <= 1'b1;  // Asserted on the last CT block
           end else begin
             CT_last <= 1'b0;
           end
@@ -153,7 +149,7 @@ module LengthBlockCounter_tb;
       // 4. CHECK VALID WINDOW (Current posedge just sampled the last CT_last=1)
       //    At this moment, length_block_valid == 1 and length_block is valid.
       //===================================================================
-      #1; // Small delta delay after clock edge for NBA updates to settle
+      #1;  // Small delta delay after clock edge for NBA updates to settle
       test_count++;
       $display("--------------------------------------------------");
       $display("Test %0d: %s", test_count, test_name);
@@ -243,10 +239,8 @@ module LengthBlockCounter_tb;
     $display("   Passed : %0d", test_count - error_count);
     $display("   Failed : %0d", error_count);
     $display("==========================================================");
-    if (error_count == 0)
-      $display(" ALL TESTS PASSED");
-    else
-      $error(" %0d TEST(S) FAILED", error_count);
+    if (error_count == 0) $display(" ALL TESTS PASSED");
+    else $error(" %0d TEST(S) FAILED", error_count);
     $display("==========================================================");
 
     #20;

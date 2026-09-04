@@ -1,6 +1,6 @@
 module GF128bitMultiply (
-    input  logic [127:0] H_reg,
-    input  logic [127:0] data_in,
+    input logic [127:0] H_reg,
+    input logic [127:0] data_in,
 
     output logic [127:0] data_out
 );
@@ -19,8 +19,8 @@ module GF128bitMultiply (
 endmodule
 
 module X8 (
-    input  logic [ 7:0] data_in1,
-    input  logic [ 7:0] data_in2,
+    input logic [7:0] data_in1,
+    input logic [7:0] data_in2,
 
     output logic [15:0] data_out
 );
@@ -40,8 +40,8 @@ module X8 (
 endmodule
 
 module X16 (
-    input  logic [15:0] data_in1,
-    input  logic [15:0] data_in2,
+    input logic [15:0] data_in1,
+    input logic [15:0] data_in2,
 
     output logic [31:0] data_out
 );
@@ -73,15 +73,15 @@ module X16 (
 endmodule
 
 module X32 (
-    input  logic [31:0] data_in1,
-    input  logic [31:0] data_in2,
+    input logic [31:0] data_in1,
+    input logic [31:0] data_in2,
 
     output logic [63:0] data_out
 );
   logic [31:0] P0_result, P1_result, P2_result;
-  wire  [15:0] data_in1_P2 = data_in1[31:16] ^ data_in1[15:0];
-  wire  [15:0] data_in2_P2 = data_in2[31:16] ^ data_in2[15:0];
-  wire  [31:0] Pm = P0_result ^ P1_result ^ P2_result;
+  wire [15:0] data_in1_P2 = data_in1[31:16] ^ data_in1[15:0];
+  wire [15:0] data_in2_P2 = data_in2[31:16] ^ data_in2[15:0];
+  wire [31:0] Pm = P0_result ^ P1_result ^ P2_result;
 
   X16 P1 (
       .data_in1(data_in1[31:16]),
@@ -106,8 +106,8 @@ module X32 (
 endmodule
 
 module X64 (
-    input  logic [ 63:0] data_in1,
-    input  logic [ 63:0] data_in2,
+    input logic [63:0] data_in1,
+    input logic [63:0] data_in2,
 
     output logic [127:0] data_out
 );
@@ -139,8 +139,8 @@ module X64 (
 endmodule
 
 module X128 (
-    input  logic [127:0] H_reg,
-    input  logic [127:0] data_in,
+    input logic [127:0] H_reg,
+    input logic [127:0] data_in,
 
     output logic [255:0] data_out
 );
@@ -172,8 +172,8 @@ module X128 (
 endmodule
 
 module ReductionBlock (
-    input  logic [255:0] data_in,
-    
+    input logic [255:0] data_in,
+
     output logic [127:0] data_out
 );
   wire [134:0] xor_1 = {7'd0, data_in[127:0]}

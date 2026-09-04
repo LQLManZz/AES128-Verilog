@@ -26,7 +26,6 @@ module TagProcessing (
   logic         length_block_valid;
   logic         E_loaded;
   logic         ghash_finish;
-  logic [127:0] tagMUX;
   logic [127:0] H_reg;
   logic [127:0] E_reg;
   logic [127:0] tag_ref_reg;
@@ -34,16 +33,26 @@ module TagProcessing (
   logic [127:0] ghash_out;
 
   assign H_reset = ~rst_n | load_key;
-  assign tag = ghash_out ^ E_reg;
-  assign tag_process_valid = ghash_finish & E_loaded;
+  assign verify_pass = mode && tag_process_valid && (tag == tag_ref_reg);
 
-  always_comb begin : VerifyPassLogic
-    if (mode) begin
-      tagMUX = tag;
+  always_ff @(posedge clk, posedge finish_reset) begin : TagReg
+    if (finish_reset) begin
+      tag <= 128'h0;
     end else begin
-      tagMUX = 128'h0;
+      if (ghash_finish && E_loaded) begin
+        tag <= ghash_out ^ E_reg;
+      end else begin
+        tag <= 128'h0;
+      end
     end
-    verify_pass = tag_process_valid && (tagMUX == tag_ref_reg);
+  end
+
+  always_ff @(posedge clk, posedge finish_reset) begin : TagProcessValidReg
+    if (finish_reset) begin
+      tag_process_valid <= 1'b0;
+    end else begin
+      tag_process_valid <= ghash_finish & E_loaded;
+    end
   end
 
   always_ff @(posedge clk, posedge H_reset) begin : HLoadedReg

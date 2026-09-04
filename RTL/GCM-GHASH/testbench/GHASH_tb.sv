@@ -42,13 +42,13 @@ module GHASH_tb;
   //-----------------------------------------------------------------------
   GHASH dut (
       .clk               (clk),
-      .finish_reset       (finish_reset),
-      .load_AAD           (load_AAD),
-      .load_CT            (load_CT),
-      .length_block_valid (length_block_valid),
+      .finish_reset      (finish_reset),
+      .load_AAD          (load_AAD),
+      .load_CT           (load_CT),
+      .length_block_valid(length_block_valid),
       .AAD               (AAD),
       .CT                (CT),
-      .length_block       (length_block),
+      .length_block      (length_block),
       .H_reg             (H_reg),
       .ghash_finish      (ghash_finish),
       .ghash_out         (ghash_out)
@@ -73,7 +73,7 @@ module GHASH_tb;
   //-----------------------------------------------------------------------
   // Scoreboard
   //-----------------------------------------------------------------------
-  int test_count  = 0;
+  int test_count = 0;
   int error_count = 0;
 
   //=======================================================================
@@ -83,7 +83,7 @@ module GHASH_tb;
     logic [127:0] out_vec;
     begin
       for (int i = 0; i < 128; i++) begin
-        out_vec[i] = in_vec[127 - i];
+        out_vec[i] = in_vec[127-i];
       end
       return out_vec;
     end
@@ -92,10 +92,8 @@ module GHASH_tb;
   //=======================================================================
   // Model 1: RTL Polynomial Basis Reference (LSB = x^0)
   //=======================================================================
-  function automatic logic [255:0] carryless_multiply(
-      input logic [127:0] operand_a,
-      input logic [127:0] operand_b
-  );
+  function automatic logic [255:0] carryless_multiply(input logic [127:0] operand_a,
+                                                      input logic [127:0] operand_b);
     logic [255:0] product;
     logic [255:0] extended_a;
     begin
@@ -120,10 +118,10 @@ module GHASH_tb;
       for (int i = 255; i >= 128; i--) begin
         if (remainder[i]) begin
           remainder[i] = 1'b0;
-          remainder[i - 128 + 7] ^= 1'b1;
-          remainder[i - 128 + 2] ^= 1'b1;
-          remainder[i - 128 + 1] ^= 1'b1;
-          remainder[i - 128]     ^= 1'b1;
+          remainder[i-128+7] ^= 1'b1;
+          remainder[i-128+2] ^= 1'b1;
+          remainder[i-128+1] ^= 1'b1;
+          remainder[i-128] ^= 1'b1;
         end
       end
 
@@ -131,10 +129,8 @@ module GHASH_tb;
     end
   endfunction
 
-  function automatic logic [127:0] rtl_gf128_mul(
-      input logic [127:0] operand_a,
-      input logic [127:0] operand_b
-  );
+  function automatic logic [127:0] rtl_gf128_mul(input logic [127:0] operand_a,
+                                                 input logic [127:0] operand_b);
     begin
       return polynomial_reduction(carryless_multiply(operand_a, operand_b));
     end
@@ -143,10 +139,8 @@ module GHASH_tb;
   //=======================================================================
   // Model 2: Golden C GHASH Multiplier (from aes_gcm_golden_appendixB.c)
   //=======================================================================
-  function automatic logic [127:0] gcm_c_golden_mul(
-      input logic [127:0] X_gcm,
-      input logic [127:0] Y_gcm
-  );
+  function automatic logic [127:0] gcm_c_golden_mul(input logic [127:0] X_gcm,
+                                                    input logic [127:0] Y_gcm);
     logic [7:0] X_bytes[16];
     logic [7:0] Y_bytes[16];
     logic [7:0] V[16];
@@ -154,14 +148,14 @@ module GHASH_tb;
     logic [127:0] result;
     begin
       for (int i = 0; i < 16; i++) begin
-        X_bytes[i] = X_gcm[127 - 8*i -: 8];
-        Y_bytes[i] = Y_gcm[127 - 8*i -: 8];
+        X_bytes[i] = X_gcm[127-8*i-:8];
+        Y_bytes[i] = Y_gcm[127-8*i-:8];
         V[i]       = Y_bytes[i];
         Z[i]       = 8'h00;
       end
 
       for (int i = 0; i < 128; i++) begin
-        int xi = (X_bytes[i / 8] >> (7 - (i % 8))) & 1;
+        int xi = (X_bytes[i/8] >> (7 - (i % 8))) & 1;
         if (xi) begin
           for (int j = 0; j < 16; j++) begin
             Z[j] = Z[j] ^ V[j];
@@ -171,7 +165,7 @@ module GHASH_tb;
         begin
           int lsb = V[15] & 1;
           for (int j = 15; j > 0; j--) begin
-            V[j] = (V[j] >> 1) | ((V[j - 1] & 1) << 7);
+            V[j] = (V[j] >> 1) | ((V[j-1] & 1) << 7);
           end
           V[0] = V[0] >> 1;
 
@@ -182,7 +176,7 @@ module GHASH_tb;
       end
 
       for (int i = 0; i < 16; i++) begin
-        result[127 - 8*i -: 8] = Z[i];
+        result[127-8*i-:8] = Z[i];
       end
       return result;
     end
@@ -213,14 +207,10 @@ module GHASH_tb;
   //   Takes standard NIST GCM vectors (from aes_gcm_golden_appendixB.c),
   //   converts to RTL bit-order, streams into GHASH, and verifies results.
   //=======================================================================
-  task automatic run_nist_gcm_test(
-      input string        test_name,
-      input logic [127:0] H_gcm,
-      input logic [127:0] aad_gcm[],
-      input logic [127:0] ct_gcm[],
-      input logic [127:0] len_block_gcm,
-      input logic [127:0] expected_ghash_gcm
-  );
+  task automatic run_nist_gcm_test(input string test_name, input logic [127:0] H_gcm,
+                                   input logic [127:0] aad_gcm[], input logic [127:0] ct_gcm[],
+                                   input logic [127:0] len_block_gcm,
+                                   input logic [127:0] expected_ghash_gcm);
     logic [127:0] ref_acc_gcm;
     logic [127:0] ref_acc_rtl;
     logic [127:0] dut_out_gcm;
@@ -228,7 +218,7 @@ module GHASH_tb;
     int num_ct;
     begin
       num_aad = aad_gcm.size();
-      num_ct  = ct_gcm.size();
+      num_ct = ct_gcm.size();
 
       // Golden GCM computation using C Reference algorithm
       ref_acc_gcm = 128'h0;
@@ -296,22 +286,22 @@ module GHASH_tb;
         $display("  [FAIL] ghash_finish is NOT asserted!");
       end else if (ghash_out !== ref_acc_rtl) begin
         error_count++;
-        $display("  [FAIL] ghash_out mismatch! (XOR diff = %032h)",
-                 ghash_out ^ ref_acc_rtl);
+        $display("  [FAIL] ghash_out mismatch! (XOR diff = %032h)", ghash_out ^ ref_acc_rtl);
       end else begin
         $display("  [PASS] 100%% Match with NIST SP 800-38D / C Golden Model.");
       end
 
       //===================================================================
-      // 6. CHECK DEASSERT
+      // 6. OUTPUT STABILITY CHECK (Held until finish_reset)
       //===================================================================
       @(posedge clk);
       #1;
-      if (ghash_finish !== 1'b0) begin
+      if (ghash_finish !== 1'b1 || ghash_out !== ref_acc_rtl) begin
         error_count++;
-        $display("  [FAIL] ghash_finish did not deassert at next posedge!");
+        $display(
+            "  [FAIL] ghash_finish or ghash_out did not remain stably held while finish_reset is low!");
       end else begin
-        $display("  [PASS] Deassert check passed.");
+        $display("  [PASS] Output stability check passed (held until finish_reset).");
       end
     end
   endtask
@@ -356,8 +346,8 @@ module GHASH_tb;
     // NIST Appendix B — Test Case 1 (TC1)
     begin
       logic [127:0] h_tc1;
-      logic [127:0] aad_tc1[];
-      logic [127:0] ct_tc1[];
+      logic [127:0] aad_tc1 [];
+      logic [127:0] ct_tc1  [];
       logic [127:0] len_tc1;
       logic [127:0] exp_tc1;
 
@@ -365,15 +355,15 @@ module GHASH_tb;
       len_tc1 = 128'h00000000_00000000_00000000_00000000;
       exp_tc1 = 128'h00000000_00000000_00000000_00000000;
 
-      run_nist_gcm_test("TC1: AAD=0B, CT=0B (Appendix B)",
-                        h_tc1, aad_tc1, ct_tc1, len_tc1, exp_tc1);
+      run_nist_gcm_test("TC1: AAD=0B, CT=0B (Appendix B)", h_tc1, aad_tc1, ct_tc1, len_tc1,
+                        exp_tc1);
     end
 
     // NIST Appendix B — Test Case 2 (TC2)
     begin
       logic [127:0] h_tc2;
-      logic [127:0] aad_tc2[];
-      logic [127:0] ct_tc2[1];
+      logic [127:0] aad_tc2 [];
+      logic [127:0] ct_tc2  [1 ];
       logic [127:0] len_tc2;
       logic [127:0] exp_tc2;
 
@@ -382,15 +372,15 @@ module GHASH_tb;
       len_tc2   = 128'h00000000_00000000_00000000_00000080;
       exp_tc2   = 128'hf38cbb1ad69223dcc3457ae5b6b0f885;
 
-      run_nist_gcm_test("TC2: AAD=0B, CT=16B (1 block) (Appendix B)",
-                        h_tc2, aad_tc2, ct_tc2, len_tc2, exp_tc2);
+      run_nist_gcm_test("TC2: AAD=0B, CT=16B (1 block) (Appendix B)", h_tc2, aad_tc2, ct_tc2,
+                        len_tc2, exp_tc2);
     end
 
     // NIST Appendix B — Test Case 3 (TC3)
     begin
       logic [127:0] h_tc3;
-      logic [127:0] aad_tc3[];
-      logic [127:0] ct_tc3[4];
+      logic [127:0] aad_tc3 [];
+      logic [127:0] ct_tc3  [4 ];
       logic [127:0] len_tc3;
       logic [127:0] exp_tc3;
 
@@ -402,15 +392,15 @@ module GHASH_tb;
       len_tc3   = 128'h00000000_00000000_00000000_00000200;
       exp_tc3   = 128'h83b2f84f49d4905847e7ce6068b9c2ef;
 
-      run_nist_gcm_test("TC3: AAD=0B, CT=64B (4 blocks) (Appendix B)",
-                        h_tc3, aad_tc3, ct_tc3, len_tc3, exp_tc3);
+      run_nist_gcm_test("TC3: AAD=0B, CT=64B (4 blocks) (Appendix B)", h_tc3, aad_tc3, ct_tc3,
+                        len_tc3, exp_tc3);
     end
 
     // NIST Appendix B — Test Case 4 (TC4)
     begin
       logic [127:0] h_tc4;
-      logic [127:0] aad_tc4[2];
-      logic [127:0] ct_tc4[4];
+      logic [127:0] aad_tc4 [2];
+      logic [127:0] ct_tc4  [4];
       logic [127:0] len_tc4;
       logic [127:0] exp_tc4;
 
@@ -424,24 +414,24 @@ module GHASH_tb;
       len_tc4    = 128'h00000000_000000a0_00000000_000001e0;
       exp_tc4    = 128'h95279d005c385125ffee7d87a40d221c;
 
-      run_nist_gcm_test("TC4: AAD=20B (2 blk), CT=60B (4 blk) (Appendix B)",
-                        h_tc4, aad_tc4, ct_tc4, len_tc4, exp_tc4);
+      run_nist_gcm_test("TC4: AAD=20B (2 blk), CT=60B (4 blk) (Appendix B)", h_tc4, aad_tc4, ct_tc4,
+                        len_tc4, exp_tc4);
     end
 
     // Extra Test: AAD only (No CT)
     begin
       logic [127:0] h_aonly;
-      logic [127:0] aad_aonly[2];
-      logic [127:0] ct_aonly[];
+      logic [127:0] aad_aonly [ 2];
+      logic [127:0] ct_aonly  [];
       logic [127:0] len_aonly;
 
-      h_aonly        = 128'h66e94bd4ef8a2c3b884cfa59ca342b2e;
-      aad_aonly[0]   = 128'h0123456789abcdef0123456789abcdef;
-      aad_aonly[1]   = 128'hfedcba9876543210fedcba9876543210;
-      len_aonly      = 128'h00000000_00000100_00000000_00000000;
+      h_aonly      = 128'h66e94bd4ef8a2c3b884cfa59ca342b2e;
+      aad_aonly[0] = 128'h0123456789abcdef0123456789abcdef;
+      aad_aonly[1] = 128'hfedcba9876543210fedcba9876543210;
+      len_aonly    = 128'h00000000_00000100_00000000_00000000;
 
-      run_nist_gcm_test("AAD only: AAD=32B (2 blk), CT=0B",
-                        h_aonly, aad_aonly, ct_aonly, len_aonly, 128'h0);
+      run_nist_gcm_test("AAD only: AAD=32B (2 blk), CT=0B", h_aonly, aad_aonly, ct_aonly, len_aonly,
+                        128'h0);
     end
 
     // Extra Test: Random Vectors (10 tests)
@@ -469,8 +459,8 @@ module GHASH_tb;
 
       rand_len = {64'(r_aad_cnt * 128), 64'(r_ct_cnt * 128)};
 
-      run_nist_gcm_test($sformatf("Random Vector #%0d (AAD=%0d blk, CT=%0d blk)",
-                                  r + 1, r_aad_cnt, r_ct_cnt),
+      run_nist_gcm_test($sformatf(
+                        "Random Vector #%0d (AAD=%0d blk, CT=%0d blk)", r + 1, r_aad_cnt, r_ct_cnt),
                         rand_h, rand_aad, rand_ct, rand_len, 128'h0);
     end
 
@@ -482,10 +472,8 @@ module GHASH_tb;
     $display("   Passed : %0d", test_count - error_count);
     $display("   Failed : %0d", error_count);
     $display("==========================================================");
-    if (error_count == 0)
-      $display(" ALL TESTS PASSED (100%% Match with NIST & Golden C Model)");
-    else
-      $error(" %0d TEST(S) FAILED", error_count);
+    if (error_count == 0) $display(" ALL TESTS PASSED (100%% Match with NIST & Golden C Model)");
+    else $error(" %0d TEST(S) FAILED", error_count);
     $display("==========================================================");
 
     #20;

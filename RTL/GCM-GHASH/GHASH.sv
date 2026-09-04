@@ -50,7 +50,9 @@ module GHASH (
     if (finish_reset) begin
       ghash_finish <= 1'b0;
     end else begin
-      ghash_finish <= length_block_valid;
+      if (length_block_valid) begin
+        ghash_finish <= 1'b1;
+      end
     end
   end
 endmodule

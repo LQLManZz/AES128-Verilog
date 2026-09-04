@@ -33,7 +33,7 @@ module GF128bitMultiply_tb;
   logic [127:0] data_in;
   logic [127:0] data_out;
 
-  int test_count  = 0;
+  int test_count = 0;
   int error_count = 0;
 
   //-----------------------------------------------------------------------
@@ -61,7 +61,7 @@ module GF128bitMultiply_tb;
     logic [127:0] out_vec;
     begin
       for (int i = 0; i < 128; i++) begin
-        out_vec[i] = in_vec[127 - i];
+        out_vec[i] = in_vec[127-i];
       end
       return out_vec;
     end
@@ -71,10 +71,8 @@ module GF128bitMultiply_tb;
   // Model 1: RTL Standard Polynomial Basis Reference
   //   Carryless multiplication + Reduction by P(x) = x^128 + x^7 + x^2 + x + 1
   //=======================================================================
-  function automatic logic [255:0] carryless_multiply(
-      input logic [127:0] operand_a,
-      input logic [127:0] operand_b
-  );
+  function automatic logic [255:0] carryless_multiply(input logic [127:0] operand_a,
+                                                      input logic [127:0] operand_b);
     logic [255:0] product;
     logic [255:0] extended_a;
     begin
@@ -99,10 +97,10 @@ module GF128bitMultiply_tb;
       for (int i = 255; i >= 128; i--) begin
         if (remainder[i]) begin
           remainder[i] = 1'b0;
-          remainder[i - 128 + 7] ^= 1'b1;
-          remainder[i - 128 + 2] ^= 1'b1;
-          remainder[i - 128 + 1] ^= 1'b1;
-          remainder[i - 128]     ^= 1'b1;
+          remainder[i-128+7] ^= 1'b1;
+          remainder[i-128+2] ^= 1'b1;
+          remainder[i-128+1] ^= 1'b1;
+          remainder[i-128] ^= 1'b1;
         end
       end
 
@@ -110,10 +108,8 @@ module GF128bitMultiply_tb;
     end
   endfunction
 
-  function automatic logic [127:0] rtl_poly_mul_ref(
-      input logic [127:0] operand_a,
-      input logic [127:0] operand_b
-  );
+  function automatic logic [127:0] rtl_poly_mul_ref(input logic [127:0] operand_a,
+                                                    input logic [127:0] operand_b);
     begin
       return polynomial_reduction(carryless_multiply(operand_a, operand_b));
     end
@@ -123,10 +119,8 @@ module GF128bitMultiply_tb;
   // Model 2: Exact Golden C Implementation (from aes_gcm_golden_appendixB.c)
   //   ghash_mul() in GF(2^128) using R = 0xE1000000000000000000000000000000
   //=======================================================================
-  function automatic logic [127:0] gcm_c_golden_mul(
-      input logic [127:0] X_gcm,
-      input logic [127:0] Y_gcm
-  );
+  function automatic logic [127:0] gcm_c_golden_mul(input logic [127:0] X_gcm,
+                                                    input logic [127:0] Y_gcm);
     logic [7:0] X_bytes[16];
     logic [7:0] Y_bytes[16];
     logic [7:0] V[16];
@@ -134,14 +128,14 @@ module GF128bitMultiply_tb;
     logic [127:0] result;
     begin
       for (int i = 0; i < 16; i++) begin
-        X_bytes[i] = X_gcm[127 - 8*i -: 8];
-        Y_bytes[i] = Y_gcm[127 - 8*i -: 8];
+        X_bytes[i] = X_gcm[127-8*i-:8];
+        Y_bytes[i] = Y_gcm[127-8*i-:8];
         V[i]       = Y_bytes[i];
         Z[i]       = 8'h00;
       end
 
       for (int i = 0; i < 128; i++) begin
-        int xi = (X_bytes[i / 8] >> (7 - (i % 8))) & 1;
+        int xi = (X_bytes[i/8] >> (7 - (i % 8))) & 1;
         if (xi) begin
           for (int j = 0; j < 16; j++) begin
             Z[j] = Z[j] ^ V[j];
@@ -151,7 +145,7 @@ module GF128bitMultiply_tb;
         begin
           int lsb = V[15] & 1;
           for (int j = 15; j > 0; j--) begin
-            V[j] = (V[j] >> 1) | ((V[j - 1] & 1) << 7);
+            V[j] = (V[j] >> 1) | ((V[j-1] & 1) << 7);
           end
           V[0] = V[0] >> 1;
 
@@ -162,7 +156,7 @@ module GF128bitMultiply_tb;
       end
 
       for (int i = 0; i < 16; i++) begin
-        result[127 - 8*i -: 8] = Z[i];
+        result[127-8*i-:8] = Z[i];
       end
       return result;
     end
@@ -172,11 +166,8 @@ module GF128bitMultiply_tb;
   // Task: run_rtl_test
   //   Tests directly in RTL standard polynomial basis.
   //=======================================================================
-  task automatic run_rtl_test(
-      input logic [127:0] test_H,
-      input logic [127:0] test_data,
-      input string        test_name
-  );
+  task automatic run_rtl_test(input logic [127:0] test_H, input logic [127:0] test_data,
+                              input string test_name);
     logic [255:0] exp_product;
     logic [127:0] exp_result;
     begin
@@ -214,12 +205,8 @@ module GF128bitMultiply_tb;
   //   Takes GCM Appendix B vectors (big-endian), converts to RTL basis
   //   via bit_reverse_128, and validates against Golden C reference.
   //=======================================================================
-  task automatic run_nist_gcm_test(
-      input logic [127:0] H_gcm,
-      input logic [127:0] data_gcm,
-      input logic [127:0] expected_Z_gcm,
-      input string        test_name
-  );
+  task automatic run_nist_gcm_test(input logic [127:0] H_gcm, input logic [127:0] data_gcm,
+                                   input logic [127:0] expected_Z_gcm, input string test_name);
     logic [127:0] H_rtl;
     logic [127:0] data_rtl;
     logic [127:0] golden_c_Z_gcm;
@@ -233,8 +220,8 @@ module GF128bitMultiply_tb;
 
       // Verify golden C result matches provided expected vector if specified
       if (expected_Z_gcm !== 128'h0 && expected_Z_gcm !== golden_c_Z_gcm) begin
-        $display("  [WARNING] Provided Expected (%032h) != Golden C Model (%032h)",
-                 expected_Z_gcm, golden_c_Z_gcm);
+        $display("  [WARNING] Provided Expected (%032h) != Golden C Model (%032h)", expected_Z_gcm,
+                 golden_c_Z_gcm);
       end
 
       // Convert GCM vectors to RTL basis
@@ -243,8 +230,8 @@ module GF128bitMultiply_tb;
       exp_Z_rtl = bit_reverse_128(golden_c_Z_gcm);
 
       // Apply to DUT
-      H_reg   = H_rtl;
-      data_in = data_rtl;
+      H_reg     = H_rtl;
+      data_in   = data_rtl;
       #1;
 
       dut_Z_gcm = bit_reverse_128(data_out);
@@ -305,21 +292,17 @@ module GF128bitMultiply_tb;
                  "Reduction: x^127 * x = x^128 == x^7 + x^2 + x + 1 (0x87)");
 
     // 4. Maximum degree test: x^127 * x^127
-    run_rtl_test(128'h80000000000000000000000000000000,
-                 128'h80000000000000000000000000000000,
+    run_rtl_test(128'h80000000000000000000000000000000, 128'h80000000000000000000000000000000,
                  "Max degree: x^127 * x^127");
 
     // 5. All ones
-    run_rtl_test(128'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                 128'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+    run_rtl_test(128'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 128'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                  "All ones: 0xFF...FF x 0xFF...FF");
 
     // 6. Commutative test (A x B == B x A)
-    run_rtl_test(128'h0123456789ABCDEFFEDCBA9876543210,
-                 128'hFEDCBA98765432100123456789ABCDEF,
+    run_rtl_test(128'h0123456789ABCDEFFEDCBA9876543210, 128'hFEDCBA98765432100123456789ABCDEF,
                  "Commutative test A x B");
-    run_rtl_test(128'hFEDCBA98765432100123456789ABCDEF,
-                 128'h0123456789ABCDEFFEDCBA9876543210,
+    run_rtl_test(128'hFEDCBA98765432100123456789ABCDEF, 128'h0123456789ABCDEFFEDCBA9876543210,
                  "Commutative test B x A");
 
     //====================================================================
@@ -330,43 +313,34 @@ module GF128bitMultiply_tb;
     // Vector 1: NIST TC1/TC2 Subkey H
     //   Key = 00...00 -> H = 66e94bd4ef8a2c3b884cfa59ca342b2e
     //   Multiply H with 0 -> 0
-    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E,
-                      128'h00000000000000000000000000000000,
-                      128'h00000000000000000000000000000000,
-                      "NIST TC1/TC2: H x 0 = 0");
+    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E, 128'h00000000000000000000000000000000,
+                      128'h00000000000000000000000000000000, "NIST TC1/TC2: H x 0 = 0");
 
     // Vector 2: NIST TC2 Step 1 (H x CT[0])
     //   H     = 66e94bd4ef8a2c3b884cfa59ca342b2e
     //   CT[0] = 0388dace60b6a392f328c2b971b2fe78
     //   Expected Y1 = 5e2ec746917062882c85b0685353deb7
-    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E,
-                      128'h0388DACE60B6A392F328C2B971B2FE78,
-                      128'h5E2EC746917062882C85B0685353DEB7,
-                      "NIST TC2 Step 1: H x CT[0]");
+    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E, 128'h0388DACE60B6A392F328C2B971B2FE78,
+                      128'h5E2EC746917062882C85B0685353DEB7, "NIST TC2 Step 1: H x CT[0]");
 
     // Vector 3: NIST TC2 Step 2 (Final GHASH = H x (Y1 ^ Length_Block))
     //   Y1 ^ Len = 5e2ec746917062882c85b0685353deb7 ^ 00...0080 = 5e2ec746917062882c85b0685353de37
     //   Expected GHASH_out = f38cbb1ad69223dcc3457ae5b6b0f885
-    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E,
-                      128'h5E2EC746917062882C85B0685353DE37,
+    run_nist_gcm_test(128'h66E94BD4EF8A2C3B884CFA59CA342B2E, 128'h5E2EC746917062882C85B0685353DE37,
                       128'hF38CBB1AD69223DCC3457AE5B6B0F885,
                       "NIST TC2 Step 2: H x (Y1 ^ Len) -> GHASH_out");
 
     // Vector 4: NIST TC3/TC4 Subkey H
     //   Key = fe...08 -> H = b83b533708bf535d0aa6e52980d53b78
     //   CT[0] = 42831ec2217774244b7221b784d0d49c
-    run_nist_gcm_test(128'hB83B533708BF535D0AA6E52980D53B78,
-                      128'h42831EC2217774244B7221B784D0D49C,
-                      128'h0,
-                      "NIST TC3 Step 1: H x CT[0]");
+    run_nist_gcm_test(128'hB83B533708BF535D0AA6E52980D53B78, 128'h42831EC2217774244B7221B784D0D49C,
+                      128'h0, "NIST TC3 Step 1: H x CT[0]");
 
     // Vector 5: NIST TC4 AAD[0]
     //   H      = b83b533708bf535d0aa6e52980d53b78
     //   AAD[0] = feedfacedeadbeeffeedfacedeadbeef
-    run_nist_gcm_test(128'hB83B533708BF535D0AA6E52980D53B78,
-                      128'hFEEDFACEDEADBEEFFEEDFACEDEADBEEF,
-                      128'h0,
-                      "NIST TC4 Step 1: H x AAD[0]");
+    run_nist_gcm_test(128'hB83B533708BF535D0AA6E52980D53B78, 128'hFEEDFACEDEADBEEFFEEDFACEDEADBEEF,
+                      128'h0, "NIST TC4 Step 1: H x AAD[0]");
 
     //====================================================================
     // SECTION 3: Random Stress Testing (50 vectors)
@@ -380,8 +354,7 @@ module GF128bitMultiply_tb;
       rand_H    = {$urandom(), $urandom(), $urandom(), $urandom()};
       rand_data = {$urandom(), $urandom(), $urandom(), $urandom()};
 
-      run_nist_gcm_test(rand_H, rand_data, 128'h0,
-                        $sformatf("Random Vector #%0d", r + 1));
+      run_nist_gcm_test(rand_H, rand_data, 128'h0, $sformatf("Random Vector #%0d", r + 1));
     end
 
     //====================================================================

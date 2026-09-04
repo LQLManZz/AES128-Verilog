@@ -6,13 +6,16 @@
 // Verifies TagProcessing top-level module:
 //   - Mode 0 (Encryption): Tag Generation (tag == expected_tag).
 //   - Mode 1 (Decryption / Auth): Tag Verification:
-//       * Valid Tag: tag_ref == expected_tag  -> verify_pass == 1'b1.
+//       * Valid Tag: tag_ref == expected_tag    -> verify_pass == 1'b1.
 //       * Tampered Tag: tag_ref != expected_tag -> verify_pass == 1'b0.
-//   - Handshakes:
-//       * Subkey H: H_valid -> H_loaded.
+//   - Registered Outputs & Latched Handshakes:
+//       * Subkey H: H_valid -> H_loaded (auto-managed key reload).
 //       * Mask E: E_valid -> E_loaded.
 //       * Reference Tag: load_tag_ref -> tag_ref_loaded.
-//       * Output Valid: tag_process_valid (1-cycle pulse).
+//       * Registered Tag output: TagReg (always_ff).
+//       * Output Valid: tag_process_valid (always_ff, latched until finish_reset).
+//       * Uniform Finish Latency: ghash_finish is active for exactly 3 cycles
+//         consistently across ALL tests (both tag == tag_ref and tag != tag_ref).
 //   - Full NIST SP 800-38D Appendix B Test Vectors (TC1 to TC4).
 //
 // Reference: References/aes_gcm_golden_appendixB.c
@@ -243,14 +246,20 @@ module TagProcessing_tb;
       reset_message();
 
       // 3. Load Keys & Context synchronously
+      // If key needs to change, reload H cleanly while message is reset
+      if (!H_loaded || H_in !== dut.H_reg) begin
+        @(posedge clk);
+        load_key <= 1'b1;
+        @(posedge clk);
+        load_key <= 1'b0;
+        H        <= H_in;
+        H_valid  <= 1'b1;
+        @(posedge clk);
+        H_valid  <= 1'b0;
+      end
+
       @(posedge clk);
       mode <= test_mode;
-
-      // Load Subkey H (if not already loaded)
-      if (!H_loaded) begin
-        H       <= H_in;
-        H_valid <= 1'b1;
-      end
 
       // Load Mask E
       E       <= E_in;
@@ -266,7 +275,6 @@ module TagProcessing_tb;
       end
 
       @(posedge clk);
-      H_valid      <= 1'b0;
       E_valid      <= 1'b0;
       load_tag_ref <= 1'b0;
 
@@ -306,8 +314,20 @@ module TagProcessing_tb;
       load_CT  <= 1'b0;
       CT_last  <= 1'b0;
 
-      // Wait 1 cycle for LengthBlockCounter -> GHASH -> TagProcessing pipeline
-      @(posedge clk);
+      // Pipeline Latency:
+      // Cycle 1: LengthCounter samples CT_last -> length_block_valid <= 1
+      // Cycle 2: GHASHCore samples length_block_valid -> ghash_finish <= 1, ghash_out <= ...
+      // Cycle 3: TagProcessing (TagReg & TagProcessValidReg) samples ghash_finish ->
+      //          tag <= ghash_out ^ E_reg, tag_process_valid <= ghash_finish & E_loaded
+      // Wait synchronously for tag_process_valid (with timeout guard)
+      fork
+        begin
+          while (!tag_process_valid) @(posedge clk);
+        end
+        begin
+          repeat (10) @(posedge clk);
+        end
+      join_any
 
       //===================================================================
       // 7. CHECK VALID FINISH WINDOW
@@ -331,7 +351,7 @@ module TagProcessing_tb;
       // Assertions
       if (tag_process_valid !== 1'b1) begin
         error_count++;
-        $display("  [FAIL] tag_process_valid was NOT asserted in the valid window!");
+        $display("  [FAIL] tag_process_valid was NOT asserted!");
       end else if (tag !== exp_tag) begin
         error_count++;
         $display("  [FAIL] Tag value mismatch! (XOR diff = %032h)", tag ^ exp_tag);
@@ -340,23 +360,32 @@ module TagProcessing_tb;
         $display("  [FAIL] tag_ref_loaded should be 1 after loading tag_ref in Mode 1!");
       end else if (test_mode == 1'b1 && verify_pass !== expect_pass) begin
         error_count++;
-        $display("  [FAIL] verify_pass flag mismatch! (got %b, expected %b)",
-                 verify_pass, expect_pass);
+        $display("  [FAIL] verify_pass flag mismatch! (got %b, expected %b)", verify_pass,
+                 expect_pass);
       end else begin
         $display("  [PASS] All assertions passed.");
       end
 
       //===================================================================
-      // 8. CHECK DEASSERT (Next posedge)
+      // 8. OUTPUT STABILITY CHECK (Held until finish_reset)
       //===================================================================
       @(posedge clk);
       #1;
-      if (tag_process_valid !== 1'b0) begin
+      if (tag_process_valid !== 1'b1 || tag !== exp_tag) begin
         error_count++;
-        $display("  [FAIL] tag_process_valid did not deassert at next posedge!");
+        $display("  [FAIL] Output did not remain stably held while finish_reset is low!");
       end else begin
-        $display("  [PASS] Deassert check passed.");
+        $display("  [PASS] Output stability check passed (held until finish_reset).");
       end
+
+      //===================================================================
+      // 9. CLEAN UP MESSAGE (Assert finish_reset to complete message)
+      //    Ensures ghash_finish is active for exactly 3 clock cycles uniformly.
+      //===================================================================
+      @(posedge clk);
+      finish_reset <= 1'b1;
+      @(posedge clk);
+      finish_reset <= 1'b0;
     end
   endtask
 
@@ -445,13 +474,6 @@ module TagProcessing_tb;
       logic [127:0] aad_tc3[];
       logic [127:0] ct_tc3[4];
 
-      // Pulse load_key to clear previous H
-      @(posedge clk);
-      load_key <= 1'b1;
-      @(posedge clk);
-      load_key <= 1'b0;
-      @(posedge clk);
-
       h_tc3     = 128'hb83b533708bf535d0aa6e52980d53b78;
       e_tc3     = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
       ct_tc3[0] = 128'h42831ec2217774244b7221b784d0d49c;
@@ -493,13 +515,6 @@ module TagProcessing_tb;
       logic [127:0] aad_tc2[];
       logic [127:0] ct_tc2[1];
       logic [127:0] len_blk_tc2, ghash_tc2;
-
-      // Reload H for key 00...00
-      @(posedge clk);
-      load_key <= 1'b1;
-      @(posedge clk);
-      load_key <= 1'b0;
-      @(posedge clk);
 
       h_tc2     = 128'h66e94bd4ef8a2c3b884cfa59ca342b2e;
       e_tc2     = 128'h58e2fccefa7e3061367f1d57a4e7455a;
@@ -544,12 +559,6 @@ module TagProcessing_tb;
       logic [127:0] aad_tc4[2];
       logic [127:0] ct_tc4[4];
       logic [127:0] len_blk_tc4, ghash_tc4;
-
-      @(posedge clk);
-      load_key <= 1'b1;
-      @(posedge clk);
-      load_key <= 1'b0;
-      @(posedge clk);
 
       h_tc4      = 128'hb83b533708bf535d0aa6e52980d53b78;
       e_tc4      = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
