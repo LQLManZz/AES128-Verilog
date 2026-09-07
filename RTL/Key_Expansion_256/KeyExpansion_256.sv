@@ -9,6 +9,7 @@ module KeyExpansion_256 (
 );
   logic [3:0] round_index;
   logic [127:0] current_key;
+  logic [127:0] prev_key;
   logic [127:0] next_key;
   logic [31:0] after_GFunction;
   logic [31:0] sub_onlyMUX;
@@ -43,38 +44,59 @@ module KeyExpansion_256 (
       endcase
     end
   end
-  always_comb begin : FirstRoundKeyMUX
+  always_comb begin : PrevKeyMUX
     if (rk0) begin
-      current_key = cipher_key[255:128];
+      prev_key = cipher_key[255:128];
     end else if (rk1) begin
-      current_key = cipher_key[127:0];
+      prev_key = cipher_key[127:0];
     end else begin
       case (round_index)
-        4'd2: current_key = round_key[2];
-        4'd3: current_key = round_key[3];
-        4'd4: current_key = round_key[4];
-        4'd5: current_key = round_key[5];
-        4'd6: current_key = round_key[6];
-        4'd7: current_key = round_key[7];
-        4'd8: current_key = round_key[8];
-        4'd9: current_key = round_key[9];
-        4'd10: current_key = round_key[10];
-        4'd11: current_key = round_key[11];
-        4'd12: current_key = round_key[12];
+        4'd2: prev_key = round_key[2];
+        4'd3: prev_key = round_key[3];
+        4'd4: prev_key = round_key[4];
+        4'd5: prev_key = round_key[5];
+        4'd6: prev_key = round_key[6];
+        4'd7: prev_key = round_key[7];
+        4'd8: prev_key = round_key[8];
+        4'd9: prev_key = round_key[9];
+        4'd10: prev_key = round_key[10];
+        4'd11: prev_key = round_key[11];
+        4'd12: prev_key = round_key[12];
+        default: prev_key = 128'h0;
+      endcase
+    end
+  end
+  always_comb begin : CurrentKeyMUX
+    if (rk0) begin
+      current_key = cipher_key[127:0];
+    end else if (rk1) begin
+      current_key = round_key[2];
+    end else begin
+      case (round_index)
+        4'd2: current_key = round_key[3];
+        4'd3: current_key = round_key[4];
+        4'd4: current_key = round_key[5];
+        4'd5: current_key = round_key[6];
+        4'd6: current_key = round_key[7];
+        4'd7: current_key = round_key[8];
+        4'd8: current_key = round_key[9];
+        4'd9: current_key = round_key[10];
+        4'd10: current_key = round_key[11];
+        4'd11: current_key = round_key[12];
+        4'd12: current_key = round_key[13];
         default: current_key = 128'h0;
       endcase
     end
   end
-
   always_comb begin : WordGenerator
     if (sub_only) begin
-      next_key[127:96] = sub_onlyMUX ^ current_key[127:96];
+      next_key[127:96] = sub_onlyMUX ^ prev_key[127:96];
     end else begin
-      next_key[127:96] = after_GFunction ^ current_key[127:96];
+      next_key[127:96] = after_GFunction ^ prev_key[127:96];
     end
-    next_key[95:64] = next_key[127:96] ^ current_key[95:64];
-    next_key[63:32] = next_key[95:64] ^ current_key[63:32];
-    next_key[31:0]  = next_key[63:32] ^ current_key[31:0];
+    next_key[95:64] = next_key[127:96] ^ prev_key[95:64];
+    next_key[63:32] = next_key[95:64] ^ prev_key[63:32];
+    next_key[31:0]  = next_key[63:32] ^ prev_key[31:0];
   end
 
   SubWord sw1 (

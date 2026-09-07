@@ -70,6 +70,11 @@ module KeyExpansion_256_tb;
   end
 
   //-----------------------------------------------------------------------
+  // Typedef for Unpacked Array (Required for Cadence Xcelium compatibility)
+  //-----------------------------------------------------------------------
+  typedef logic [127:0] rk_array_t[0:14];
+
+  //-----------------------------------------------------------------------
   // Scoreboard counters
   //-----------------------------------------------------------------------
   int test_count  = 0;
@@ -77,27 +82,29 @@ module KeyExpansion_256_tb;
 
   //=======================================================================
   // NIST FIPS 197 AES S-Box Look-Up Table
+  // (Module-level constant for maximum simulator performance & compatibility)
   //=======================================================================
+  const logic [7:0] SBOX[0:255] = '{
+    8'h63, 8'h7c, 8'h77, 8'h7b, 8'hf2, 8'h6b, 8'h6f, 8'hc5, 8'h30, 8'h01, 8'h67, 8'h2b, 8'hfe, 8'hd7, 8'hab, 8'h76,
+    8'hca, 8'h82, 8'hc9, 8'h7d, 8'hfa, 8'h59, 8'h47, 8'hf0, 8'had, 8'hd4, 8'ha2, 8'haf, 8'h9c, 8'ha4, 8'h72, 8'hc0,
+    8'hb7, 8'hfd, 8'h93, 8'h26, 8'h36, 8'h3f, 8'hf7, 8'hcc, 8'h34, 8'ha5, 8'he5, 8'hf1, 8'h71, 8'hd8, 8'h31, 8'h15,
+    8'h04, 8'hc7, 8'h23, 8'hc3, 8'h18, 8'h96, 8'h05, 8'h9a, 8'h07, 8'h12, 8'h80, 8'he2, 8'heb, 8'h27, 8'hb2, 8'h75,
+    8'h09, 8'h83, 8'h2c, 8'h1a, 8'h1b, 8'h6e, 8'h5a, 8'ha0, 8'h52, 8'h3b, 8'hd6, 8'hb3, 8'h29, 8'he3, 8'h2f, 8'h84,
+    8'h53, 8'hd1, 8'h00, 8'hed, 8'h20, 8'hfc, 8'hb1, 8'h5b, 8'h6a, 8'hcb, 8'hbe, 8'h39, 8'h4a, 8'h4c, 8'h58, 8'hcf,
+    8'hd0, 8'hef, 8'haa, 8'hfb, 8'h43, 8'h4d, 8'h33, 8'h85, 8'h45, 8'hf9, 8'h02, 8'h7f, 8'h50, 8'h3c, 8'h9f, 8'ha8,
+    8'h51, 8'ha3, 8'h40, 8'h8f, 8'h92, 8'h9d, 8'h38, 8'hf5, 8'hbc, 8'hb6, 8'hda, 8'h21, 8'h10, 8'hff, 8'hf3, 8'hd2,
+    8'hcd, 8'h0c, 8'h13, 8'hec, 8'h5f, 8'h97, 8'h44, 8'h17, 8'hc4, 8'ha7, 8'h7e, 8'h3d, 8'h64, 8'h5d, 8'h19, 8'h73,
+    8'h60, 8'h81, 8'h4f, 8'hdc, 8'h22, 8'h2a, 8'h90, 8'h88, 8'h46, 8'hee, 8'hb8, 8'h14, 8'hde, 8'h5e, 8'h0b, 8'hdb,
+    8'he0, 8'h32, 8'h3a, 8'h0a, 8'h49, 8'h06, 8'h24, 8'h5c, 8'hc2, 8'hd3, 8'hac, 8'h62, 8'h91, 8'h95, 8'he4, 8'h79,
+    8'he7, 8'hc8, 8'h37, 8'h6d, 8'h8d, 8'hd5, 8'h4e, 8'ha9, 8'h6c, 8'h56, 8'hf4, 8'hea, 8'h65, 8'h7a, 8'hae, 8'h08,
+    8'hba, 8'h78, 8'h25, 8'h2e, 8'h1c, 8'ha6, 8'hb4, 8'hc6, 8'he8, 8'hdd, 8'h74, 8'h1f, 8'h4b, 8'hbd, 8'h8b, 8'h8a,
+    8'h70, 8'h3e, 8'hb5, 8'h66, 8'h48, 8'h03, 8'hf6, 8'h0e, 8'h61, 8'h35, 8'h57, 8'hb9, 8'h86, 8'hc1, 8'h1d, 8'h9e,
+    8'he1, 8'hf8, 8'h98, 8'h11, 8'h69, 8'hd9, 8'h8e, 8'h94, 8'h9b, 8'h1e, 8'h87, 8'he9, 8'hce, 8'h55, 8'h28, 8'hdf,
+    8'h8c, 8'ha1, 8'h89, 8'h0d, 8'hbf, 8'he6, 8'h42, 8'h68, 8'h41, 8'h99, 8'h2d, 8'h0f, 8'hb0, 8'h54, 8'hbb, 8'h16
+  };
+
   function automatic logic [7:0] sbox_lut(input logic [7:0] in_byte);
-    logic [7:0] sbox_table[0:255] = '{
-      8'h63, 8'h7c, 8'h77, 8'h7b, 8'hf2, 8'h6b, 8'h6f, 8'hc5, 8'h30, 8'h01, 8'h67, 8'h2b, 8'hfe, 8'hd7, 8'hab, 8'h76,
-      8'hca, 8'h82, 8'hc9, 8'h7d, 8'hfa, 8'h59, 8'h47, 8'hf0, 8'had, 8'hd4, 8'ha2, 8'haf, 8'h9c, 8'ha4, 8'h72, 8'hc0,
-      8'hb7, 8'hfd, 8'h93, 8'h26, 8'h36, 8'h3f, 8'hf7, 8'hcc, 8'h34, 8'ha5, 8'he5, 8'hf1, 8'h71, 8'hd8, 8'h31, 8'h15,
-      8'h04, 8'hc7, 8'h23, 8'hc3, 8'h18, 8'h96, 8'h05, 8'h9a, 8'h07, 8'h12, 8'h80, 8'he2, 8'heb, 8'h27, 8'hb2, 8'h75,
-      8'h09, 8'h83, 8'h2c, 8'h1a, 8'h1b, 8'h6e, 8'h5a, 8'ha0, 8'h52, 8'h3b, 8'hd6, 8'hb3, 8'h29, 8'he3, 8'h2f, 8'h84,
-      8'h53, 8'hd1, 8'h00, 8'hed, 8'h20, 8'hfc, 8'hb1, 8'h5b, 8'h6a, 8'hcb, 8'hbe, 8'h39, 8'h4a, 8'h4c, 8'h58, 8'hcf,
-      8'hd0, 8'hef, 8'haa, 8'hfb, 8'h43, 8'h4d, 8'h33, 8'h85, 8'h45, 8'hf9, 8'h02, 8'h7f, 8'h50, 8'h3c, 8'h9f, 8'ha8,
-      8'h51, 8'ha3, 8'h40, 8'h8f, 8'h92, 8'h9d, 8'h38, 8'hf5, 8'hbc, 8'hb6, 8'hda, 8'h21, 8'h10, 8'hff, 8'hf3, 8'hd2,
-      8'hcd, 8'h0c, 8'h13, 8'hec, 8'h5f, 8'h97, 8'h44, 8'h17, 8'hc4, 8'ha7, 8'h7e, 8'h3d, 8'h64, 8'h5d, 8'h19, 8'h73,
-      8'h60, 8'h81, 8'h4f, 8'hdc, 8'h22, 8'h2a, 8'h90, 8'h88, 8'h46, 8'hee, 8'hb8, 8'h14, 8'hde, 8'h5e, 8'h0b, 8'hdb,
-      8'he0, 8'h32, 8'h3a, 8'h0a, 8'h49, 8'h06, 8'h24, 8'h5e, 8'hc2, 8'hd3, 8'hac, 8'h62, 8'h91, 8'h95, 8'he4, 8'h79,
-      8'he7, 8'hc8, 8'h37, 8'h6d, 8'h8d, 8'hd5, 8'h4e, 8'ha9, 8'h6c, 8'h56, 8'hf4, 8'hea, 8'h65, 8'h7a, 8'hae, 8'h08,
-      8'hba, 8'h78, 8'h25, 8'h2e, 8'h1c, 8'ha6, 8'hb4, 8'hc6, 8'he8, 8'hdd, 8'h74, 8'h1f, 8'h4b, 8'hbd, 8'h8b, 8'h8a,
-      8'h70, 8'h3e, 8'hb5, 8'h66, 8'h48, 8'h03, 8'hf6, 8'h0e, 8'h61, 8'h35, 8'h57, 8'hb9, 8'h86, 8'hc1, 8'h1d, 8'h9e,
-      8'he1, 8'hf8, 8'h98, 8'h11, 8'h69, 8'hd9, 8'h8e, 8'h94, 8'h9b, 8'h1e, 8'h87, 8'he9, 8'hce, 8'h55, 8'h28, 8'hdf,
-      8'h8c, 8'ha1, 8'h89, 8'h0d, 8'hbf, 8'he6, 8'h42, 8'h68, 8'h41, 8'h99, 8'h2d, 8'h0f, 8'hb0, 8'h54, 8'hbb, 8'h16
-    };
-    return sbox_table[in_byte];
+    return SBOX[in_byte];
   endfunction
 
   function automatic logic [31:0] subword_func(input logic [31:0] word_in);
@@ -127,7 +134,7 @@ module KeyExpansion_256_tb;
   //=======================================================================
   function automatic void fips197_aes256_key_expansion(
       input  logic [255:0] cipher_key_in,
-      output logic [127:0] exp_round_keys[0:14]
+      output rk_array_t    exp_round_keys
   );
     logic [31:0] w[0:59];
     logic [31:0] temp;
@@ -186,14 +193,15 @@ module KeyExpansion_256_tb;
   //   2. Asserts expansion_en.
   //   3. Waits for expansion_finish (expected 13 cycles).
   //   4. Verifies all 15 round keys [0:14] against NIST FIPS 197 Golden Model.
-  //   5. Deasserts expansion_en and checks finish handshake drops to 0.
+  //   5. Standard CU.sv FSM handshake: holds en=1 for 1 cycle when finish=1,
+  //      deasserts en=0 at next posedge, and finish clears on following posedge.
   //=======================================================================
   task automatic run_key_expansion_test(
       input string        test_name,
       input logic [255:0] key_input,
-      input logic [127:0] expected_round_keys[0:14]
+      input rk_array_t    expected_round_keys
   );
-    logic [127:0] model_round_keys[0:14];
+    rk_array_t model_round_keys;
     int mismatch_count;
     int wait_cycles;
     begin
@@ -212,21 +220,25 @@ module KeyExpansion_256_tb;
       cipher_key   <= key_input;
       expansion_en <= 1'b1;
 
-      // 2. Wait for expansion_finish with timeout guard (max 20 clock cycles)
-      wait_cycles = 0;
-      while (!expansion_finish && wait_cycles < 20) begin
-        @(posedge clk);
-        wait_cycles++;
-      end
+      // 2. Wait for expansion_finish to assert (exact style of tb_KeyExpansion.sv)
+      fork
+        begin
+          wait (expansion_finish);
+        end
+        begin
+          repeat (30) @(posedge clk);
+        end
+      join_any
+      disable fork;
 
-      #1; // Sample shortly after clock edge
+      #1; // Sample immediately after expansion_finish assertion edge
 
       // 3. Check handshake flag
       if (!expansion_finish) begin
         error_count++;
-        $display("  [FAIL] expansion_finish TIMEOUT! Did not assert after %0d cycles.", wait_cycles);
+        $display("  [FAIL] expansion_finish TIMEOUT! Never asserted within 30 cycles.");
       end else begin
-        $display("  [Handshake] expansion_finish asserted at cycle %0d (Expected: ~13 cycles).", wait_cycles);
+        $display("  [Handshake] expansion_finish asserted (round 12 completed, round keys ready).");
       end
 
       // 4. Detailed Round Key Verification (Rounds 0 to 14)
@@ -253,16 +265,19 @@ module KeyExpansion_256_tb;
         $display("  => %0d / 15 round keys MISMATCHED.", mismatch_count);
       end
 
-      // 5. Deassert expansion_en and verify expansion_finish clears
+      // 5. Handshake deassertion protocol (exact style of tb_KeyExpansion.sv):
+      // At the next posedge clk, deassert expansion_en.
+      // Both expansion_en and expansion_finish deassert simultaneously at this exact edge,
+      // making expansion_finish active for exactly 1 clock cycle.
       @(posedge clk);
-      expansion_en <= 1'b0;
-      @(posedge clk);
+      expansion_en = 1'b0;
       #1;
-      if (expansion_finish !== 1'b0) begin
+      if (expansion_en !== 1'b0 || expansion_finish !== 1'b0) begin
         error_count++;
-        $display("  [FAIL] expansion_finish did not deassert when expansion_en = 0!");
+        $display("  [FAIL] Signals did not deassert simultaneously! expansion_en = %b, expansion_finish = %b",
+                 expansion_en, expansion_finish);
       end else begin
-        $display("  [PASS] expansion_finish cleanly deasserted when expansion_en = 0.");
+        $display("  [PASS] expansion_finish active for exactly 1 clock cycle; expansion_en and expansion_finish cleanly deasserted simultaneously (both = 0).");
       end
     end
   endtask
@@ -291,7 +306,8 @@ module KeyExpansion_256_tb;
     // TEST 1: Global Reset Verification
     //-------------------------------------------------------------------
     begin
-      int reset_error = 0;
+      int reset_error;
+      reset_error = 0;
       test_count++;
       $display("--------------------------------------------------------------------------------");
       $display("Test %0d: Global Reset Verification (rst_n = 0)", test_count);
@@ -325,7 +341,7 @@ module KeyExpansion_256_tb;
     //-------------------------------------------------------------------
     begin
       logic [255:0] key_a3;
-      logic [127:0] rk_a3[0:14];
+      rk_array_t    rk_a3;
 
       key_a3 = 256'h603deb10_15ca71be_2b73aef0_857d7781_1f352c07_3b6108d7_2d9810a3_0914dff4;
 
@@ -357,7 +373,7 @@ module KeyExpansion_256_tb;
     //-------------------------------------------------------------------
     begin
       logic [255:0] key_c3;
-      logic [127:0] rk_c3[0:14];
+      rk_array_t    rk_c3;
 
       key_c3 = 256'h00010203_04050607_08090a0b_0c0d0e0f_10111213_14151617_18191a1b_1c1d1e1f;
 
@@ -373,10 +389,10 @@ module KeyExpansion_256_tb;
       rk_c3[ 8] = 128'h0bdc905f_c27b0948_ad5245a4_c1871c2f;
       rk_c3[ 9] = 128'h45f5a660_17b2d387_300d4d33_640a820a;
       rk_c3[10] = 128'h7ccff71c_beb4fe54_13e6bbf0_d261a7df;
-      rk_c3[11] = 128'hf01af8fe_e7a82b79_d7a5664a_b3afe440;
-      rk_c3[12] = 128'h25a6fe71_9b120025_88f4bbd5_5a951c0a;
-      rk_c3[13] = 128'h4e306499_a9984fe0_7e3d29aa_cd92cdea;
-      rk_c3[14] = 128'h2a1b79cc_b10979e9_39fdc23c_6368de36;
+      rk_c3[11] = 128'hf01afafe_e7a82979_d7a5644a_b3afe640;
+      rk_c3[12] = 128'h2541fe71_9bf50025_8813bbd5_5a721c0a;
+      rk_c3[13] = 128'h4e5a6699_a9f24fe0_7e572baa_cdf8cdea;
+      rk_c3[14] = 128'h24fc79cc_bf0979e9_371ac23c_6d68de36;
 
       run_key_expansion_test("NIST FIPS 197 Appendix C.3 Example", key_c3, rk_c3);
     end
@@ -386,7 +402,7 @@ module KeyExpansion_256_tb;
     //-------------------------------------------------------------------
     begin
       logic [255:0] key_zeros;
-      logic [127:0] rk_zeros[0:14];
+      rk_array_t    rk_zeros;
 
       key_zeros = 256'h0;
 
@@ -414,7 +430,7 @@ module KeyExpansion_256_tb;
     //-------------------------------------------------------------------
     begin
       logic [255:0] key_b2b;
-      logic [127:0] rk_dummy[0:14];
+      rk_array_t    rk_dummy;
 
       for (int i = 0; i <= 14; i++) rk_dummy[i] = 128'h0;
 
