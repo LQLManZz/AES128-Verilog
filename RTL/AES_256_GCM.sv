@@ -1,11 +1,12 @@
-module AES_GCM(
+module AES_256_GCM(
     input logic clk, rst_n,
     input logic load_key, load_IV,
     input logic mode, load_tag_ref,
     input logic load_AAD, no_AAD, AAD_last,
     input logic load_data, data_in_last,
     input logic verify_checked,
-    input logic [127:0] cipher_key, tag_ref,
+    input logic [255:0] cipher_key,
+    input logic [127:0] tag_ref,
     input logic [127:0] AAD, data_in,
     input logic [95:0] IV,
     output logic tag_valid, verify_pass,
