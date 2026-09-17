@@ -17,7 +17,7 @@
 import protocol_pkg::*;
 
 module aes128_uart_wrapper #(
-    parameter int CLK_FREQ_HZ = 100_000_000,
+    parameter int CLK_FREQ_HZ = 50_000_000,
     parameter int BAUD_RATE   = 115_200
 )(
     input  logic clk,
@@ -28,8 +28,9 @@ module aes128_uart_wrapper #(
     output logic uart_tx,
 
     // Status diagnostics
-    output logic led_busy,
-    output logic led_done
+    output logic       led_busy,
+    output logic       led_done,
+    output logic [4:0] led_unused
 );
 
     //-------------------------------------------------------------------------
@@ -157,8 +158,10 @@ module aes128_uart_wrapper #(
         WRAP_START_KEY_IV,
         WRAP_WAIT_AAD_READY,
         WRAP_STREAM_AAD,
+        WRAP_HOLD_AAD_LAST,
         WRAP_WAIT_DATA_READY,
         WRAP_STREAM_PT,
+        WRAP_HOLD_PT_LAST,
         WRAP_WAIT_PIPELINE,
         WRAP_SEND_CT,
         WRAP_WAIT_CT_SENT,
@@ -306,11 +309,15 @@ module aes128_uart_wrapper #(
             if (parser_cmd_load_key_done) begin
                 reg_key              <= parser_key;
                 reg_key_len          <= parser_key_len;
+                cnt_aad_blocks       <= 4'd0;
+                cnt_pt_blocks        <= 4'd0;
                 builder_send_ack_key <= 1'b1;
             end
 
             if (parser_cmd_load_iv_done) begin
                 reg_iv              <= parser_iv;
+                cnt_aad_blocks      <= 4'd0;
+                cnt_pt_blocks       <= 4'd0;
                 builder_send_ack_iv <= 1'b1;
             end
 
@@ -394,8 +401,6 @@ module aes128_uart_wrapper #(
             builder_send_ciphertext <= 1'b0;
             builder_ct_len_bytes    <= 8'h00;
             builder_send_auth_tag   <= 1'b0;
-            led_busy                <= 1'b0;
-            led_done                <= 1'b0;
         end else begin
             aes_load_key            <= 1'b0;
             aes_load_iv             <= 1'b0;
@@ -406,16 +411,13 @@ module aes128_uart_wrapper #(
             aes_data_in_last        <= 1'b0;
             builder_send_ciphertext <= 1'b0;
             builder_send_auth_tag   <= 1'b0;
-            led_done                <= 1'b0;
 
             case (wrap_state)
                 WRAP_IDLE: begin
-                    led_busy    <= 1'b0;
                     cur_aad_idx <= 4'd0;
                     cur_pt_idx  <= 4'd0;
 
                     if (parser_cmd_start_encrypt_done) begin
-                        led_busy       <= 1'b1;
                         // AES-128 receives lower 128 bits of key
                         aes_cipher_key <= reg_key[127:0];
                         aes_iv_in      <= reg_iv;
@@ -440,7 +442,7 @@ module aes128_uart_wrapper #(
                             aes_load_aad <= 1'b1;
                             if (cnt_aad_blocks == 4'd1) begin
                                 aes_aad_last <= 1'b1;
-                                wrap_state   <= WRAP_WAIT_DATA_READY;
+                                wrap_state   <= WRAP_HOLD_AAD_LAST;
                             end else begin
                                 cur_aad_idx <= 4'd1;
                                 wrap_state  <= WRAP_STREAM_AAD;
@@ -460,6 +462,12 @@ module aes128_uart_wrapper #(
                     end
                 end
 
+                WRAP_HOLD_AAD_LAST: begin
+                    aes_load_aad <= 1'b0;
+                    aes_aad_last <= 1'b1;
+                    wrap_state   <= WRAP_WAIT_DATA_READY;
+                end
+
                 WRAP_WAIT_DATA_READY: begin
                     if (aes_data_ready) begin
                         cur_pt_idx    <= 4'd0;
@@ -467,7 +475,7 @@ module aes128_uart_wrapper #(
                         aes_load_data <= 1'b1;
                         if (cnt_pt_blocks == 4'd1) begin
                             aes_data_in_last <= 1'b1;
-                            wrap_state       <= WRAP_WAIT_PIPELINE;
+                            wrap_state       <= WRAP_HOLD_PT_LAST;
                         end else begin
                             cur_pt_idx <= 4'd1;
                             wrap_state <= WRAP_STREAM_PT;
@@ -484,6 +492,12 @@ module aes128_uart_wrapper #(
                     end else begin
                         cur_pt_idx <= cur_pt_idx + 1'b1;
                     end
+                end
+
+                WRAP_HOLD_PT_LAST: begin
+                    aes_load_data    <= 1'b0;
+                    aes_data_in_last <= 1'b1;
+                    wrap_state       <= WRAP_WAIT_PIPELINE;
                 end
 
                 WRAP_WAIT_PIPELINE: begin
@@ -511,8 +525,6 @@ module aes128_uart_wrapper #(
 
                 WRAP_WAIT_TAG_SENT: begin
                     if (builder_packet_sent) begin
-                        led_busy   <= 1'b0;
-                        led_done   <= 1'b1;
                         wrap_state <= WRAP_IDLE;
                     end
                 end
@@ -522,6 +534,38 @@ module aes128_uart_wrapper #(
                 end
             endcase
         end
+    end
+
+    //-------------------------------------------------------------------------
+    // Diagnostic 1 Hz Heartbeat Generator & Status Diagnostics (Biện pháp 2)
+    // - led_busy (Pin T18): High when FPGA is actively calculating encryption
+    // - led_done (Pin V17):
+    //     * In WRAP_IDLE: Pulses as a 1.0 Hz Heartbeat (0.5s ON, 0.5s OFF)
+    //       verifying clock frequency and reset release on the FPGA.
+    //     * On packet completion: Stays solid ON during WRAP_WAIT_TAG_SENT.
+    //-------------------------------------------------------------------------
+    localparam int HEARTBEAT_HALF_PERIOD = CLK_FREQ_HZ / 2;
+    logic [31:0] heartbeat_cnt;
+    logic        heartbeat_toggle;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            heartbeat_cnt    <= 32'd0;
+            heartbeat_toggle <= 1'b0;
+        end else begin
+            if (heartbeat_cnt >= HEARTBEAT_HALF_PERIOD - 1) begin
+                heartbeat_cnt    <= 32'd0;
+                heartbeat_toggle <= ~heartbeat_toggle;
+            end else begin
+                heartbeat_cnt    <= heartbeat_cnt + 1'b1;
+            end
+        end
+    end
+
+    always_comb begin
+        led_busy   = (wrap_state != WRAP_IDLE);
+        led_done   = (wrap_state == WRAP_IDLE) ? heartbeat_toggle : (wrap_state == WRAP_WAIT_TAG_SENT);
+        led_unused = 5'b00000; // Actively drive remaining onboard LEDs (LED3..LED7) LOW (OFF)
     end
 
 endmodule

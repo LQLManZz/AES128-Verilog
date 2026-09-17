@@ -23,6 +23,7 @@ module tb_aes128_uart_wrapper;
     logic uart_tx;
     logic led_busy;
     logic led_done;
+    logic [4:0] led_unused;
 
     int test_count  = 0;
     int error_count = 0;
@@ -31,12 +32,13 @@ module tb_aes128_uart_wrapper;
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
         .BAUD_RATE  (BAUD_RATE)
     ) dut (
-        .clk     (clk),
-        .rst_n   (rst_n),
-        .uart_rx (uart_rx),
-        .uart_tx (uart_tx),
-        .led_busy(led_busy),
-        .led_done(led_done)
+        .clk        (clk),
+        .rst_n      (rst_n),
+        .uart_rx    (uart_rx),
+        .uart_tx    (uart_tx),
+        .led_busy   (led_busy),
+        .led_done   (led_done),
+        .led_unused (led_unused)
     );
 
     initial begin

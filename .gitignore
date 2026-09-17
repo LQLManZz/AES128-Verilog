@@ -8,3 +8,9 @@ tokkkk.txt
 Lint*Checking*.md
 Spec*Validation*.md
 fix-notes.md
+AES-GCM-Libero
+edaplayground
+*.log
+*.tcl
+*.bak
+uart_integration\python\__pycache__
