@@ -15,7 +15,8 @@ package protocol_pkg;
         CMD_LOAD_IV        = 8'h02, // 12 bytes (96 bits)
         CMD_LOAD_AAD       = 8'h03, // Multiples of 16 bytes
         CMD_LOAD_PLAINTEXT = 8'h04, // Multiples of 16 bytes
-        CMD_START_ENCRYPT  = 8'h05  // 0 bytes payload
+        CMD_START_ENCRYPT  = 8'h05, // 0 bytes payload (starts encryption pipeline)
+        CMD_START_DECRYPT  = 8'h07  // 0 bytes payload (starts decryption pipeline)
     } cmd_opcode_t;
 
     // Response Opcodes (FPGA Accelerator -> Host PC)

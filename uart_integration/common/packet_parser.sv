@@ -48,6 +48,7 @@ module packet_parser (
     output logic         cmd_load_aad_done,
     output logic         cmd_load_pt_done,
     output logic         cmd_start_encrypt_done,
+    output logic         cmd_start_decrypt_done,
 
     // Error status
     output logic         err_unknown_cmd,
@@ -101,6 +102,7 @@ module packet_parser (
             cmd_load_aad_done      <= 1'b0;
             cmd_load_pt_done       <= 1'b0;
             cmd_start_encrypt_done <= 1'b0;
+            cmd_start_decrypt_done <= 1'b0;
 
             err_unknown_cmd        <= 1'b0;
             err_len_mismatch       <= 1'b0;
@@ -113,6 +115,7 @@ module packet_parser (
             cmd_load_aad_done      <= 1'b0;
             cmd_load_pt_done       <= 1'b0;
             cmd_start_encrypt_done <= 1'b0;
+            cmd_start_decrypt_done <= 1'b0;
             err_unknown_cmd        <= 1'b0;
             err_len_mismatch       <= 1'b0;
 
@@ -187,6 +190,17 @@ module packet_parser (
                         CMD_START_ENCRYPT: begin // Length must be 0
                             if (len_reg == 8'd0) begin
                                 cmd_start_encrypt_done <= 1'b1;
+                                state                  <= ST_IDLE;
+                            end else begin
+                                err_len_mismatch <= 1'b1;
+                                err_cmd_code     <= cmd_reg;
+                                state            <= ST_IDLE;
+                            end
+                        end
+
+                        CMD_START_DECRYPT: begin // Length must be 0
+                            if (len_reg == 8'd0) begin
+                                cmd_start_decrypt_done <= 1'b1;
                                 state                  <= ST_IDLE;
                             end else begin
                                 err_len_mismatch <= 1'b1;

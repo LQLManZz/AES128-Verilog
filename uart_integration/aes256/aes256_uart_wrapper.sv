@@ -63,6 +63,7 @@ module aes256_uart_wrapper #(
     logic         parser_cmd_load_aad_done;
     logic         parser_cmd_load_pt_done;
     logic         parser_cmd_start_encrypt_done;
+    logic         parser_cmd_start_decrypt_done;
 
     logic         parser_err_unknown;
     logic         parser_err_len;
@@ -148,11 +149,16 @@ module aes256_uart_wrapper #(
     assign builder_ct_block_data = mem_ct[builder_ct_block_sel];
     assign builder_tag_data      = reg_tag;
 
-    // Fixed configuration for encryption
-    assign aes_mode           = 1'b0; // 0 = Encryption
-    assign aes_load_tag_ref   = 1'b0;
+    // Dynamic configuration for encryption (mode=0) and decryption (mode=1)
+    logic reg_aes_mode;
+    logic reg_load_tag_ref;
+    logic reg_verify_checked;
+    logic tag_ref_sent;
+
+    assign aes_mode           = reg_aes_mode;
+    assign aes_load_tag_ref   = reg_load_tag_ref;
     assign aes_tag_ref        = 128'h0;
-    assign aes_verify_checked = 1'b0;
+    assign aes_verify_checked = reg_verify_checked;
 
     //-------------------------------------------------------------------------
     // Wrapper Orchestration State Machine
@@ -223,6 +229,7 @@ module aes256_uart_wrapper #(
         .cmd_load_aad_done     (parser_cmd_load_aad_done),
         .cmd_load_pt_done      (parser_cmd_load_pt_done),
         .cmd_start_encrypt_done(parser_cmd_start_encrypt_done),
+        .cmd_start_decrypt_done(parser_cmd_start_decrypt_done),
         .err_unknown_cmd       (parser_err_unknown),
         .err_len_mismatch      (parser_err_len),
         .err_cmd_code          (parser_err_code)
@@ -378,7 +385,7 @@ module aes256_uart_wrapper #(
                 cnt_ct_captured         <= cnt_ct_captured + 1'b1;
             end
 
-            if (aes_tag_valid) begin
+            if (aes_tag_valid || (reg_aes_mode && aes_verify_done)) begin
                 reg_tag          <= aes_tag_out;
                 reg_tag_captured <= 1'b1;
             end
@@ -391,6 +398,10 @@ module aes256_uart_wrapper #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             wrap_state              <= WRAP_IDLE;
+            reg_aes_mode            <= 1'b0;
+            reg_load_tag_ref        <= 1'b0;
+            reg_verify_checked      <= 1'b0;
+            tag_ref_sent            <= 1'b0;
             aes_load_key            <= 1'b0;
             aes_load_iv             <= 1'b0;
             aes_load_aad            <= 1'b0;
@@ -410,6 +421,8 @@ module aes256_uart_wrapper #(
         end else begin
             aes_load_key            <= 1'b0;
             aes_load_iv             <= 1'b0;
+            reg_load_tag_ref        <= 1'b0;
+            reg_verify_checked      <= 1'b0;
             aes_load_aad            <= 1'b0;
             aes_no_aad              <= 1'b0;
             aes_aad_last            <= 1'b0;
@@ -420,11 +433,13 @@ module aes256_uart_wrapper #(
 
             case (wrap_state)
                 WRAP_IDLE: begin
-                    cur_aad_idx <= 4'd0;
-                    cur_pt_idx  <= 4'd0;
+                    cur_aad_idx  <= 4'd0;
+                    cur_pt_idx   <= 4'd0;
+                    tag_ref_sent <= 1'b0;
 
-                    if (parser_cmd_start_encrypt_done) begin
-                        // AES-256 receives full 256-bit key
+                    if (parser_cmd_start_encrypt_done || parser_cmd_start_decrypt_done) begin
+                        // 0 = Encryption, 1 = Decryption
+                        reg_aes_mode   <= parser_cmd_start_decrypt_done;
                         aes_cipher_key <= reg_key;
                         aes_iv_in      <= reg_iv;
                         aes_load_key   <= 1'b1;
@@ -438,6 +453,12 @@ module aes256_uart_wrapper #(
                 end
 
                 WRAP_WAIT_AAD_READY: begin
+                    // In Decryption mode, satisfy CU's WAIT_TAG_REF handshake
+                    if (reg_aes_mode && aes_tag_ref_ready && !tag_ref_sent) begin
+                        reg_load_tag_ref <= 1'b1;
+                        tag_ref_sent     <= 1'b1;
+                    end
+
                     if (aes_aad_ready) begin
                         if (cnt_aad_blocks == 4'd0) begin
                             aes_no_aad <= 1'b1;
@@ -507,6 +528,9 @@ module aes256_uart_wrapper #(
                 end
 
                 WRAP_WAIT_PIPELINE: begin
+                    if (reg_aes_mode && aes_verify_done) begin
+                        reg_verify_checked <= 1'b1;
+                    end
                     if ((cnt_ct_captured == cnt_pt_blocks) && reg_tag_captured) begin
                         wrap_state <= WRAP_SEND_CT;
                     end

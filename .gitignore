@@ -13,4 +13,4 @@ edaplayground
 *.log
 *.tcl
 *.bak
-uart_integration\python\__pycache__
+uart_integration\python\__pycache__\
