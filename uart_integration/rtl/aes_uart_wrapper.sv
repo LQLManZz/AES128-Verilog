@@ -257,6 +257,7 @@ module aes_uart_wrapper #(
         .AAD_last             (aes_aad_last),
         .load_data            (aes_load_data),
         .data_in_last         (aes_data_in_last),
+        .verify_checked       (1'b0),
         .cipher_key           (aes_cipher_key),
         .tag_ref              (aes_tag_ref),
         .AAD                  (aes_aad_in),
@@ -274,7 +275,8 @@ module aes_uart_wrapper #(
         .AAD_ready            (aes_aad_ready),
         .data_ready           (aes_data_ready),
         .tag                  (aes_tag_out),
-        .data_out             (aes_data_out)
+        .data_out             (aes_data_out),
+        .verify_done          ()
     );
 
     //-------------------------------------------------------------------------
