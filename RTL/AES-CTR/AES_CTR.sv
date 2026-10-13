@@ -94,7 +94,7 @@ module AES_CTR(
         end
     end
 
-    assign CT = mode? FIFO_data : (FIFO_data [127:0] ^ keystream); 
+    assign CT = mode? FIFO_data [127:0] : (FIFO_data [127:0] ^ keystream); 
     assign CT_valid = keystream_valid;
     assign CT_last  = keystream_valid & FIFO_data[128];
 endmodule

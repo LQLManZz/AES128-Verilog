@@ -14,3 +14,21 @@ edaplayground
 *.tcl
 *.bak
 uart_integration\python\__pycache__\
+# Simulation / tool artifacts
+*.vcd
+*.wlf
+*.fst
+*.vvp
+*.jou
+*.wdb
+work/
+transcript
+modelsim.ini
+xsim.dir/
+.Xil/
+*.pb
+__pycache__/
+*.pyc
+.vscode/
+.DS_Store
+Thumbs.db

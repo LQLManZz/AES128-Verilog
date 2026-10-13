@@ -4,7 +4,9 @@ module AES_GCM(
     input logic mode, load_tag_ref,
     input logic load_AAD, no_AAD, AAD_last,
     input logic load_data, data_in_last,
-    input logic [127:0] cipher_key, tag_ref,
+    input logic verify_checked,
+    input logic [127:0] cipher_key,
+    input logic [127:0] tag_ref,
     input logic [127:0] AAD, data_in,
     input logic [95:0] IV,
     output logic tag_valid, verify_pass,
@@ -13,7 +15,8 @@ module AES_GCM(
     output logic finish, tag_ref_ready,
     output logic key_ready, IV_ready,
     output logic AAD_ready, data_ready,
-    output logic [127:0] tag, data_out
+    output logic [127:0] tag, data_out,
+    output logic verify_done
     );
 
     logic start, finish_reset;
@@ -51,9 +54,11 @@ module AES_GCM(
             .expansion_finish(expansion_finish),.H_loaded(H_loaded),.IV_loaded(IV_loaded),
             .tag_ref_loaded(tag_ref_loaded),.mode(mode),.load_AAD(load_AAD),.no_AAD(no_AAD),
             .AAD_last(AAD_last),.load_data(load_data),.data_in_last(data_in_last),
-            .process_finish(process_finish),.expansion_en(expansion_en),.finish(finish),
-            .key_ready(key_ready),.IV_ready(IV_ready),.tag_ref_ready(tag_ref_ready),
-            .AAD_ready(AAD_ready),.data_ready(data_ready));
+            .process_finish(process_finish),.verify_checked(verify_checked),
+            .expansion_en(expansion_en),.finish(finish),.key_ready(key_ready),
+            .IV_ready(IV_ready),.tag_ref_ready(tag_ref_ready),.AAD_ready(AAD_ready),
+            .data_ready(data_ready),.verify_done(verify_done),
+            .CTR_counter_overflow(CTR_counter_overflow));
     
     assign tag_valid = (~mode) & tag_process_finish;
 endmodule
