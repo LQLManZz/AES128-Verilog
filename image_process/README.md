@@ -128,6 +128,8 @@ Mỗi dòng trong file txt là một gói, phần sau `#` là chú thích:
 
 - **Key không được bảo vệ.** Key nằm trong `tx.txt`, `tx.bin` và đi không mã hóa qua UART theo thiết kế giao thức. Chỉ dùng key demo. `output/` đã được gitignore.
 - **Tag khác NIST.** RTL tính GHASH theo cơ sở đa thức không đảo bit, nên tag không khớp thư viện GCM chuẩn. `gcm_model.py` tái tạo đúng tag RTL. Ciphertext thì khớp NIST.
+- **Ảnh 16-bit, 32-bit và float được co về 8-bit.** Dữ liệu số nguyên trong khoảng 0–65535 chia theo thang 16-bit, float trong khoảng 0–1 giữ nguyên độ sáng. Các khoảng khác được giãn theo giá trị nhỏ nhất và lớn nhất của ảnh. Ảnh có `NaN` hoặc vô cực bị từ chối.
+- **TIFF nhiều trang chỉ lấy trang đầu.**
 - **Khúc 240 byte chưa chạy trên board.** Vector lớn nhất đã kiểm thử là 64 byte. Nếu board gặp lỗi, dùng `--chunk-blocks 4`.
 
 ## Tốc độ truyền dự kiến

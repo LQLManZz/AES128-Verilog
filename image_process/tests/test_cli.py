@@ -98,3 +98,31 @@ def test_16_bit_png_is_not_clipped_to_white(tmp_path):
     path = tmp_path / "deep.png"
     Image.new("I;16", (8, 8), 32768).save(path)
     assert set(image_io.load_gray(path, (8, 8)).tobytes()) == {128}
+
+
+def tiff_row(tmp_path, mode, values):
+    path = tmp_path / "row.tiff"
+    img = Image.new(mode, (len(values), 1))
+    img.putdata(values)
+    img.save(path)
+    return path
+
+
+@pytest.mark.parametrize("mode,values,expected", [
+    ("F", [0.0, 0.5, 1.0], [0, 127, 255]),         # Normalised floats use the full 0..1 scale
+    ("F", [0.2, 0.6], [51, 153]),                  # ...so a dim image stays dim
+    ("F", [-1.0, 0.0, 1.0], [0, 127, 255]),        # Other ranges stretch to fit
+    ("F", [0.0, 500.0, 1000.0], [0, 127, 255]),
+    ("I", [0, 2 ** 30, 2 ** 31 - 1], [0, 127, 255]),
+    ("I", [0, 32768, 65535], [0, 128, 255]),       # 16-bit data in a 32-bit file
+    ("F", [5.0, 5.0], [0, 0]),                     # Flat image has no range to stretch
+])
+def test_high_depth_tiff_keeps_its_tones(tmp_path, mode, values, expected):
+    pixels = image_io.load_gray(tiff_row(tmp_path, mode, values), (len(values), 1)).tobytes()
+    assert [abs(a - b) <= 1 for a, b in zip(pixels, expected)] == [True] * len(expected)
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan")])
+def test_non_finite_tiff_is_rejected(tmp_path, bad):
+    with pytest.raises(ValueError, match="finite"):
+        image_io.load_gray(tiff_row(tmp_path, "F", [0.0, bad, 1.0]), (3, 1))

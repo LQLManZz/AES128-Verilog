@@ -1,15 +1,34 @@
 """Image file <-> raw 8-bit grayscale pixel bytes."""
 
+import math
+from array import array
 from pathlib import Path
 from typing import Tuple
 
 from PIL import Image, ImageOps
 
 
-def _to_gray(img: Image.Image) -> Image.Image:
-    if img.mode.startswith("I"):
-        # 16-bit samples would clip to white in a plain convert("L")
+def _scale_to_8_bit(img: Image.Image) -> Image.Image:
+    """Maps integer and float samples onto 0..255, because a plain convert("L") clips them."""
+    is_float = img.mode == "F"
+    # getextrema() can miss a NaN, so every sample has to be checked
+    if is_float and not all(map(math.isfinite, array("f", img.tobytes()))):
+        raise ValueError("Image holds non-finite samples (NaN or infinity)")
+
+    low, high = img.getextrema()
+    if not is_float and low >= 0 and high < 65536:
         return img.point(lambda value: value * (1 / 256)).convert("L")
+    if is_float and low >= 0 and high <= 1:
+        low, high = 0.0, 1.0  # Already normalised, so a dim image stays dim
+
+    scale = 255 / (high - low) if high > low else 0
+    offset = -low * scale
+    return img.convert("F").point(lambda value: value * scale + offset).convert("L")
+
+
+def _to_gray(img: Image.Image) -> Image.Image:
+    if img.mode.startswith("I") or img.mode == "F":
+        return _scale_to_8_bit(img)
     if img.has_transparency_data:
         rgba = img.convert("RGBA")
         white = Image.new("RGBA", rgba.size, "white")
