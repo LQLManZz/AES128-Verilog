@@ -32,35 +32,14 @@ except ImportError:
     print("    Please install it using: pip install pyserial")
     sys.exit(1)
 
-# =============================================================================
-# Protocol Command & Response Opcodes
-# =============================================================================
-CMD_LOAD_KEY       = 0x01  # Length: 16 (AES-128) or 32 (AES-256)
-CMD_LOAD_IV        = 0x02  # Length: 12 (96 bits)
-CMD_LOAD_AAD       = 0x03  # Length: Multiples of 16 (16..256 bytes)
-CMD_LOAD_PLAINTEXT = 0x04  # Length: Multiples of 16 (16..256 bytes)
-CMD_START_ENCRYPT  = 0x05  # Length: 0 (Encryption mode)
-CMD_START_DECRYPT  = 0x07  # Length: 0 (Decryption mode)
-
-RESP_ACK_KEY       = 0x81
-RESP_ACK_IV        = 0x82
-RESP_ACK_AAD       = 0x83
-RESP_ACK_PLAINTEXT = 0x84
-RESP_CIPHERTEXT    = 0x90
-RESP_AUTH_TAG      = 0x91
-RESP_ERR_UNKNOWN   = 0xE0
-RESP_ERR_LEN       = 0xE1
-
-RESP_NAMES = {
-    RESP_ACK_KEY:       "ACK_KEY",
-    RESP_ACK_IV:        "ACK_IV",
-    RESP_ACK_AAD:       "ACK_AAD",
-    RESP_ACK_PLAINTEXT: "ACK_PLAINTEXT",
-    RESP_CIPHERTEXT:    "CIPHERTEXT",
-    RESP_AUTH_TAG:      "AUTH_TAG",
-    RESP_ERR_UNKNOWN:   "ERR_UNKNOWN_CMD",
-    RESP_ERR_LEN:       "ERR_LEN_MISMATCH"
-}
+# Shared with image_process/ - see uart_protocol.py
+from uart_protocol import (
+    CMD_LOAD_KEY, CMD_LOAD_IV, CMD_LOAD_AAD, CMD_LOAD_PLAINTEXT,
+    CMD_START_ENCRYPT, CMD_START_DECRYPT,
+    RESP_ACK_KEY, RESP_ACK_IV, RESP_ACK_AAD, RESP_ACK_PLAINTEXT,
+    RESP_CIPHERTEXT, RESP_AUTH_TAG, RESP_NAMES,
+    build_packet,
+)
 
 
 # =============================================================================
@@ -135,7 +114,7 @@ def byte_rev_16(data: bytes) -> bytes:
 # Known NIST SP 800-38D Golden Vectors Tag Mappings (Hardware Raw RTL <-> NIST Official)
 KNOWN_TAG_MAPPINGS = {
     bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8"): bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf"), # AES-128 TC2
-    bytes.fromhex("996843adb23b21d1739117635938712a"): bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4"), # AES-128 TC3
+    bytes.fromhex("892029877346acb76c60979458277c8d"): bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4"), # AES-128 TC3
     bytes.fromhex("eca8e26b44cb8ab9e5cddc39bdd43704"): bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919"), # AES-256 TC16
     bytes.fromhex("3539d3f390b09ca3cae3543a9af25d6f"): bytes.fromhex("ed974c00e5e30f5cf7dc738eac8aaf03"), # AES-256 TC17
     bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5"): bytes.fromhex("539a375d54195500b5c7109b586fee6b"), # AES-256 TC18
@@ -207,9 +186,7 @@ class AesGcmUartClient:
 
     def send_packet(self, cmd: int, payload: bytes = b""):
         length = len(payload)
-        if length > 255:
-            raise ValueError(f"Payload length ({length} B) exceeds maximum of 255 bytes")
-        packet = bytes([cmd, length]) + payload
+        packet = build_packet(cmd, payload)
         if self.verbose:
             print(f"  [TX -> FPGA] CMD=0x{cmd:02X} LEN={length} PAYLOAD={payload.hex() if length <= 16 else payload[:16].hex() + '...'}")
         self.ser.write(packet)
@@ -282,9 +259,9 @@ class AesGcmUartClient:
                     bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8")
                 ),
                 # AES-128 TC3 (64B PT, 0 AAD)
-                (bytes.fromhex("feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedebadecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")): (
+                (bytes.fromhex("feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedbaddecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")): (
                     bytes.fromhex("42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"),
-                    bytes.fromhex("996843adb23b21d1739117635938712a")
+                    bytes.fromhex("892029877346acb76c60979458277c8d")
                 ),
                 # AES-128 Decrypt TC2
                 (b"\x00"*16, b"\x00"*12, bytes.fromhex("0388dace60b6a392f328c2b971b2fe78")): (
@@ -598,13 +575,14 @@ def run_self_tests(client: AesGcmUartClient):
                 "name": "NIST App.B TC3 (64B Stream)",
                 "mode": "ENC",
                 "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedebadecaf888"),
+                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
                 "aad": None,
                 "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72"
                                       "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"),
                 "expected_ct":  bytes.fromhex("42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e"
                                               "21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"),
-                "expected_tag_rtl":  bytes.fromhex("996843adb23b21d1739117635938712a"),
+                # Computed by image_process/imgapp/gcm_model.py, not yet measured on hardware
+                "expected_tag_rtl":  bytes.fromhex("892029877346acb76c60979458277c8d"),
                 "expected_tag_nist": bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4")
             },
             {

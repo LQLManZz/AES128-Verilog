@@ -27,7 +27,8 @@ uart_integration/
 │   └── tb_aes256_uart_wrapper.sv   # Self-checking testbench for AES-256
 │
 ├── python/
-│   └── host.py                     # Multi-variant host client (--variant aes128 | aes256)
+│   ├── host.py                     # Multi-variant host client (--variant aes128 | aes256)
+│   └── uart_protocol.py            # Packet protocol shared with image_process/
 │
 ├── docs/
 │   ├── architecture.md
@@ -39,6 +40,8 @@ uart_integration/
 │
 └── backups/                        # Safety archives of previous revisions
 ```
+
+The sibling folder `image_process/` is the second demo path: it turns grayscale images into the same UART packet stream. It imports `python/uart_protocol.py` directly, so both demos always share one copy of the protocol.
 
 ---
 
@@ -292,7 +295,7 @@ The table below provides the comprehensive reference mapping for all standard NI
 | Test Case | Variant | PT / AAD | Ciphertext (Hardware Raw & NIST Exact) | Hardware Raw RTL Tag | Bit-Rev per Byte Tag ($b_7 \leftrightarrow b_0$) | NIST SP 800-38D Golden Tag |
 |:---|:---:|:---:|:---|:---|:---|:---|
 | **NIST TC2** | AES-128 | 16B PT<br>0B AAD | `0388dace60b6a392f328c2b971b2fe78` | `2c4fa7cbc8dcac66067fb1a42b88adc8` | `34f2e5d3133b356660fe8d25d411b513` | `ab6e47d42cec13bdf53a67b21257bddf` |
-| **NIST TC3** | AES-128 | 64B PT<br>0B AAD | `42831ec2217774244b7221b784d0d49c...`<br>(64 bytes) | `996843adb23b21d1739117635938712a` | `9916c2b54ddc848bce89e8c69a1c8e54` | `4d5c2af327cd64a62cf35abd2ba6fab4` |
+| **NIST TC3** | AES-128 | 64B PT<br>0B AAD | `42831ec2217774244b7221b784d0d49c...`<br>(64 bytes) | `892029877346acb76c60979458277c8d`<br>(software model, not yet measured on hardware) | `910494e1ce6235ed3606e9291ae43eb1` | `4d5c2af327cd64a62cf35abd2ba6fab4` |
 | **NIST TC16** | AES-256 | 16B PT<br>0B AAD | `cea7403d4d606b6e074ec5d3baf39d18` | `eca8e26b44cb8ab9e5cddc39bdd43704` | `371547d622d3519da7b33b9cbd2bec20` | `d0d1c8a799996bf0265b98b5d48ab919` |
 | **NIST TC17** | AES-256 | 64B PT<br>0B AAD | `9cc9fbd6c5e790c049c00906e6752d79...`<br>(64 bytes) | `3539d3f390b09ca3cae3543a9af25d6f` | `ac9ccbcf090d39c553c72a5c594fbaf6` | `ed974c00e5e30f5cf7dc738eac8aaf03` |
 | **NIST TC18** | AES-256 | 16B PT<br>16B AAD | `9cc9fbd6c5e790c049c00906e6752d79` | `0b9c23630bd31f5e963bf7361d42e0e5` | `d039c4c6d0cbf87a69dcef6cb84207a7` | `539a375d54195500b5c7109b586fee6b` |

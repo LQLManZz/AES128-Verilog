@@ -49,9 +49,12 @@ All communications follow a strictly framed binary packet structure. There are n
 |---|---|---|---|
 | `0x01` | **`LOAD_KEY`** | 16 or 32 Bytes | Loads AES Cipher Key (16 bytes for AES-128, 32 bytes for AES-256). |
 | `0x02` | **`LOAD_IV`** | 12 Bytes (96 bits) | Loads NIST SP 800-38D standard 96-bit Initialization Vector. |
-| `0x03` | **`LOAD_AAD`** | $16 \times M$ Bytes ($M \ge 1$) | Loads Additional Authenticated Data in multiples of 16-byte blocks. |
-| `0x04` | **`LOAD_PLAINTEXT`**| $16 \times P$ Bytes ($P \ge 1$) | Loads Plaintext data in multiples of 16-byte blocks (up to 256 bytes). |
+| `0x03` | **`LOAD_AAD`** | $16 \times M$ Bytes ($1 \le M \le 15$) | Loads Additional Authenticated Data in multiples of 16-byte blocks (up to 240 bytes). |
+| `0x04` | **`LOAD_PLAINTEXT`**| $16 \times P$ Bytes ($1 \le P \le 15$) | Loads Plaintext data in multiples of 16-byte blocks (up to 240 bytes). |
 | `0x05` | **`START_ENCRYPT`** | 0 Bytes | Triggers hardware AES-GCM encryption accelerator execution. |
+| `0x07` | **`START_DECRYPT`** | 0 Bytes | Triggers hardware AES-GCM decryption. The data loaded by `LOAD_PLAINTEXT` is treated as ciphertext. |
+
+> **Message size limit:** each `START_*` runs one independent GCM message of at most 15 blocks (240 bytes), although the wrapper buffers hold 16. `LENGTH` is 8-bit and cannot encode 256, and the 4-bit `cnt_pt_blocks` counter wraps to 0 at 16 blocks. Longer data must be split into several messages, each with its own IV and tag. `uart_protocol.py` exposes this limit as `MAX_DATA_BYTES`.
 
 ### 3.1 Command Details
 
@@ -75,7 +78,7 @@ All communications follow a strictly framed binary packet structure. There are n
 
 #### `0x04` - `LOAD_PLAINTEXT`
 - **Format:** `[0x04] [LENGTH] [Plaintext Bytes ...]`
-- **Payload:** Multiples of 16 bytes (16 to 256 bytes per burst).
+- **Payload:** Multiples of 16 bytes (16 to 240 bytes per burst).
 - **Behavior:** Hardware buffers Plaintext blocks into input buffer.
 - **Expected Response:** `ACK_PLAINTEXT` (`0x84`).
 
@@ -92,6 +95,14 @@ All communications follow a strictly framed binary packet structure. There are n
   1. `CIPHERTEXT` (`0x90`) with encrypted data payload.
   2. `AUTH_TAG` (`0x91`) with 16-byte authentication tag payload.
 
+#### `0x07` - `START_DECRYPT`
+- **Format:** `[0x07] [0x00]`
+- **Payload:** 0 bytes.
+- **Behavior:** Runs the same sequence on the loaded ciphertext. The host compares the returned tag with the expected tag, because the wrapper has no `LOAD_TAG_REF` command yet.
+- **Expected Responses:**
+  1. `CIPHERTEXT` (`0x90`) carrying the recovered plaintext.
+  2. `AUTH_TAG` (`0x91`) with the computed 16-byte tag.
+
 ---
 
 ## 4. Response Set (FPGA Accelerator &rarr; Host PC)
@@ -105,7 +116,7 @@ All communications follow a strictly framed binary packet structure. There are n
 | `0x90` | **`CIPHERTEXT`** | $16 \times P$ Bytes | Encrypted ciphertext corresponding to input plaintext blocks. |
 | `0x91` | **`AUTH_TAG`** | 16 Bytes (128 bits) | Final 128-bit NIST SP 800-38D Authentication Tag. |
 | `0xE0` | **`ERR_UNKNOWN_CMD`**| 1 Byte | Error: Received opcode is unassigned. Payload contains bad opcode. |
-| `0xE1` | **`ERR_LEN_MISMATCH`**| 2 Bytes | Error: Packet length does not match command requirement. |
+| `0xE1` | **`ERR_LEN_MISMATCH`**| 1 Byte | Error: Packet length does not match command requirement. Payload contains the rejected opcode. |
 
 ---
 
@@ -141,6 +152,5 @@ Host PC Application                              FPGA aes_uart_wrapper
 
 The protocol opcodes are allocated with wide ranges reserved for future expansion:
 - `0x06` - `LOAD_TAG_REF` (For future Decryption/Authentication mode)
-- `0x07` - `START_DECRYPT` (For future Decryption verification)
 - `0x92` - `VERIFY_RESULT` (Status byte: `0x01` = PASS, `0x00` = FAIL)
 - `0xA0..0xAF` - Diagnostic and performance counter readout.

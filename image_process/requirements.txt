@@ -1,0 +1,4 @@
+pillow>=10.1
+pycryptodome>=3.20
+pyserial>=3.5
+pytest>=8.0
