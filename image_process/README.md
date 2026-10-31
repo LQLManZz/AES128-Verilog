@@ -2,7 +2,7 @@
 
 Biến ảnh thành luồng gói UART cho IP AES-GCM trên PolarFire SoC Discovery Kit, rồi dịch ngược về ảnh.
 
-App chạy được theo hai cách: với mô hình phần mềm trả về đúng ciphertext và tag của RTL, hoặc với board thật qua lệnh `send`. **Lệnh `send` mới được kiểm thử với cổng serial giả, chưa chạy trên board.**
+App chạy được theo hai cách: với mô hình phần mềm trả về đúng ciphertext và tag theo NIST SP 800-38D như RTL, hoặc với board thật qua lệnh `send`. **Lệnh `send` mới được kiểm thử với cổng serial giả, chưa chạy trên board.**
 
 ## Hai cách demo
 
@@ -92,7 +92,7 @@ Lệnh `decrypt` đầu tiên tạo `tx_dec.bin` bằng mô hình phần mềm. 
 
 | Lần | `--chunk-blocks` | Payload mỗi khúc | Ý nghĩa |
 |---|---|---|---|
-| 1 | `1` | 16 byte | Cùng cỡ với vector TC2, TC16 đã kiểm thử |
+| 1 | `1` | 16 byte | Cùng cỡ với vector TC2, TC14 đã kiểm thử |
 | 2 | `4` | 64 byte | Cỡ lớn nhất đã kiểm thử |
 | 3 | `15` | 240 byte | Cỡ mặc định, chưa kiểm thử |
 
@@ -100,7 +100,7 @@ Lệnh `decrypt` đầu tiên tạo `tx_dec.bin` bằng mô hình phần mềm. 
 
 - **Timeout:** kiểm tra cổng COM, baud rate và nút reset. Lỗi có ghi khúc và lệnh đang chạy. Nếu dừng giữa chừng, nên reset FPGA trước khi gửi lại, và không có file `rx` nào được ghi.
 - **Lệch dữ liệu:** ciphertext của board khác chuẩn, cần xem lại lõi hoặc đường truyền.
-- **Chỉ lệch tag:** ciphertext vẫn đúng nhưng tag khác mô hình. Với AES-128 khúc nhiều block, tag của mô hình chưa từng được đối chiếu với vector phần cứng, nên hãy ghi lại giá trị của board để kiểm tra mô hình trước. AES-256 đã khớp vector TC16, TC17, TC18 trong `host.py`.
+- **Chỉ lệch tag:** ciphertext vẫn đúng nhưng tag khác mô hình. Tag của mô hình do PyCryptodome tính theo NIST SP 800-38D. Hãy kiểm tra bitstream đã được tổng hợp từ RTL hiện tại: bản cũ chưa đảo bit trong GHASH nên cho tag khác NIST (ví dụ `2c4fa7cb...` thay vì `ab6e47d4...` ở TC2).
 
 ## Định dạng luồng dữ liệu
 
@@ -127,7 +127,7 @@ Mỗi dòng trong file txt là một gói, phần sau `#` là chú thích:
 ## Lưu ý
 
 - **Key không được bảo vệ.** Key nằm trong `tx.txt`, `tx.bin` và đi không mã hóa qua UART theo thiết kế giao thức. Chỉ dùng key demo. `output/` đã được gitignore.
-- **Tag khác NIST.** RTL tính GHASH theo cơ sở đa thức không đảo bit, nên tag không khớp thư viện GCM chuẩn. `gcm_model.py` tái tạo đúng tag RTL. Ciphertext thì khớp NIST.
+- **Tag khớp NIST.** `GHASH.sv` đảo 128 bit quanh bộ nhân GF(2^128) nên tag trùng với thư viện GCM chuẩn, giống ciphertext. `gcm_model.py` dùng `AES.MODE_GCM` trực tiếp.
 - **Ảnh 16-bit, 32-bit và float được co về 8-bit.** Dữ liệu số nguyên trong khoảng 0–65535 chia theo thang 16-bit, float trong khoảng 0–1 giữ nguyên độ sáng. Các khoảng khác được giãn theo giá trị nhỏ nhất và lớn nhất của ảnh. Ảnh có `NaN` hoặc vô cực bị từ chối.
 - **TIFF nhiều trang chỉ lấy trang đầu.**
 - **Khúc 240 byte chưa chạy trên board.** Vector lớn nhất đã kiểm thử là 64 byte. Nếu board gặp lỗi, dùng `--chunk-blocks 4`.

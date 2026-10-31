@@ -2,7 +2,7 @@
 
 IP phần cứng **AES-GCM** hiệu năng cao dùng kiến trúc pipeline, cung cấp đồng thời **mã hóa** và **xác thực toàn vẹn dữ liệu** theo chuẩn NIST SP 800-38D. Dự án gồm hai biến thể **AES-128-GCM** và **AES-256-GCM**, được phát triển bởi nhóm **VLATsemi** (Trường Đại học Bách Khoa – Đại học Đà Nẵng)
 
-[Tính năng](#tính-năng) · [Thành tựu](#thành-tựu) · [Cấu trúc thư mục](#cấu-trúc-thư-mục) · [Mô phỏng](#mô-phỏng) · [Tài liệu](#tài-liệu) · [Nhóm thực hiện](#nhóm-thực-hiện)
+[Tính năng](#tính-năng) · [Thành tựu](#thành-tựu) · [Mô phỏng](#mô-phỏng) · [Tài liệu](#tài-liệu) · [Nhóm thực hiện](#nhóm-thực-hiện)
 
 ## Tính năng
 

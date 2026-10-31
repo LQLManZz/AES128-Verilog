@@ -69,6 +69,7 @@ def parse_bytes(val: str, field_name: str, pad_to_16: bool = False) -> bytes:
 
     if pad_to_16 and (len(data) % 16 != 0):
         needed = 16 - (len(data) % 16)
+        print(f"[!] {field_name} zero-padded from {len(data)} to {len(data) + needed} bytes. The tag covers the padded data, so it differs from a tag over the original bytes.")
         data = data + bytes(needed)
 
     return data
@@ -88,38 +89,6 @@ def ascii_repr(data: bytes) -> str:
     if len(res) > 32:
         return f"{res[:32]}..."
     return res
-
-
-def bit_rev_8(b: int) -> int:
-    """Reverses 8 bits in a single byte (b7..b0 -> b0..b7)."""
-    return int(f"{b:08b}"[::-1], 2)
-
-
-def bit_rev_per_byte(data: bytes) -> bytes:
-    """Reverses bits within each byte individually (standard to reflected basis)."""
-    return bytes(bit_rev_8(b) for b in data)
-
-
-def bit_rev_128(data: bytes) -> bytes:
-    """Reverses all 128 bits across the entire 16-byte block."""
-    val = int.from_bytes(data, "big")
-    return int(f"{val:0128b}"[::-1], 2).to_bytes(16, "big")
-
-
-def byte_rev_16(data: bytes) -> bytes:
-    """Reverses the 16 bytes (byte-level endianness swap)."""
-    return data[::-1]
-
-
-# Known NIST SP 800-38D Golden Vectors Tag Mappings (Hardware Raw RTL <-> NIST Official)
-KNOWN_TAG_MAPPINGS = {
-    bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8"): bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf"), # AES-128 TC2
-    bytes.fromhex("892029877346acb76c60979458277c8d"): bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4"), # AES-128 TC3
-    bytes.fromhex("eca8e26b44cb8ab9e5cddc39bdd43704"): bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919"), # AES-256 TC16
-    bytes.fromhex("3539d3f390b09ca3cae3543a9af25d6f"): bytes.fromhex("ed974c00e5e30f5cf7dc738eac8aaf03"), # AES-256 TC17
-    bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5"): bytes.fromhex("539a375d54195500b5c7109b586fee6b"), # AES-256 TC18
-}
-KNOWN_NIST_TO_RTL = {v: k for k, v in KNOWN_TAG_MAPPINGS.items()}
 
 
 # =============================================================================
@@ -256,44 +225,44 @@ class AesGcmUartClient:
                 # AES-128 TC2 (16B PT, 0 AAD)
                 (b"\x00"*16, b"\x00"*12, b"\x00"*16): (
                     bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"),
-                    bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8")
+                    bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
                 ),
                 # AES-128 TC3 (64B PT, 0 AAD)
                 (bytes.fromhex("feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedbaddecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")): (
                     bytes.fromhex("42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"),
-                    bytes.fromhex("892029877346acb76c60979458277c8d")
+                    bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4")
                 ),
                 # AES-128 Decrypt TC2
                 (b"\x00"*16, b"\x00"*12, bytes.fromhex("0388dace60b6a392f328c2b971b2fe78")): (
                     b"\x00"*16,
-                    bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8")
+                    bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
                 ),
-                # AES-256 TC16 (16B PT, 0 AAD)
+                # AES-256 TC14 (16B PT, 0 AAD)
                 (b"\x00"*32, b"\x00"*12, b"\x00"*16): (
                     bytes.fromhex("cea7403d4d606b6e074ec5d3baf39d18"),
-                    bytes.fromhex("eca8e26b44cb8ab9e5cddc39bdd43704")
+                    bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919")
                 ),
-                # AES-256 TC17 (64B PT, 0 AAD)
-                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedebadecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")): (
-                    bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d7999b610d988dfcb5d1111872a513ddf108eda1352064ecb89ffef6a0b9e4e399c1da95f7b504d095c95c406e2c9e572b7"),
-                    bytes.fromhex("3539d3f390b09ca3cae3543a9af25d6f")
+                # AES-256 TC15 (64B PT, 0 AAD)
+                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedbaddecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255")): (
+                    bytes.fromhex("522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662898015ad"),
+                    bytes.fromhex("b094dac5d93471bdec1a502270e3cc6c")
                 ),
-                # AES-256 TC18 with AAD
-                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedebadecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a")): (
-                    bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d79"),
-                    bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5")
+                # AES-256 custom vector with AAD
+                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedbaddecaf888"), bytes.fromhex("d9313225f88406e5a55909c5aff5269a")): (
+                    bytes.fromhex("522dc1f099567d07f47f37a32a84427d"),
+                    bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
                 ),
-                # AES-256 Decrypt TC18
-                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedebadecaf888"), bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d79")): (
+                # AES-256 decrypt of the custom vector
+                (bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"), bytes.fromhex("cafebabefacedbaddecaf888"), bytes.fromhex("522dc1f099567d07f47f37a32a84427d")): (
                     bytes.fromhex("d9313225f88406e5a55909c5aff5269a"),
-                    bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5")
+                    bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
                 )
             }
             if (key, iv, data) in known_vectors:
                 out_data, out_tag = known_vectors[(key, iv, data)]
             else:
                 out_data = data
-                out_tag = bytes.fromhex("eca8e26b44cb8ab9e5cddc39bdd43704")
+                out_tag = bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919")
             elapsed_ms = (time.perf_counter() - t0) * 1000.0 + 12.4
             return out_data, out_tag, elapsed_ms
 
@@ -347,13 +316,10 @@ def print_execution_report(
     out_data: bytes,
     tag: bytes,
     aad: Optional[bytes] = None,
-    expected_tag: Optional[bytes] = None,
-    expected_nist_tag: Optional[bytes] = None
+    expected_tag: Optional[bytes] = None
 ):
     is_decrypt = (operation.upper() == "DECRYPT")
     auth_passed = None
-    if is_decrypt and expected_tag is not None:
-        auth_passed = (tag == expected_tag) or (bit_rev_per_byte(tag) == expected_tag) or (expected_nist_tag is not None and tag == expected_nist_tag)
 
     w_lbl = 26
     w_val = 46
@@ -387,44 +353,19 @@ def print_execution_report(
     print(mid_line)
 
     out_label = "Plaintext" if is_decrypt else "Ciphertext"
-    row(f"{out_label} (Raw)", format_hex(out_data, w_val - 8))
-    row(f"{out_label} (Bit-Rev)", format_hex(bit_rev_per_byte(out_data), w_val - 8))
+    row(out_label, format_hex(out_data, w_val - 8))
 
-    if not is_decrypt:
-        row("Ciphertext Match", f"[{TICK}] Raw Matches NIST SP 800-38D")
-    else:
+    if is_decrypt:
         row("Decrypted ASCII", ascii_repr(out_data))
 
     print(mid_line)
-    # Dual bit-order presentation for Auth Tag
-    row("Tag: Raw Hardware", tag.hex())
-    row("Tag: Bit-Rev per Byte", bit_rev_per_byte(tag).hex())
-    row("Tag: Full 128b Reversed", bit_rev_128(tag).hex())
-    row("Tag: Byte-Endian Swapped", byte_rev_16(tag).hex())
-
-    if expected_nist_tag is None and tag in KNOWN_TAG_MAPPINGS:
-        expected_nist_tag = KNOWN_TAG_MAPPINGS[tag]
-
-    if expected_nist_tag is not None:
-        row("Tag: NIST Golden Ref", expected_nist_tag.hex())
+    row("Auth Tag", tag.hex())
 
     if is_decrypt and expected_tag is not None:
         row("Tag: Expected Input", expected_tag.hex())
-        is_raw_match = (tag == expected_tag)
-        is_bitrev_match = (bit_rev_per_byte(tag) == expected_tag)
-        is_nist_match = (
-            (expected_nist_tag is not None and expected_tag == expected_nist_tag) or
-            (tag in KNOWN_TAG_MAPPINGS and KNOWN_TAG_MAPPINGS[tag] == expected_tag) or
-            (expected_tag in KNOWN_NIST_TO_RTL and KNOWN_NIST_TO_RTL[expected_tag] == tag)
-        )
-        auth_passed = is_raw_match or is_bitrev_match or is_nist_match
-
-        if is_raw_match:
-            status_badge = f"[{TICK}] AUTHENTIC (Matched Raw RTL Hardware)"
-        elif is_bitrev_match:
-            status_badge = f"[{TICK}] AUTHENTIC (Matched Bit-Reversed Tag)"
-        elif is_nist_match:
-            status_badge = f"[{TICK}] AUTHENTIC (Matched NIST Golden Tag)"
+        auth_passed = (tag == expected_tag)
+        if auth_passed:
+            status_badge = f"[{TICK}] AUTHENTIC (Tag Matched)"
         else:
             status_badge = f"[{CROSS}] AUTHENTICATION FAILED (Tag Mismatch!)"
         print(mid_line)
@@ -441,7 +382,7 @@ def print_execution_report(
 
 
 def print_test_summary_table(results: List[Dict]):
-    col_widths = [4, 24, 6, 6, 6, 8, 14, 14, 8]
+    col_widths = [4, 24, 6, 6, 6, 8, 14, 8, 8]
     w_total = sum(col_widths) + len(col_widths) * 3 - 1
 
     top_title_border = f"{B_TL}{B_H * w_total}{B_TR}"
@@ -461,8 +402,8 @@ def print_test_summary_table(results: List[Dict]):
         f"{B_V} {'Data':^6} "
         f"{B_V} {'AAD':^6} "
         f"{B_V} {'Cipher':^8} "
-        f"{B_V} {'Raw RTL Tag':^14} "
-        f"{B_V} {'NIST Tag':^14} "
+        f"{B_V} {'Auth Tag':^14} "
+        f"{B_V} {'Tag':^8} "
         f"{B_V} {'Status':^8} {B_V}"
     )
     print(hdr)
@@ -478,8 +419,8 @@ def print_test_summary_table(results: List[Dict]):
         alen = f"{r['aad_len']}B"
         c_ok = "PASS" if r["ct_ok"] else "FAIL"
 
-        raw_tag_short = r["tag_raw"][:6] + "..." + r["tag_raw"][-4:] if len(r.get("tag_raw", "")) == 32 else r.get("tag_raw", "N/A")
-        nist_tag_short = r["tag_nist"][:6] + "..." + r["tag_nist"][-4:] if len(r.get("tag_nist", "")) == 32 else r.get("tag_nist", "N/A")
+        tag_short = r["tag"][:6] + "..." + r["tag"][-4:] if len(r.get("tag", "")) == 32 else r.get("tag", "N/A")
+        t_ok = "PASS" if r["tag_ok"] else "FAIL"
 
         passed = (r["ct_ok"] and r["tag_ok"])
         pass_badge = "PASS" if passed else "FAIL"
@@ -493,8 +434,8 @@ def print_test_summary_table(results: List[Dict]):
             f"{B_V} {dlen:>6} "
             f"{B_V} {alen:>6} "
             f"{B_V} {c_ok:^8} "
-            f"{B_V} {raw_tag_short:^14} "
-            f"{B_V} {nist_tag_short:^14} "
+            f"{B_V} {tag_short:^14} "
+            f"{B_V} {t_ok:^8} "
             f"{B_V} {pass_badge:^8} {B_V}"
         )
         print(row_str)
@@ -507,44 +448,35 @@ def print_test_summary_table(results: List[Dict]):
     else:
         print(f" [{CROSS}] RESULT: {passed_count}/{total} PASSED. Some checks failed.")
 
-    print("\n [!] Bit-Ordering & Representation Reference:")
-    print("     - Ciphertext : Matches official NIST SP 800-38D standard 100% byte-for-byte.")
-    print("     - Auth Tag   : The RTL core (GF128bitMultiply.sv) computes the tag using unreflected polynomial")
-    print("                    basis arithmetic. Both the Raw RTL Tag and the NIST Golden Tag are displayed above.")
-    print("                    In host.py, both representations are recognized and verifiable.\n")
+    print("\n [i] Ciphertext and Auth Tag follow NIST SP 800-38D byte-for-byte; no bit reversal is applied.\n")
 
-    # Detailed Dual-Representation Audit Block
-    audit_sep = f"{B_LJ}{B_H * (w_total - 2)}{B_RJ}"
+    # Detailed per-test audit block
     print(f"{B_TL}{B_H * (w_total - 2)}{B_TR}")
-    title2 = "NIST SP 800-38D DUAL-REPRESENTATION AUDIT (RAW vs BIT-REVERSED vs NIST)"
+    title2 = "NIST SP 800-38D VECTOR AUDIT"
     print(f"{B_V} {title2:^{w_total - 4}} {B_V}")
+    audit_sep = f"{B_LJ}{B_H * (w_total - 2)}{B_RJ}"
     print(audit_sep)
 
     for idx, r in enumerate(results, 1):
-        ct_match = f"[{TICK} Exact NIST]" if r["ct_ok"] else f"[{CROSS} Mismatch]"
-        tag_match = f"[{TICK} Exact RTL]" if r["tag_ok"] else f"[{CROSS} Mismatch]"
+        ct_match = f"[{TICK} NIST]" if r["ct_ok"] else f"[{CROSS} Mismatch]"
+        tag_match = f"[{TICK} NIST]" if r["tag_ok"] else f"[{CROSS} Mismatch]"
 
         header_info = f"[{idx}] {r['name']} ({r['mode']} - Data: {r['data_len']}B, AAD: {r['aad_len']}B)"
         print(f"{B_V} {header_info:<{w_total - 4}} {B_V}")
 
         def print_audit_row(lbl: str, val: str, note: str = ""):
-            left_part = f"    * {lbl:<22}: {val}"
+            left_part = f"    * {lbl:<20}: {val}"
             rem_spaces = (w_total - 4) - len(left_part) - len(note)
             if rem_spaces < 1:
                 rem_spaces = 1
             print(f"{B_V} {left_part}{' ' * rem_spaces}{note} {B_V}")
 
-        ct_raw = r.get("ct_raw", "N/A")
-        ct_rev = r.get("ct_bitrev", "N/A")
         max_hex_len = 38
-        ct_raw_disp = ct_raw if len(ct_raw) <= max_hex_len else (ct_raw[:max_hex_len - 3] + f"...({r['data_len']}B)")
-        ct_rev_disp = ct_rev if len(ct_rev) <= max_hex_len else (ct_rev[:max_hex_len - 3] + f"...({r['data_len']}B)")
+        ct_disp = r["ct"] if len(r["ct"]) <= max_hex_len else (r["ct"][:max_hex_len - 3] + f"...({r['data_len']}B)")
 
-        print_audit_row("Ciphertext (Raw)", ct_raw_disp, ct_match)
-        print_audit_row("Ciphertext (Bit-Rev)", ct_rev_disp, "(Bit-Rev/Byte)")
-        print_audit_row("Auth Tag (Raw RTL)", r.get("tag_raw", "N/A"), tag_match)
-        print_audit_row("Auth Tag (Bit-Rev)", r.get("tag_bitrev", "N/A"), "(Bit-Rev/Byte)")
-        print_audit_row("Auth Tag (NIST Ref)", r.get("tag_nist", "N/A"), "(NIST SP 800-38D)")
+        print_audit_row("Output Data", ct_disp, ct_match)
+        print_audit_row("Auth Tag (Hardware)", r["tag"], tag_match)
+        print_audit_row("Auth Tag (NIST Ref)", r["tag_nist"])
 
         if idx < len(results):
             print(audit_sep)
@@ -568,8 +500,7 @@ def run_self_tests(client: AesGcmUartClient):
                 "aad": None,
                 "data": bytes.fromhex("00000000000000000000000000000000"),
                 "expected_ct":  bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"),
-                "expected_tag_rtl":  bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8"),
-                "expected_tag_nist": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
+                "expected_tag": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
             },
             {
                 "name": "NIST App.B TC3 (64B Stream)",
@@ -581,9 +512,7 @@ def run_self_tests(client: AesGcmUartClient):
                                       "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"),
                 "expected_ct":  bytes.fromhex("42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e"
                                               "21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"),
-                # Computed by image_process/imgapp/gcm_model.py, not yet measured on hardware
-                "expected_tag_rtl":  bytes.fromhex("892029877346acb76c60979458277c8d"),
-                "expected_tag_nist": bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4")
+                "expected_tag": bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4")
             },
             {
                 "name": "AES-128 Decrypt & Verify",
@@ -593,59 +522,54 @@ def run_self_tests(client: AesGcmUartClient):
                 "aad": None,
                 "data": bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"), # Ciphertext from TC2
                 "expected_ct":  bytes.fromhex("00000000000000000000000000000000"), # Recovered Plaintext
-                "expected_tag_rtl":  bytes.fromhex("2c4fa7cbc8dcac66067fb1a42b88adc8"),
-                "expected_tag_nist": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
+                "expected_tag": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
             }
         ]
     else:  # aes256
         test_cases = [
             {
-                "name": "NIST App.B TC16 (Zero Vector)",
+                "name": "GCM spec TC14 (Zero Vector)",
                 "mode": "ENC",
                 "key": bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000"),
                 "iv":  bytes.fromhex("000000000000000000000000"),
                 "aad": None,
                 "data": bytes.fromhex("00000000000000000000000000000000"),
                 "expected_ct":  bytes.fromhex("cea7403d4d606b6e074ec5d3baf39d18"),
-                "expected_tag_rtl":  bytes.fromhex("eca8e26b44cb8ab9e5cddc39bdd43704"),
-                "expected_tag_nist": bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919")
+                "expected_tag": bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919")
             },
             {
-                "name": "NIST App.B TC17 (64B Stream)",
+                "name": "GCM spec TC15 (64B Stream)",
                 "mode": "ENC",
                 "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedebadecaf888"),
+                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
                 "aad": None,
                 "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72"
                                       "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"),
-                "expected_ct":  bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d79"
-                                              "99b610d988dfcb5d1111872a513ddf10"
-                                              "8eda1352064ecb89ffef6a0b9e4e399c"
-                                              "1da95f7b504d095c95c406e2c9e572b7"),
-                "expected_tag_rtl":  bytes.fromhex("3539d3f390b09ca3cae3543a9af25d6f"),
-                "expected_tag_nist": bytes.fromhex("ed974c00e5e30f5cf7dc738eac8aaf03")
+                "expected_ct":  bytes.fromhex("522dc1f099567d07f47f37a32a84427d"
+                                              "643a8cdcbfe5c0c97598a2bd2555d1aa"
+                                              "8cb08e48590dbb3da7b08b1056828838"
+                                              "c5f61e6393ba7a0abcc9f662898015ad"),
+                "expected_tag": bytes.fromhex("b094dac5d93471bdec1a502270e3cc6c")
             },
             {
-                "name": "NIST TC18 with AAD (16B)",
+                "name": "Custom AAD+PT vector 16B",
                 "mode": "ENC",
                 "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedebadecaf888"),
+                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
                 "aad": bytes.fromhex("feedfacedeadbeeffeedfacedeadbeef"), # 16 bytes AAD
                 "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a"), # 16 bytes PT
-                "expected_ct":  bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d79"),
-                "expected_tag_rtl":  bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5"),
-                "expected_tag_nist": bytes.fromhex("539a375d54195500b5c7109b586fee6b")
+                "expected_ct":  bytes.fromhex("522dc1f099567d07f47f37a32a84427d"),
+                "expected_tag": bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
             },
             {
                 "name": "AES-256 Decrypt & Verify",
                 "mode": "DEC",
                 "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedebadecaf888"),
+                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
                 "aad": bytes.fromhex("feedfacedeadbeeffeedfacedeadbeef"),
-                "data": bytes.fromhex("9cc9fbd6c5e790c049c00906e6752d79"), # Ciphertext from TC18
+                "data": bytes.fromhex("522dc1f099567d07f47f37a32a84427d"), # Ciphertext of the custom vector
                 "expected_ct":  bytes.fromhex("d9313225f88406e5a55909c5aff5269a"), # Recovered Plaintext
-                "expected_tag_rtl":  bytes.fromhex("0b9c23630bd31f5e963bf7361d42e0e5"),
-                "expected_tag_nist": bytes.fromhex("539a375d54195500b5c7109b586fee6b")
+                "expected_tag": bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
             }
         ]
 
@@ -654,7 +578,7 @@ def run_self_tests(client: AesGcmUartClient):
         is_dec = (tc.get("mode") == "DEC")
         out_data, out_tag, _ = client.execute(tc["key"], tc["iv"], tc["data"], tc["aad"], is_decrypt=is_dec)
         ct_ok  = (out_data == tc["expected_ct"])
-        tag_ok = (out_tag == tc["expected_tag_rtl"])
+        tag_ok = (out_tag == tc["expected_tag"])
         results.append({
             "name": tc["name"],
             "mode": tc["mode"],
@@ -662,12 +586,9 @@ def run_self_tests(client: AesGcmUartClient):
             "aad_len": len(tc["aad"]) if tc["aad"] else 0,
             "ct_ok": ct_ok,
             "tag_ok": tag_ok,
-            "tag_raw": out_tag.hex(),
-            "tag_bitrev": bit_rev_per_byte(out_tag).hex(),
-            "tag_nist": tc["expected_tag_nist"].hex(),
-            "ct_raw": out_data.hex(),
-            "ct_bitrev": bit_rev_per_byte(out_data).hex(),
-            "ct_nist": tc["expected_ct"].hex()
+            "tag": out_tag.hex(),
+            "tag_nist": tc["expected_tag"].hex(),
+            "ct": out_data.hex()
         })
 
     print_test_summary_table(results)
@@ -683,7 +604,7 @@ def run_benchmark(client: AesGcmUartClient, count: int = 50):
 
     key_len = 32 if client.variant == "aes256" else 16
     key = b"\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c" * (key_len // 16)
-    iv  = bytes.fromhex("cafebabefacedebadecaf888")
+    iv  = bytes.fromhex("cafebabefacedbaddecaf888")
     pt  = b"AES-GCM-BENCHMRK" # 16B
 
     latencies = []
@@ -774,8 +695,6 @@ def run_interactive(client: AesGcmUartClient):
         if len(data_b) == 0:
             print("[!] Data payload cannot be empty.")
             return
-        if not is_decrypt and (len(data_b) != len(clean_hex(data_input)) // 2):
-            print(f"[*] Plaintext zero-padded to 16-byte boundary ({len(data_b)} bytes).")
 
         expected_tag_b = None
         if is_decrypt:
@@ -842,7 +761,6 @@ Examples:
     parser.add_argument("--pt", "--plaintext", type=str, help="Plaintext to encrypt (hex or text)")
     parser.add_argument("--ct", "--ciphertext", "--data", type=str, help="Ciphertext to decrypt (hex)")
     parser.add_argument("--tag", type=str, help="Expected 16-byte authentication tag in hex (for decrypt mode)")
-    parser.add_argument("--tag-nist", type=str, help="Expected 16-byte NIST golden tag in hex (for cross-reference/verification)")
     parser.add_argument("--test", "--test-nist", action="store_true", help="Run automated self-tests")
     parser.add_argument("-i", "--interactive", action="store_true", help="Launch interactive menu")
     parser.add_argument("--benchmark", type=int, nargs="?", const=50, default=None,
@@ -899,7 +817,6 @@ Examples:
             data_b   = parse_bytes(data_str, "Data", pad_to_16=True)
 
             expected_tag_b = parse_bytes(args.tag, "Tag") if (is_decrypt and args.tag) else None
-            expected_nist_tag_b = parse_bytes(args.tag_nist, "Tag NIST") if args.tag_nist else None
 
             out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt)
 
@@ -915,8 +832,7 @@ Examples:
                 out_data=out_data,
                 tag=out_tag,
                 aad=aad_b,
-                expected_tag=expected_tag_b,
-                expected_nist_tag=expected_nist_tag_b
+                expected_tag=expected_tag_b
             )
     finally:
         client.close()

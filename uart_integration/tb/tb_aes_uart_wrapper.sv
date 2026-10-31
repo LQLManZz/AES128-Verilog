@@ -284,7 +284,7 @@ module tb_aes_uart_wrapper;
         // TEST CASE 2: NIST SP 800-38D Appendix B - Test Case 3
         // Multi-block: 64-byte plaintext (4 blocks)
         // Key:  feffe9928665731c6d6a8f9467308308
-        // IV:   cafebabefacedebadecaf888
+        // IV:   cafebabefacedbaddecaf888
         // AAD:  None (0 bytes)
         // Exp CT: 42831ec2217774244b7221b784d0d49c...
         // Exp TAG: 4d5c2af327cd64a62cf35abd2ba6fab4

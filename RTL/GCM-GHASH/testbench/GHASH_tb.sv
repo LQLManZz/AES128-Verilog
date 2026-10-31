@@ -6,15 +6,13 @@
 // Verifies the GHASH accumulator core against NIST SP 800-38D GCM
 // Appendix B test vectors (TC1–TC4) and Golden C reference model.
 //
-// Bit-Ordering & Equivalence:
-// ----------------------------
+// Bit-Ordering:
+// -------------
 // - GCM Standard (aes_gcm_golden_appendixB.c):
 //     Bit 127 is x^0, bit 0 is x^127.
-// - RTL Core (GHASH.sv / GF128bitMultiply.sv):
-//     Bit 0 is x^0, bit 127 is x^127.
-// - Mapping:
-//     RTL_vector = bit_reverse_128(GCM_vector)
-//     GCM_vector = bit_reverse_128(RTL_vector)
+// - GHASH.sv ports use the same NIST order (it bit-reverses internally around
+//   GF128bitMultiply.sv, whose own basis is bit 0 = x^0), so vectors are
+//   driven and compared directly with no reversal in the testbench.
 //
 // Reference: References/aes_gcm_golden_appendixB.c
 //            References/nistspecialpublication800-38d.pdf
@@ -75,19 +73,6 @@ module GHASH_tb;
   //-----------------------------------------------------------------------
   int test_count = 0;
   int error_count = 0;
-
-  //=======================================================================
-  // Utility: 128-bit Bit-Reversal
-  //=======================================================================
-  function automatic logic [127:0] bit_reverse_128(input logic [127:0] in_vec);
-    logic [127:0] out_vec;
-    begin
-      for (int i = 0; i < 128; i++) begin
-        out_vec[i] = in_vec[127-i];
-      end
-      return out_vec;
-    end
-  endfunction
 
   //=======================================================================
   // Model 1: RTL Polynomial Basis Reference (LSB = x^0)
@@ -212,7 +197,6 @@ module GHASH_tb;
                                    input logic [127:0] len_block_gcm,
                                    input logic [127:0] expected_ghash_gcm);
     logic [127:0] ref_acc_gcm;
-    logic [127:0] ref_acc_rtl;
     logic [127:0] dut_out_gcm;
     int num_aad;
     int num_ct;
@@ -230,35 +214,33 @@ module GHASH_tb;
       end
       ref_acc_gcm = gcm_c_golden_mul(ref_acc_gcm ^ len_block_gcm, H_gcm);
 
-      ref_acc_rtl = bit_reverse_128(ref_acc_gcm);
-
       reset_dut();
-      H_reg <= bit_reverse_128(H_gcm);
+      H_reg <= H_gcm;
 
-      // 1. Stream AAD blocks (in RTL bit-order)
+      // 1. Stream AAD blocks
       for (int i = 0; i < num_aad; i++) begin
         @(posedge clk);
         load_AAD           <= 1'b1;
         load_CT            <= 1'b0;
         length_block_valid <= 1'b0;
-        AAD                <= bit_reverse_128(aad_gcm[i]);
+        AAD                <= aad_gcm[i];
       end
 
-      // 2. Stream CT blocks (in RTL bit-order)
+      // 2. Stream CT blocks
       for (int j = 0; j < num_ct; j++) begin
         @(posedge clk);
         load_AAD           <= 1'b0;
         load_CT            <= 1'b1;
         length_block_valid <= 1'b0;
-        CT                 <= bit_reverse_128(ct_gcm[j]);
+        CT                 <= ct_gcm[j];
       end
 
-      // 3. Drive length block (in RTL bit-order)
+      // 3. Drive length block
       @(posedge clk);
       load_AAD           <= 1'b0;
       load_CT            <= 1'b0;
       length_block_valid <= 1'b1;
-      length_block       <= bit_reverse_128(len_block_gcm);
+      length_block       <= len_block_gcm;
 
       // 4. Deassert control signals
       @(posedge clk);
@@ -271,7 +253,7 @@ module GHASH_tb;
       //===================================================================
       #1;
       test_count++;
-      dut_out_gcm = bit_reverse_128(ghash_out);
+      dut_out_gcm = ghash_out;
 
       $display("--------------------------------------------------");
       $display("Test %0d: %s", test_count, test_name);
@@ -279,14 +261,13 @@ module GHASH_tb;
       $display("               GHASH_exp   = %032h", ref_acc_gcm);
       $display("               GHASH_dut   = %032h", dut_out_gcm);
       $display("  [Finish Check] finish    = %b  (expected: 1)", ghash_finish);
-      $display("                 RTL_out   = %032h (exp: %032h)", ghash_out, ref_acc_rtl);
 
       if (ghash_finish !== 1'b1) begin
         error_count++;
         $display("  [FAIL] ghash_finish is NOT asserted!");
-      end else if (ghash_out !== ref_acc_rtl) begin
+      end else if (ghash_out !== ref_acc_gcm) begin
         error_count++;
-        $display("  [FAIL] ghash_out mismatch! (XOR diff = %032h)", ghash_out ^ ref_acc_rtl);
+        $display("  [FAIL] ghash_out mismatch! (XOR diff = %032h)", ghash_out ^ ref_acc_gcm);
       end else begin
         $display("  [PASS] 100%% Match with NIST SP 800-38D / C Golden Model.");
       end
@@ -296,7 +277,7 @@ module GHASH_tb;
       //===================================================================
       @(posedge clk);
       #1;
-      if (ghash_finish !== 1'b1 || ghash_out !== ref_acc_rtl) begin
+      if (ghash_finish !== 1'b1 || ghash_out !== ref_acc_gcm) begin
         error_count++;
         $display(
             "  [FAIL] ghash_finish or ghash_out did not remain stably held while finish_reset is low!");

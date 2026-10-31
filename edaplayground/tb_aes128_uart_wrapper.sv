@@ -1,6 +1,6 @@
 //=============================================================================
 // Testbench: tb_aes128_uart_wrapper.sv
-// Directory: uart_integration/aes128/
+// Directory: edaplayground/
 // Description: Self-checking testbench for aes128_uart_wrapper.
 //              Simulates bit-accurate UART communication across physical pins,
 //              decodes responses, and validates against NIST SP 800-38D vectors.
@@ -23,6 +23,7 @@ module tb_aes128_uart_wrapper;
     logic uart_tx;
     logic led_busy;
     logic led_done;
+    logic [4:0] led_unused;
 
     int test_count  = 0;
     int error_count = 0;
@@ -36,7 +37,8 @@ module tb_aes128_uart_wrapper;
         .uart_rx (uart_rx),
         .uart_tx (uart_tx),
         .led_busy(led_busy),
-        .led_done(led_done)
+        .led_done(led_done),
+        .led_unused(led_unused)
     );
 
     initial begin
@@ -69,7 +71,7 @@ module tb_aes128_uart_wrapper;
             int len;
             len = payload.size();
             uart_tx_byte(cmd);
-            uart_tx_byte(8'(len));
+            uart_tx_byte(len[7:0]);
             for (int i = 0; i < len; i++) begin
                 uart_tx_byte(payload[i]);
             end
@@ -120,7 +122,7 @@ module tb_aes128_uart_wrapper;
             uart_rx_byte(len_b);
             resp_cmd = cmd_b;
             resp_payload = new[len_b];
-            for (int i = 0; i < len_b; i++) begin
+            for (int i = 0; i < int'(len_b); i++) begin
                 uart_rx_byte(resp_payload[i]);
             end
         end
@@ -166,11 +168,11 @@ module tb_aes128_uart_wrapper;
             logic [7:0] key_tc2[16];
             logic [7:0] iv_tc2[12];
             logic [7:0] pt_tc2[16];
-            logic [7:0] exp_ct_tc2[16] = '{
+            static logic [7:0] exp_ct_tc2[16] = '{
                 8'h03,8'h88,8'hda,8'hce,8'h60,8'hb6,8'ha3,8'h92,
                 8'hf3,8'h28,8'hc2,8'hb9,8'h71,8'hb2,8'hfe,8'h78
             };
-            logic [7:0] exp_tag_tc2[16] = '{
+            static logic [7:0] exp_tag_tc2[16] = '{
                 8'hab,8'h6e,8'h47,8'hd4,8'h2c,8'hec,8'h13,8'hbd,
                 8'hf5,8'h3a,8'h67,8'hb2,8'h12,8'h57,8'hbd,8'hdf
             };
@@ -198,9 +200,10 @@ module tb_aes128_uart_wrapper;
             test_count++;
             receive_packet(rx_cmd, rx_ct);
             if (rx_cmd === RESP_CIPHERTEXT && rx_ct.size() == 16) begin
-                int ct_match = 1;
-                for (int i = 0; i < 16; i++) if (rx_ct[i] !== exp_ct_tc2[i]) ct_match = 0;
-                if (ct_match) $display("  [PASS] CIPHERTEXT (TC2) matched NIST specification.");
+                static bit ct_match = 1'b1;
+                for (int i = 0; i < 16; i++) if (rx_ct[i] !== exp_ct_tc2[i]) ct_match = 1'b0;
+                if (ct_match)
+                    $display("  [PASS] CIPHERTEXT (TC2) matched NIST specification.");
                 else begin
                     $display("  [FAIL] CIPHERTEXT (TC2) content mismatch!");
                     error_count++;
@@ -213,8 +216,8 @@ module tb_aes128_uart_wrapper;
             test_count++;
             receive_packet(rx_cmd, rx_tag);
             if (rx_cmd === RESP_AUTH_TAG && rx_tag.size() == 16) begin
-                int tag_match = 1;
-                for (int i = 0; i < 16; i++) if (rx_tag[i] !== exp_tag_tc2[i]) tag_match = 0;
+                static bit tag_match = 1'b1;
+                for (int i = 0; i < 16; i++) if (rx_tag[i] !== exp_tag_tc2[i]) tag_match = 1'b0;
                 if (tag_match) $display("  [PASS] AUTH_TAG (TC2) matched NIST specification.");
                 else begin
                     $display("  [FAIL] AUTH_TAG (TC2) content mismatch!");
@@ -231,26 +234,34 @@ module tb_aes128_uart_wrapper;
         //-------------------------------------------------------------
         $display("\n>>> TEST 2: NIST Appendix B - Test Case 3 (64B Multi-block PT)");
         begin
-            logic [7:0] key_tc3[16] = '{
+            static logic [7:0] key_tc3[16] = '{
                 8'hfe,8'hff,8'he9,8'h92,8'h86,8'h65,8'h73,8'h1c,
                 8'h6d,8'h6a,8'h8f,8'h94,8'h67,8'h30,8'h83,8'h08
             };
-            logic [7:0] iv_tc3[12] = '{
+            static logic [7:0] iv_tc3[12] = '{
                 8'hca,8'hfe,8'hba,8'hbe,8'hfa,8'hce,8'hdb,8'had,8'hde,8'hca,8'hf8,8'h88
             };
-            logic [7:0] pt_tc3[64] = '{
-                8'hd9,8'h31,8'h32,8'h25,8'hf8,8'h84,8'h06,8'he5,8'ha5,8'h59,8'h09,8'hc5,8'haf,8'hf5,8'h26,8'h9a,
-                8'h86,8'ha7,8'ha9,8'h53,8'h15,8'h34,8'hf7,8'hda,8'h2e,8'h4c,8'h30,8'h3d,8'h8a,8'h31,8'h8a,8'h72,
-                8'h1c,8'h3c,8'h0c,8'h95,8'h95,8'h68,8'h09,8'h53,8'h2f,8'hcf,8'h0e,8'h24,8'h49,8'ha6,8'hb5,8'h25,
-                8'hb1,8'h6a,8'hed,8'hf5,8'haa,8'h0d,8'he6,8'h57,8'hba,8'h63,8'h7b,8'h39,8'h1a,8'haf,8'hd2,8'h55
+            static logic [7:0] pt_tc3[64] = '{
+                8'hd9,8'h31,8'h32,8'h25,8'hf8,8'h84,8'h06,8'he5,
+                8'ha5,8'h59,8'h09,8'hc5,8'haf,8'hf5,8'h26,8'h9a,
+                8'h86,8'ha7,8'ha9,8'h53,8'h15,8'h34,8'hf7,8'hda,
+                8'h2e,8'h4c,8'h30,8'h3d,8'h8a,8'h31,8'h8a,8'h72,
+                8'h1c,8'h3c,8'h0c,8'h95,8'h95,8'h68,8'h09,8'h53,
+                8'h2f,8'hcf,8'h0e,8'h24,8'h49,8'ha6,8'hb5,8'h25,
+                8'hb1,8'h6a,8'hed,8'hf5,8'haa,8'h0d,8'he6,8'h57,
+                8'hba,8'h63,8'h7b,8'h39,8'h1a,8'haf,8'hd2,8'h55
             };
-            logic [7:0] exp_ct_tc3[64] = '{
-                8'h42,8'h83,8'h1e,8'hc2,8'h21,8'h77,8'h74,8'h24,8'h4b,8'h72,8'h21,8'hb7,8'h84,8'hd0,8'hd4,8'h9c,
-                8'he3,8'haa,8'h21,8'h2f,8'h2c,8'h02,8'ha4,8'he0,8'h35,8'hc1,8'h7e,8'h23,8'h29,8'hac,8'ha1,8'h2e,
-                8'h21,8'hd5,8'h14,8'hb2,8'h54,8'h66,8'h93,8'h1c,8'h7d,8'h8f,8'h6a,8'h5a,8'hac,8'h84,8'haa,8'h05,
-                8'h1b,8'ha3,8'h0b,8'h39,8'h6a,8'h0a,8'hac,8'h97,8'h3d,8'h58,8'he0,8'h91,8'h47,8'h3f,8'h59,8'h85
+            static logic [7:0] exp_ct_tc3[64] = '{
+                8'h42,8'h83,8'h1e,8'hc2,8'h21,8'h77,8'h74,8'h24,
+                8'h4b,8'h72,8'h21,8'hb7,8'h84,8'hd0,8'hd4,8'h9c,
+                8'he3,8'haa,8'h21,8'h2f,8'h2c,8'h02,8'ha4,8'he0,
+                8'h35,8'hc1,8'h7e,8'h23,8'h29,8'hac,8'ha1,8'h2e,
+                8'h21,8'hd5,8'h14,8'hb2,8'h54,8'h66,8'h93,8'h1c,
+                8'h7d,8'h8f,8'h6a,8'h5a,8'hac,8'h84,8'haa,8'h05,
+                8'h1b,8'ha3,8'h0b,8'h39,8'h6a,8'h0a,8'hac,8'h97,
+                8'h3d,8'h58,8'he0,8'h91,8'h47,8'h3f,8'h59,8'h85
             };
-            logic [7:0] exp_tag_tc3[16] = '{
+            static logic [7:0] exp_tag_tc3[16] = '{
                 8'h4d,8'h5c,8'h2a,8'hf3,8'h27,8'hcd,8'h64,8'ha6,
                 8'h2c,8'hf3,8'h5a,8'hbd,8'h2b,8'ha6,8'hfa,8'hb4
             };
@@ -274,9 +285,10 @@ module tb_aes128_uart_wrapper;
             test_count++;
             receive_packet(rx_cmd, rx_ct);
             if (rx_cmd === RESP_CIPHERTEXT && rx_ct.size() == 64) begin
-                int ct_match = 1;
-                for (int i = 0; i < 64; i++) if (rx_ct[i] !== exp_ct_tc3[i]) ct_match = 0;
-                if (ct_match) $display("  [PASS] CIPHERTEXT (TC3 - 64B) matched NIST specification.");
+                static bit ct_match = 1'b1;
+                for (int i = 0; i < 64; i++) if (rx_ct[i] !== exp_ct_tc3[i]) ct_match = 1'b0;
+                if (ct_match)
+                    $display("  [PASS] CIPHERTEXT (TC3 - 64B) matched NIST specification.");
                 else begin
                     $display("  [FAIL] CIPHERTEXT (TC3 - 64B) content mismatch!");
                     error_count++;
@@ -289,8 +301,8 @@ module tb_aes128_uart_wrapper;
             test_count++;
             receive_packet(rx_cmd, rx_tag);
             if (rx_cmd === RESP_AUTH_TAG && rx_tag.size() == 16) begin
-                int tag_match = 1;
-                for (int i = 0; i < 16; i++) if (rx_tag[i] !== exp_tag_tc3[i]) tag_match = 0;
+                static bit tag_match = 1'b1;
+                for (int i = 0; i < 16; i++) if (rx_tag[i] !== exp_tag_tc3[i]) tag_match = 1'b0;
                 if (tag_match) $display("  [PASS] AUTH_TAG (TC3) matched NIST specification.");
                 else begin
                     $display("  [FAIL] AUTH_TAG (TC3) content mismatch!");
@@ -311,8 +323,10 @@ module tb_aes128_uart_wrapper;
         $display("   Failed       : %0d", error_count);
         $display("==========================================================");
 
-        if (error_count == 0) $display(" *** ALL AES-128 TESTS PASSED SUCCESSFULLY ***\n");
-        else                  $error(" *** %0d VERIFICATION FAILURE(S) DETECTED ***\n", error_count);
+        if (error_count == 0)
+            $display(" *** ALL AES-128 TESTS PASSED SUCCESSFULLY ***\n");
+        else
+            $error(" *** %0d VERIFICATION FAILURE(S) DETECTED ***\n", error_count);
 
         #(CLK_PERIOD * 50);
         $finish;

@@ -16,6 +16,18 @@ module GHASH (
   logic [127:0] data_in;
   logic [127:0] multiply_in;
   logic [127:0] multiply_out;
+  logic [127:0] H_nist;
+  logic [127:0] multiply_in_nist;
+  logic [127:0] multiply_out_nist;
+
+  genvar i;
+  generate
+    for (i = 0; i < 128; i++) begin : BitReverse
+      assign H_nist[i]           = H_reg[127-i];
+      assign multiply_in_nist[i] = multiply_in[127-i];
+      assign multiply_out[i]     = multiply_out_nist[127-i];
+    end
+  endgenerate
 
   always_comb begin : DataInputMUX
     if (load_AAD) begin
@@ -33,9 +45,9 @@ module GHASH (
   assign multiply_in = ghash_out ^ data_in;
 
   GF128bitMultiply GFMultiply1 (
-      .H_reg(H_reg),
-      .data_in(multiply_in),
-      .data_out(multiply_out)
+      .H_reg(H_nist),
+      .data_in(multiply_in_nist),
+      .data_out(multiply_out_nist)
   );
 
   always_ff @(posedge clk, posedge finish_reset) begin : GHASHReg

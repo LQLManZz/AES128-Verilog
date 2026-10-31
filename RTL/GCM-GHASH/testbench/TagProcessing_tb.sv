@@ -16,7 +16,8 @@
 //       * Output Valid: tag_process_valid (always_ff, latched until finish_reset).
 //       * Uniform Finish Latency: ghash_finish is active for exactly 3 cycles
 //         consistently across ALL tests (both tag == tag_ref and tag != tag_ref).
-//   - Full NIST SP 800-38D Appendix B Test Vectors (TC1 to TC4).
+//   - gcm-spec.pdf Appendix B TC1-TC3, plus TC4 zero-padded to whole blocks
+//     (AAD=32B, CT=64B), so the TC4 tag is not the T printed in the spec.
 //
 // Reference: References/aes_gcm_golden_appendixB.c
 //            References/nistspecialpublication800-38d.pdf
@@ -99,7 +100,7 @@ module TagProcessing_tb;
   int error_count = 0;
 
   //=======================================================================
-  // Model: RTL Polynomial Basis GF(2^128) Multiplier
+  // Model: GF(2^128) Multiplier (polynomial basis + NIST-order wrapper)
   //   Irreducible polynomial: P(x) = x^128 + x^7 + x^2 + x + 1
   //=======================================================================
   function automatic logic [255:0] carryless_multiply(
@@ -141,12 +142,25 @@ module TagProcessing_tb;
     end
   endfunction
 
-  function automatic logic [127:0] rtl_gf128_mul(
+  function automatic logic [127:0] bit_reverse(input logic [127:0] in_vec);
+    logic [127:0] out_vec;
+    begin
+      for (int i = 0; i < 128; i++) begin
+        out_vec[i] = in_vec[127-i];
+      end
+      return out_vec;
+    end
+  endfunction
+
+  // NIST SP 800-38D order (bit 127 = x^0): reverse into the polynomial basis
+  // above, multiply, reverse back. Matches the GHASH port convention.
+  function automatic logic [127:0] gcm_gf128_mul(
       input logic [127:0] operand_a,
       input logic [127:0] operand_b
   );
     begin
-      return polynomial_reduction(carryless_multiply(operand_a, operand_b));
+      return bit_reverse(polynomial_reduction(
+          carryless_multiply(bit_reverse(operand_a), bit_reverse(operand_b))));
     end
   endfunction
 
@@ -232,12 +246,12 @@ module TagProcessing_tb;
       ref_ghash = 128'h0;
 
       for (int i = 0; i < num_aad; i++) begin
-        ref_ghash = rtl_gf128_mul(ref_ghash ^ aad_blocks[i], H_in);
+        ref_ghash = gcm_gf128_mul(ref_ghash ^ aad_blocks[i], H_in);
       end
       for (int j = 0; j < num_ct; j++) begin
-        ref_ghash = rtl_gf128_mul(ref_ghash ^ ct_blocks[j], H_in);
+        ref_ghash = gcm_gf128_mul(ref_ghash ^ ct_blocks[j], H_in);
       end
-      ref_ghash = rtl_gf128_mul(ref_ghash ^ len_block, H_in);
+      ref_ghash = gcm_gf128_mul(ref_ghash ^ len_block, H_in);
 
       // In AES-GCM TagProcessing: tag = ghash_out ^ E_reg
       exp_tag = ref_ghash ^ E_in;
@@ -418,7 +432,7 @@ module TagProcessing_tb;
 
     $display("==========================================================");
     $display(" TagProcessing Top-Level Testbench");
-    $display(" Reference: NIST SP 800-38D Appendix B (TC1-TC4)");
+    $display(" Reference: gcm-spec.pdf Appendix B (TC1-TC3, TC4 padded)");
     $display("==========================================================");
 
     //-------------------------------------------------------------------
@@ -437,10 +451,30 @@ module TagProcessing_tb;
       $display("  [PASS]");
     end
 
+    // Known-answer check of the reference model itself against NIST TC2
+    // (H = 66e9..2b2e, C = 0388..fe78, E = 58e2..455a -> T = ab6e47d4..bddf)
+    begin
+      logic [127:0] kat_ghash;
+      test_count++;
+      kat_ghash = gcm_gf128_mul(128'h0388dace60b6a392f328c2b971b2fe78,
+                                128'h66e94bd4ef8a2c3b884cfa59ca342b2e);
+      kat_ghash = gcm_gf128_mul(kat_ghash ^ {64'd0, 61'd16, 3'd0},
+                                128'h66e94bd4ef8a2c3b884cfa59ca342b2e);
+      $display("--------------------------------------------------");
+      $display("Test %0d: Reference model vs NIST TC2 tag", test_count);
+      if ((kat_ghash ^ 128'h58e2fccefa7e3061367f1d57a4e7455a) !==
+          128'hab6e47d42cec13bdf53a67b21257bddf) begin
+        error_count++;
+        $display("  [FAIL] model tag = %032h", kat_ghash ^ 128'h58e2fccefa7e3061367f1d57a4e7455a);
+      end else begin
+        $display("  [PASS]");
+      end
+    end
+
     //===================================================================
     // SECTION 1: Mode 0 — Tag Generation (Encryption)
     //===================================================================
-    $display("\n>>> SECTION 1: Mode 0 — Tag Generation (NIST TC1 - TC4)");
+    $display("\n>>> SECTION 1: Mode 0 — Tag Generation (spec TC1-TC3, TC4 padded)");
 
     // TC1: AAD=0B, CT=0B
     begin
@@ -475,7 +509,7 @@ module TagProcessing_tb;
       logic [127:0] ct_tc3[4];
 
       h_tc3     = 128'hb83b533708bf535d0aa6e52980d53b78;
-      e_tc3     = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
+      e_tc3     = 128'h3247184b3c4f69a44dbcd22887bbb418;
       ct_tc3[0] = 128'h42831ec2217774244b7221b784d0d49c;
       ct_tc3[1] = 128'he3aa212f2c02a4e035c17e2329aca12e;
       ct_tc3[2] = 128'h21d514b25466931c7d8f6a5aac84aa05;
@@ -485,14 +519,14 @@ module TagProcessing_tb;
                    1'b0, h_tc3, e_tc3, aad_tc3, ct_tc3, 128'h0, 1'b0);
     end
 
-    // TC4: AAD=20B (2 blk), CT=60B (4 blk)
+    // TC4 zero-padded: AAD=32B (2 blk), CT=64B (4 blk)
     begin
       logic [127:0] h_tc4, e_tc4;
       logic [127:0] aad_tc4[2];
       logic [127:0] ct_tc4[4];
 
       h_tc4      = 128'hb83b533708bf535d0aa6e52980d53b78;
-      e_tc4      = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
+      e_tc4      = 128'h3247184b3c4f69a44dbcd22887bbb418;
       aad_tc4[0] = 128'hfeedfacedeadbeeffeedfacedeadbeef;
       aad_tc4[1] = 128'habaddad2000000000000000000000000;
       ct_tc4[0]  = 128'h42831ec2217774244b7221b784d0d49c;
@@ -500,7 +534,7 @@ module TagProcessing_tb;
       ct_tc4[2]  = 128'h21d514b25466931c7d8f6a5aac84aa05;
       ct_tc4[3]  = 128'h1ba30b396a0aac973d58e09100000000;
 
-      run_tag_test("TC4 (Mode 0): AAD=20B, CT=60B",
+      run_tag_test("TC4 padded (Mode 0): AAD=32B, CT=64B",
                    1'b0, h_tc4, e_tc4, aad_tc4, ct_tc4, 128'h0, 1'b0);
     end
 
@@ -522,8 +556,8 @@ module TagProcessing_tb;
 
       // Compute exact expected tag for this message
       len_blk_tc2   = {61'd0, 3'd0, 61'd16, 3'd0};
-      ghash_tc2     = rtl_gf128_mul(ct_tc2[0], h_tc2);
-      ghash_tc2     = rtl_gf128_mul(ghash_tc2 ^ len_blk_tc2, h_tc2);
+      ghash_tc2     = gcm_gf128_mul(ct_tc2[0], h_tc2);
+      ghash_tc2     = gcm_gf128_mul(ghash_tc2 ^ len_blk_tc2, h_tc2);
       valid_tag_tc2 = ghash_tc2 ^ e_tc2;
 
       run_tag_test("TC2 (Mode 1 - Valid tag_ref): verify_pass MUST be 1",
@@ -543,8 +577,8 @@ module TagProcessing_tb;
       ct_tc2[0] = 128'h0388dace60b6a392f328c2b971b2fe78;
 
       len_blk_tc2   = {61'd0, 3'd0, 61'd16, 3'd0};
-      ghash_tc2     = rtl_gf128_mul(ct_tc2[0], h_tc2);
-      ghash_tc2     = rtl_gf128_mul(ghash_tc2 ^ len_blk_tc2, h_tc2);
+      ghash_tc2     = gcm_gf128_mul(ct_tc2[0], h_tc2);
+      ghash_tc2     = gcm_gf128_mul(ghash_tc2 ^ len_blk_tc2, h_tc2);
       valid_tag_tc2 = ghash_tc2 ^ e_tc2;
       tampered_tag  = valid_tag_tc2 ^ 128'h1; // Corrupted tag
 
@@ -561,7 +595,7 @@ module TagProcessing_tb;
       logic [127:0] len_blk_tc4, ghash_tc4;
 
       h_tc4      = 128'hb83b533708bf535d0aa6e52980d53b78;
-      e_tc4      = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
+      e_tc4      = 128'h3247184b3c4f69a44dbcd22887bbb418;
       aad_tc4[0] = 128'hfeedfacedeadbeeffeedfacedeadbeef;
       aad_tc4[1] = 128'habaddad2000000000000000000000000;
       ct_tc4[0]  = 128'h42831ec2217774244b7221b784d0d49c;
@@ -572,12 +606,12 @@ module TagProcessing_tb;
       // Compute exact expected tag for TC4
       len_blk_tc4 = {61'd32, 3'd0, 61'd64, 3'd0};
       ghash_tc4   = 128'h0;
-      for (int i = 0; i < 2; i++) ghash_tc4 = rtl_gf128_mul(ghash_tc4 ^ aad_tc4[i], h_tc4);
-      for (int j = 0; j < 4; j++) ghash_tc4 = rtl_gf128_mul(ghash_tc4 ^ ct_tc4[j], h_tc4);
-      ghash_tc4   = rtl_gf128_mul(ghash_tc4 ^ len_blk_tc4, h_tc4);
+      for (int i = 0; i < 2; i++) ghash_tc4 = gcm_gf128_mul(ghash_tc4 ^ aad_tc4[i], h_tc4);
+      for (int j = 0; j < 4; j++) ghash_tc4 = gcm_gf128_mul(ghash_tc4 ^ ct_tc4[j], h_tc4);
+      ghash_tc4   = gcm_gf128_mul(ghash_tc4 ^ len_blk_tc4, h_tc4);
       valid_tag_tc4 = ghash_tc4 ^ e_tc4;
 
-      run_tag_test("TC4 (Mode 1 - Valid tag_ref): verify_pass MUST be 1",
+      run_tag_test("TC4 padded (Mode 1 - Valid tag_ref): verify_pass MUST be 1",
                    1'b1, h_tc4, e_tc4, aad_tc4, ct_tc4,
                    valid_tag_tc4, 1'b1);
     end
@@ -589,7 +623,7 @@ module TagProcessing_tb;
       logic [127:0] ct_tc4[4];
 
       h_tc4      = 128'hb83b533708bf535d0aa6e52980d53b78;
-      e_tc4      = 128'hceeed2bc6e19f4fe6b1494dd431f385b;
+      e_tc4      = 128'h3247184b3c4f69a44dbcd22887bbb418;
       aad_tc4[0] = 128'hfeedfacedeadbeeffeedfacedeadbeef;
       aad_tc4[1] = 128'habaddad2000000000000000000000000;
       ct_tc4[0]  = 128'h42831ec2217774244b7221b784d0d49c;
@@ -597,7 +631,7 @@ module TagProcessing_tb;
       ct_tc4[2]  = 128'h21d514b25466931c7d8f6a5aac84aa05;
       ct_tc4[3]  = 128'h1ba30b396a0aac973d58e09100000000;
 
-      run_tag_test("TC4 (Mode 1 - All-zero tag_ref): verify_pass MUST be 0",
+      run_tag_test("TC4 padded (Mode 1 - All-zero tag_ref): verify_pass MUST be 0",
                    1'b1, h_tc4, e_tc4, aad_tc4, ct_tc4,
                    128'h0, 1'b0);
     end
@@ -613,7 +647,7 @@ module TagProcessing_tb;
     $display("   Failed : %0d", error_count);
     $display("==========================================================");
     if (error_count == 0)
-      $display(" ALL TESTS PASSED (100%% Match with RTL Specification)");
+      $display(" ALL TESTS PASSED");
     else
       $error(" %0d TEST(S) FAILED", error_count);
     $display("==========================================================");

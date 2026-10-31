@@ -43,7 +43,8 @@ package protocol_pkg;
         CMD_LOAD_IV        = 8'h02, // 12 bytes (96 bits)
         CMD_LOAD_AAD       = 8'h03, // Multiples of 16 bytes
         CMD_LOAD_PLAINTEXT = 8'h04, // Multiples of 16 bytes
-        CMD_START_ENCRYPT  = 8'h05  // 0 bytes payload
+        CMD_START_ENCRYPT  = 8'h05, // 0 bytes payload (starts encryption pipeline)
+        CMD_START_DECRYPT  = 8'h07  // 0 bytes payload (starts decryption pipeline)
     } cmd_opcode_t;
 
     // Response Opcodes (FPGA Accelerator -> Host PC)
@@ -1466,6 +1467,15 @@ module GHASH (
   logic [127:0] data_in;
   logic [127:0] multiply_in;
   logic [127:0] multiply_out;
+  logic [127:0] H_nist;
+  logic [127:0] multiply_in_nist;
+  logic [127:0] multiply_out_nist;
+
+  function automatic logic [127:0] bit_reverse(input logic [127:0] in_vec);
+    for (int i = 0; i < 128; i++) begin
+      bit_reverse[i] = in_vec[127-i];
+    end
+  endfunction
 
   always_comb begin : DataInputMUX
     if (load_AAD) begin
@@ -1481,11 +1491,14 @@ module GHASH (
 
   assign ghash_en = (load_AAD ^ load_CT ^ length_block_valid) & !ghash_finish;
   assign multiply_in = ghash_out ^ data_in;
+  assign H_nist = bit_reverse(H_reg);
+  assign multiply_in_nist = bit_reverse(multiply_in);
+  assign multiply_out = bit_reverse(multiply_out_nist);
 
   GF128bitMultiply GFMultiply1 (
-      .H_reg(H_reg),
-      .data_in(multiply_in),
-      .data_out(multiply_out)
+      .H_reg(H_nist),
+      .data_in(multiply_in_nist),
+      .data_out(multiply_out_nist)
   );
 
   always_ff @(posedge clk, posedge finish_reset) begin : GHASHReg
@@ -2207,6 +2220,7 @@ module packet_parser (
     output logic         cmd_load_aad_done,
     output logic         cmd_load_pt_done,
     output logic         cmd_start_encrypt_done,
+    output logic         cmd_start_decrypt_done,
 
     // Error status
     output logic         err_unknown_cmd,
@@ -2260,6 +2274,7 @@ module packet_parser (
             cmd_load_aad_done      <= 1'b0;
             cmd_load_pt_done       <= 1'b0;
             cmd_start_encrypt_done <= 1'b0;
+            cmd_start_decrypt_done <= 1'b0;
 
             err_unknown_cmd        <= 1'b0;
             err_len_mismatch       <= 1'b0;
@@ -2272,6 +2287,7 @@ module packet_parser (
             cmd_load_aad_done      <= 1'b0;
             cmd_load_pt_done       <= 1'b0;
             cmd_start_encrypt_done <= 1'b0;
+            cmd_start_decrypt_done <= 1'b0;
             err_unknown_cmd        <= 1'b0;
             err_len_mismatch       <= 1'b0;
 
@@ -2346,6 +2362,17 @@ module packet_parser (
                         CMD_START_ENCRYPT: begin // Length must be 0
                             if (len_reg == 8'd0) begin
                                 cmd_start_encrypt_done <= 1'b1;
+                                state                  <= ST_IDLE;
+                            end else begin
+                                err_len_mismatch <= 1'b1;
+                                err_cmd_code     <= cmd_reg;
+                                state            <= ST_IDLE;
+                            end
+                        end
+
+                        CMD_START_DECRYPT: begin // Length must be 0
+                            if (len_reg == 8'd0) begin
+                                cmd_start_decrypt_done <= 1'b1;
                                 state                  <= ST_IDLE;
                             end else begin
                                 err_len_mismatch <= 1'b1;
@@ -2673,7 +2700,7 @@ endmodule
 import protocol_pkg::*;
 
 module aes256_uart_wrapper #(
-    parameter int CLK_FREQ_HZ = 100_000_000,
+    parameter int CLK_FREQ_HZ = 50_000_000,
     parameter int BAUD_RATE   = 115_200
 )(
     input  logic clk,
@@ -2684,8 +2711,9 @@ module aes256_uart_wrapper #(
     output logic uart_tx,
 
     // Status diagnostics
-    output logic led_busy,
-    output logic led_done
+    output logic       led_busy,
+    output logic       led_done,
+    output logic [4:0] led_unused
 );
 
     //-------------------------------------------------------------------------
@@ -2717,6 +2745,7 @@ module aes256_uart_wrapper #(
     logic         parser_cmd_load_aad_done;
     logic         parser_cmd_load_pt_done;
     logic         parser_cmd_start_encrypt_done;
+    logic         parser_cmd_start_decrypt_done;
 
     logic         parser_err_unknown;
     logic         parser_err_len;
@@ -2802,11 +2831,16 @@ module aes256_uart_wrapper #(
     assign builder_ct_block_data = mem_ct[builder_ct_block_sel];
     assign builder_tag_data      = reg_tag;
 
-    // Fixed configuration for encryption
-    assign aes_mode           = 1'b0; // 0 = Encryption
-    assign aes_load_tag_ref   = 1'b0;
+    // Dynamic configuration for encryption (mode=0) and decryption (mode=1)
+    logic reg_aes_mode;
+    logic reg_load_tag_ref;
+    logic reg_verify_checked;
+    logic tag_ref_sent;
+
+    assign aes_mode           = reg_aes_mode;
+    assign aes_load_tag_ref   = reg_load_tag_ref;
     assign aes_tag_ref        = 128'h0;
-    assign aes_verify_checked = 1'b0;
+    assign aes_verify_checked = reg_verify_checked;
 
     //-------------------------------------------------------------------------
     // Wrapper Orchestration State Machine
@@ -2816,8 +2850,10 @@ module aes256_uart_wrapper #(
         WRAP_START_KEY_IV,
         WRAP_WAIT_AAD_READY,
         WRAP_STREAM_AAD,
+        WRAP_HOLD_AAD_LAST,
         WRAP_WAIT_DATA_READY,
         WRAP_STREAM_PT,
+        WRAP_HOLD_PT_LAST,
         WRAP_WAIT_PIPELINE,
         WRAP_SEND_CT,
         WRAP_WAIT_CT_SENT,
@@ -2829,6 +2865,11 @@ module aes256_uart_wrapper #(
 
     logic [3:0] cur_aad_idx;
     logic [3:0] cur_pt_idx;
+
+    // The core needs at least one block, so START with nothing loaded is refused.
+    logic start_requested, start_without_pt;
+    assign start_requested  = parser_cmd_start_encrypt_done | parser_cmd_start_decrypt_done;
+    assign start_without_pt = start_requested && (wrap_state == WRAP_IDLE) && (cnt_pt_blocks == 4'd0);
 
     //-------------------------------------------------------------------------
     // Common Module Instantiations
@@ -2875,6 +2916,7 @@ module aes256_uart_wrapper #(
         .cmd_load_aad_done     (parser_cmd_load_aad_done),
         .cmd_load_pt_done      (parser_cmd_load_pt_done),
         .cmd_start_encrypt_done(parser_cmd_start_encrypt_done),
+        .cmd_start_decrypt_done(parser_cmd_start_decrypt_done),
         .err_unknown_cmd       (parser_err_unknown),
         .err_len_mismatch      (parser_err_len),
         .err_cmd_code          (parser_err_code)
@@ -2967,11 +3009,15 @@ module aes256_uart_wrapper #(
             if (parser_cmd_load_key_done) begin
                 reg_key              <= parser_key;
                 reg_key_len          <= parser_key_len;
+                cnt_aad_blocks       <= 4'd0;
+                cnt_pt_blocks        <= 4'd0;
                 builder_send_ack_key <= 1'b1;
             end
 
             if (parser_cmd_load_iv_done) begin
                 reg_iv              <= parser_iv;
+                cnt_aad_blocks      <= 4'd0;
+                cnt_pt_blocks       <= 4'd0;
                 builder_send_ack_iv <= 1'b1;
             end
 
@@ -2987,6 +3033,11 @@ module aes256_uart_wrapper #(
 
             if (parser_cmd_load_aad_done) builder_send_ack_aad <= 1'b1;
             if (parser_cmd_load_pt_done)  builder_send_ack_pt  <= 1'b1;
+
+            if (start_without_pt) begin
+                builder_send_err_len <= 1'b1;
+                builder_err_code     <= parser_cmd_start_decrypt_done ? CMD_START_DECRYPT : CMD_START_ENCRYPT;
+            end
 
             if (parser_err_unknown) begin
                 builder_send_err_unknown <= 1'b1;
@@ -3026,7 +3077,7 @@ module aes256_uart_wrapper #(
                 cnt_ct_captured         <= cnt_ct_captured + 1'b1;
             end
 
-            if (aes_tag_valid) begin
+            if (aes_tag_valid || (reg_aes_mode && aes_verify_done)) begin
                 reg_tag          <= aes_tag_out;
                 reg_tag_captured <= 1'b1;
             end
@@ -3039,6 +3090,10 @@ module aes256_uart_wrapper #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             wrap_state              <= WRAP_IDLE;
+            reg_aes_mode            <= 1'b0;
+            reg_load_tag_ref        <= 1'b0;
+            reg_verify_checked      <= 1'b0;
+            tag_ref_sent            <= 1'b0;
             aes_load_key            <= 1'b0;
             aes_load_iv             <= 1'b0;
             aes_load_aad            <= 1'b0;
@@ -3055,11 +3110,11 @@ module aes256_uart_wrapper #(
             builder_send_ciphertext <= 1'b0;
             builder_ct_len_bytes    <= 8'h00;
             builder_send_auth_tag   <= 1'b0;
-            led_busy                <= 1'b0;
-            led_done                <= 1'b0;
         end else begin
             aes_load_key            <= 1'b0;
             aes_load_iv             <= 1'b0;
+            reg_load_tag_ref        <= 1'b0;
+            reg_verify_checked      <= 1'b0;
             aes_load_aad            <= 1'b0;
             aes_no_aad              <= 1'b0;
             aes_aad_last            <= 1'b0;
@@ -3067,17 +3122,16 @@ module aes256_uart_wrapper #(
             aes_data_in_last        <= 1'b0;
             builder_send_ciphertext <= 1'b0;
             builder_send_auth_tag   <= 1'b0;
-            led_done                <= 1'b0;
 
             case (wrap_state)
                 WRAP_IDLE: begin
-                    led_busy    <= 1'b0;
-                    cur_aad_idx <= 4'd0;
-                    cur_pt_idx  <= 4'd0;
+                    cur_aad_idx  <= 4'd0;
+                    cur_pt_idx   <= 4'd0;
+                    tag_ref_sent <= 1'b0;
 
-                    if (parser_cmd_start_encrypt_done) begin
-                        led_busy       <= 1'b1;
-                        // AES-256 receives full 256-bit key
+                    if (start_requested && (cnt_pt_blocks != 4'd0)) begin
+                        // 0 = Encryption, 1 = Decryption
+                        reg_aes_mode   <= parser_cmd_start_decrypt_done;
                         aes_cipher_key <= reg_key;
                         aes_iv_in      <= reg_iv;
                         aes_load_key   <= 1'b1;
@@ -3091,6 +3145,12 @@ module aes256_uart_wrapper #(
                 end
 
                 WRAP_WAIT_AAD_READY: begin
+                    // In Decryption mode, satisfy CU's WAIT_TAG_REF handshake
+                    if (reg_aes_mode && aes_tag_ref_ready && !tag_ref_sent) begin
+                        reg_load_tag_ref <= 1'b1;
+                        tag_ref_sent     <= 1'b1;
+                    end
+
                     if (aes_aad_ready) begin
                         if (cnt_aad_blocks == 4'd0) begin
                             aes_no_aad <= 1'b1;
@@ -3101,7 +3161,7 @@ module aes256_uart_wrapper #(
                             aes_load_aad <= 1'b1;
                             if (cnt_aad_blocks == 4'd1) begin
                                 aes_aad_last <= 1'b1;
-                                wrap_state   <= WRAP_WAIT_DATA_READY;
+                                wrap_state   <= WRAP_HOLD_AAD_LAST;
                             end else begin
                                 cur_aad_idx <= 4'd1;
                                 wrap_state  <= WRAP_STREAM_AAD;
@@ -3121,6 +3181,12 @@ module aes256_uart_wrapper #(
                     end
                 end
 
+                WRAP_HOLD_AAD_LAST: begin
+                    aes_load_aad <= 1'b0;
+                    aes_aad_last <= 1'b1;
+                    wrap_state   <= WRAP_WAIT_DATA_READY;
+                end
+
                 WRAP_WAIT_DATA_READY: begin
                     if (aes_data_ready) begin
                         cur_pt_idx    <= 4'd0;
@@ -3128,7 +3194,7 @@ module aes256_uart_wrapper #(
                         aes_load_data <= 1'b1;
                         if (cnt_pt_blocks == 4'd1) begin
                             aes_data_in_last <= 1'b1;
-                            wrap_state       <= WRAP_WAIT_PIPELINE;
+                            wrap_state       <= WRAP_HOLD_PT_LAST;
                         end else begin
                             cur_pt_idx <= 4'd1;
                             wrap_state <= WRAP_STREAM_PT;
@@ -3147,7 +3213,16 @@ module aes256_uart_wrapper #(
                     end
                 end
 
+                WRAP_HOLD_PT_LAST: begin
+                    aes_load_data    <= 1'b0;
+                    aes_data_in_last <= 1'b1;
+                    wrap_state       <= WRAP_WAIT_PIPELINE;
+                end
+
                 WRAP_WAIT_PIPELINE: begin
+                    if (reg_aes_mode && aes_verify_done) begin
+                        reg_verify_checked <= 1'b1;
+                    end
                     if ((cnt_ct_captured == cnt_pt_blocks) && reg_tag_captured) begin
                         wrap_state <= WRAP_SEND_CT;
                     end
@@ -3172,8 +3247,6 @@ module aes256_uart_wrapper #(
 
                 WRAP_WAIT_TAG_SENT: begin
                     if (builder_packet_sent) begin
-                        led_busy   <= 1'b0;
-                        led_done   <= 1'b1;
                         wrap_state <= WRAP_IDLE;
                     end
                 end
@@ -3183,6 +3256,38 @@ module aes256_uart_wrapper #(
                 end
             endcase
         end
+    end
+
+    //-------------------------------------------------------------------------
+    // Diagnostic 1 Hz Heartbeat Generator & Status Diagnostics (Biện pháp 2)
+    // - led_busy (Pin T18): High when FPGA is actively calculating encryption
+    // - led_done (Pin V17):
+    //     * In WRAP_IDLE: Pulses as a 1.0 Hz Heartbeat (0.5s ON, 0.5s OFF)
+    //       verifying clock frequency and reset release on the FPGA.
+    //     * On packet completion: Stays solid ON during WRAP_WAIT_TAG_SENT.
+    //-------------------------------------------------------------------------
+    localparam int HEARTBEAT_HALF_PERIOD = CLK_FREQ_HZ / 2;
+    logic [31:0] heartbeat_cnt;
+    logic        heartbeat_toggle;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            heartbeat_cnt    <= 32'd0;
+            heartbeat_toggle <= 1'b0;
+        end else begin
+            if (heartbeat_cnt >= HEARTBEAT_HALF_PERIOD - 1) begin
+                heartbeat_cnt    <= 32'd0;
+                heartbeat_toggle <= ~heartbeat_toggle;
+            end else begin
+                heartbeat_cnt    <= heartbeat_cnt + 1'b1;
+            end
+        end
+    end
+
+    always_comb begin
+        led_busy   = (wrap_state != WRAP_IDLE);
+        led_done   = (wrap_state == WRAP_IDLE) ? heartbeat_toggle : (wrap_state == WRAP_WAIT_TAG_SENT);
+        led_unused = 5'b00000; // Actively drive remaining onboard LEDs (LED3..LED7) LOW (OFF)
     end
 
 endmodule

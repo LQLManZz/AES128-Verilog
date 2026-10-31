@@ -174,6 +174,11 @@ module aes128_uart_wrapper #(
     logic [3:0] cur_aad_idx;
     logic [3:0] cur_pt_idx;
 
+    // The core needs at least one block, so START with nothing loaded is refused.
+    logic start_requested, start_without_pt;
+    assign start_requested  = parser_cmd_start_encrypt_done;
+    assign start_without_pt = start_requested && (wrap_state == WRAP_IDLE) && (cnt_pt_blocks == 4'd0);
+
     //-------------------------------------------------------------------------
     // Common Module Instantiations
     //-------------------------------------------------------------------------
@@ -336,6 +341,11 @@ module aes128_uart_wrapper #(
             if (parser_cmd_load_aad_done) builder_send_ack_aad <= 1'b1;
             if (parser_cmd_load_pt_done)  builder_send_ack_pt  <= 1'b1;
 
+            if (start_without_pt) begin
+                builder_send_err_len <= 1'b1;
+                builder_err_code     <= CMD_START_ENCRYPT;
+            end
+
             if (parser_err_unknown) begin
                 builder_send_err_unknown <= 1'b1;
                 builder_err_code         <= parser_err_code;
@@ -419,7 +429,7 @@ module aes128_uart_wrapper #(
                     cur_aad_idx <= 4'd0;
                     cur_pt_idx  <= 4'd0;
 
-                    if (parser_cmd_start_encrypt_done) begin
+                    if (start_requested && (cnt_pt_blocks != 4'd0)) begin
                         // AES-128 receives lower 128 bits of key
                         aes_cipher_key <= reg_key[127:0];
                         aes_iv_in      <= reg_iv;

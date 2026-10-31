@@ -170,7 +170,6 @@ The host CLI utility is located at `uart_integration/python/host.py`.
 | `--pt`, `--plaintext` | Plaintext to encrypt (hex string or plain text) | None |
 | `--ct`, `--ciphertext` | Ciphertext to decrypt (hex string) | None |
 | `--tag` | Expected 16-byte authentication tag in hex (for decrypt mode) | None |
-| `--tag-nist` | Expected official NIST SP 800-38D golden tag for cross-reference | Auto/Optional |
 | `--test`, `--test-nist` | Execute automated self-test verification suite | False |
 | `--benchmark [N]` | Run continuous benchmark stream of N packets for visual LED activity | Disabled (const: 50) |
 | `-i`, `--interactive` | Launch interactive terminal UI | False |
@@ -179,10 +178,10 @@ The host CLI utility is located at `uart_integration/python/host.py`.
 
 ### 4.2 Automated Hardware Self-Testing
 
-Runs the official NIST SP 800-38D Appendix B test suite against the FPGA and outputs both the summary table and the complete dual-representation audit:
+Runs the official NIST SP 800-38D Appendix B test suite against the FPGA and outputs a summary table and a per-vector audit. Hardware output is compared byte-for-byte with the NIST SP 800-38D values, with no bit reversal:
 
 ```bash
-# Test AES-256 core (NIST TC16, TC17, TC18 + Decryption Verification)
+# Test AES-256 core (GCM spec TC14, TC15, custom AAD vector + Decryption Verification)
 python uart_integration/python/host.py -v aes256 --test
 
 # Test AES-128 core (NIST TC2, TC3 + Decryption Verification)
@@ -194,16 +193,16 @@ python uart_integration/python/host.py -v aes256 --test --mock
 
 Sample output:
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   NIST SP 800-38D HARDWARE VERIFICATION SUMMARY                                    │
-├──────┬──────────────────────────┬────────┬────────┬────────┬──────────┬────────────────┬────────────────┬──────────┤
-│  ID  │ Test Case Description    │  Mode  │  Data  │  AAD   │  Cipher  │  Raw RTL Tag   │    NIST Tag    │  Status  │
-├──────┼──────────────────────────┼────────┼────────┼────────┼──────────┼────────────────┼────────────────┼──────────┤
-│  1   │ NIST App.B TC16 (Zero... │  ENC   │    16B │     0B │   PASS   │ eca8e2...3704  │ d0d1c8...b919  │   PASS   │
-│  2   │ NIST App.B TC17 (64B ... │  ENC   │    64B │     0B │   PASS   │ 3539d3...5d6f  │ ed974c...af03  │   PASS   │
-│  3   │ NIST TC18 with AAD (16B) │  ENC   │    16B │    16B │   PASS   │ 0b9c23...e0e5  │ 539a37...ee6b  │   PASS   │
-│  4   │ AES-256 Decrypt & Verify │  DEC   │    16B │    16B │   PASS   │ b11afd...c877  │ 539a37...ee6b  │   PASS   │
-└──────┴──────────────────────────┴────────┴────────┴────────┴──────────┴────────────────┴────────────────┴──────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                NIST SP 800-38D HARDWARE VERIFICATION SUMMARY                                 │
+├──────┬──────────────────────────┬────────┬────────┬────────┬──────────┬────────────────┬──────────┬──────────┤
+│  ID  │ Test Case Description    │  Mode  │  Data  │  AAD   │  Cipher  │    Auth Tag    │   Tag    │  Status  │
+├──────┼──────────────────────────┼────────┼────────┼────────┼──────────┼────────────────┼──────────┼──────────┤
+│  1   │ GCM spec TC14 (Zero... │  ENC   │    16B │     0B │   PASS   │ d0d1c8...b919  │   PASS   │   PASS   │
+│  2   │ GCM spec TC15 (64B ... │  ENC   │    64B │     0B │   PASS   │ ed974c...af03  │   PASS   │   PASS   │
+│  3   │ Custom AAD+PT vector 16B │  ENC   │    16B │    16B │   PASS   │ 539a37...ee6b  │   PASS   │   PASS   │
+│  4   │ AES-256 Decrypt & Verify │  DEC   │    16B │    16B │   PASS   │ 539a37...ee6b  │   PASS   │   PASS   │
+└──────┴──────────────────────────┴────────┴────────┴────────┴──────────┴────────────────┴──────────┴──────────┘
  [✓] RESULT: ALL 4/4 VERIFICATION CHECKS PASSED SUCCESSFULLY!
 ```
 
@@ -213,18 +212,18 @@ Sample output:
 
 #### AES-256 Encryption with AAD:
 ```bash
-python uart_integration/python/host.py -v aes256 -op encrypt --key feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308 --iv  cafebabefacedebadecaf888 --aad feedfacedeadbeeffeedfacedeadbeef --pt  d9313225f88406e5a55909c5aff5269a
+python uart_integration/python/host.py -v aes256 -op encrypt --key feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308 --iv  cafebabefacedbaddecaf888 --aad feedfacedeadbeeffeedfacedeadbeef --pt  d9313225f88406e5a55909c5aff5269a
 ```
 
 #### AES-256 Decryption & Tag Verification:
-The decrypt command accepts **either** the Raw RTL Tag or the NIST Golden Tag:
+The decrypt command compares the tag returned by the FPGA with the `--tag` value (NIST SP 800-38D byte order):
 ```bash
 python uart_integration/python/host.py -v aes256 -op decrypt \
     --key feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308 \
-    --iv  cafebabefacedebadecaf888 \
+    --iv  cafebabefacedbaddecaf888 \
     --aad feedfacedeadbeeffeedfacedeadbeef \
-    --ct  9cc9fbd6c5e790c049c00906e6752d79 \
-    --tag 539a375d54195500b5c7109b586fee6b
+    --ct  522dc1f099567d07f47f37a32a84427d \
+    --tag 03a2864be371e37753a80e8e240ff2f0
 ```
 
 Output report:
@@ -238,22 +237,17 @@ Output report:
 │ Round-Trip Latency         │ 22.48 ms                                       │
 ├────────────────────────────┼────────────────────────────────────────────────┤
 │ Key (32B)                  │ feffe9928665731c6d6a8f9467308308feffe9... (32B) │
-│ IV (12B)                   │ cafebabefacedebadecaf888                       │
+│ IV (12B)                   │ cafebabefacedbaddecaf888                       │
 │ AAD (16B)                  │ feedfacedeadbeeffeedfacedeadbeef               │
-│ Ciphertext In (16B)        │ 9cc9fbd6c5e790c049c00906e6752d79               │
+│ Ciphertext In (16B)        │ 522dc1f099567d07f47f37a32a84427d               │
 ├────────────────────────────┼────────────────────────────────────────────────┤
-│ Plaintext (Raw)            │ d9313225f88406e5a55909c5aff5269a               │
-│ Plaintext (Bit-Rev)        │ 9b8c4ca41f2160a7a59a90a3f5af6459               │
+│ Plaintext                  │ d9313225f88406e5a55909c5aff5269a               │
 │ Decrypted ASCII            │ .12%.....Y....&.                               │
 ├────────────────────────────┼────────────────────────────────────────────────┤
-│ Tag: Raw Hardware          │ 0b9c23630bd31f5e963bf7361d42e0e5               │
-│ Tag: Bit-Rev per Byte      │ d039c4c6d0cbf87a69dcef6cb84207a7               │
-│ Tag: Full 128b Reversed    │ a70742b86cefdc697af8cbd0c6c439d0               │
-│ Tag: Byte-Endian Swapped   │ e5e0421d36f73b965e1fd30b63239c0b               │
-│ Tag: NIST Golden Ref       │ 539a375d54195500b5c7109b586fee6b               │
-│ Tag: Expected Input        │ 539a375d54195500b5c7109b586fee6b               │
+│ Auth Tag                   │ 03a2864be371e37753a80e8e240ff2f0               │
+│ Tag: Expected Input        │ 03a2864be371e37753a80e8e240ff2f0               │
 ├────────────────────────────┼────────────────────────────────────────────────┤
-│ Integrity Check            │ [✓] AUTHENTIC (Matched NIST Golden Tag)        │
+│ Integrity Check            │ [✓] AUTHENTIC (Tag Matched)                    │
 └────────────────────────────┴────────────────────────────────────────────────┘
 ```
 
@@ -273,46 +267,38 @@ python uart_integration/python/host.py -v aes256 --benchmark 100
 
 ---
 
-## 5. Bit Ordering & Data Representation Reference (RTL vs NIST SP 800-38D)
+## 5. Bit Ordering & Data Representation (NIST SP 800-38D)
 
-### 5.1 Root Cause & Mathematical Analysis
+### 5.1 Bit Ordering in the RTL
 
-In AES-GCM (Galois/Counter Mode), there are two distinct cryptographic engines:
-1. **AES CTR Mode Core** (producing the Ciphertext):
-   - In both AES-128 and AES-256 RTL modules, the CTR mode encryption strictly adheres to standard big-endian MSB-first byte mapping.
-   - **Result:** Ciphertext produced by the hardware matches the official NIST SP 800-38D specification **100% byte-for-byte** across all test cases.
-2. **GHASH Authenticator Core** (producing the Authentication Tag):
-   - **NIST SP 800-38D Definition (Reflected Basis):** In Section 3.2 of the NIST standard, elements of $\text{GF}(2^{128})$ are represented in a *reflected bit basis*. Within each 8-bit byte $B = (b_7, b_6, \dots, b_0)$, bit 7 corresponds to $x^0$ and bit 0 corresponds to $x^7$. The reduction polynomial is $R(x) = \texttt{0xE1} \mathbin{\Vert} 0^{120} = x^{128} + x^7 + x^2 + x + 1$.
-   - **RTL Hardware Implementation (Unreflected Basis):** In `RTL/GCM-GHASH/GF128bitMultiply.sv` and `ReductionBlock.sv`, standard non-reflected polynomial basis multiplication is implemented: bit 0 of each byte represents $x^0$ and bit 7 represents $x^7$.
-   - **Consequence:** The Authentication Tag generated by the hardware is valid and cryptographically authentic under the hardware's polynomial representation, but exhibits a bit-basis reflection difference relative to NIST SP 800-38D golden vectors.
+AES-GCM has two engines, and both follow NIST SP 800-38D byte-for-byte on every port:
+1. **AES CTR Mode Core** (Ciphertext): standard big-endian, MSB-first byte mapping.
+2. **GHASH Core** (Authentication Tag): NIST Section 6.3 represents a block $X = x_0 x_1 \dots x_{127}$ as a polynomial with $x_0$ (the leftmost bit, bit 127 of a SystemVerilog vector) as the coefficient of $x^0$. `RTL/GCM-GHASH/GF128bitMultiply.sv` multiplies in the plain polynomial basis (bit 0 is $x^0$, reduction polynomial $x^{128} + x^7 + x^2 + x + 1$), so `RTL/GCM-GHASH/GHASH.sv` bit-reverses all 128 bits of the subkey $H$, of each multiplier input and of the product. This is wiring only and costs no logic.
 
----
+Because of this, `H`, `AAD`, `CT`, the length block, `ghash_out` and the final `tag` use the same bit order as the NIST test vectors. No bit reversal is needed on the host.
 
-### 5.2 NIST SP 800-38D Golden Vectors Cross-Reference Table
-
-The table below provides the comprehensive reference mapping for all standard NIST test vectors, comparing the **Ciphertext**, the **Hardware Raw Tag**, the **Bit-Reversed per Byte Tag**, and the **NIST Official Golden Tag**:
-
-| Test Case | Variant | PT / AAD | Ciphertext (Hardware Raw & NIST Exact) | Hardware Raw RTL Tag | Bit-Rev per Byte Tag ($b_7 \leftrightarrow b_0$) | NIST SP 800-38D Golden Tag |
-|:---|:---:|:---:|:---|:---|:---|:---|
-| **NIST TC2** | AES-128 | 16B PT<br>0B AAD | `0388dace60b6a392f328c2b971b2fe78` | `2c4fa7cbc8dcac66067fb1a42b88adc8` | `34f2e5d3133b356660fe8d25d411b513` | `ab6e47d42cec13bdf53a67b21257bddf` |
-| **NIST TC3** | AES-128 | 64B PT<br>0B AAD | `42831ec2217774244b7221b784d0d49c...`<br>(64 bytes) | `892029877346acb76c60979458277c8d`<br>(software model, not yet measured on hardware) | `910494e1ce6235ed3606e9291ae43eb1` | `4d5c2af327cd64a62cf35abd2ba6fab4` |
-| **NIST TC16** | AES-256 | 16B PT<br>0B AAD | `cea7403d4d606b6e074ec5d3baf39d18` | `eca8e26b44cb8ab9e5cddc39bdd43704` | `371547d622d3519da7b33b9cbd2bec20` | `d0d1c8a799996bf0265b98b5d48ab919` |
-| **NIST TC17** | AES-256 | 64B PT<br>0B AAD | `9cc9fbd6c5e790c049c00906e6752d79...`<br>(64 bytes) | `3539d3f390b09ca3cae3543a9af25d6f` | `ac9ccbcf090d39c553c72a5c594fbaf6` | `ed974c00e5e30f5cf7dc738eac8aaf03` |
-| **NIST TC18** | AES-256 | 16B PT<br>16B AAD | `9cc9fbd6c5e790c049c00906e6752d79` | `0b9c23630bd31f5e963bf7361d42e0e5` | `d039c4c6d0cbf87a69dcef6cb84207a7` | `539a375d54195500b5c7109b586fee6b` |
+> **Hardware built from older RTL.** Before this change the GHASH core did not reverse the bits, so the tag differed from NIST (for example `2c4fa7cb...` instead of `ab6e47d4...` for TC2). A bitstream synthesized from that RTL still returns those tags and must be rebuilt from the current RTL.
 
 ---
 
-### 5.3 How `host.py` Normalizes and Cross-References
+### 5.2 NIST SP 800-38D Reference Vectors
 
-To eliminate confusion when comparing hardware output against NIST documents, `host.py` implements:
+Ciphertext and tag returned by the hardware equal the following values:
 
-1. **Dual Representation Output:**
-   - Whenever encryption or decryption is performed, `host.py` displays both the **Raw Hardware** format and the **Bit-Reversed per Byte** format ($b_7 \leftrightarrow b_0$), alongside the **NIST Official Reference Tag**.
-2. **Multi-Format Tag Authentication:**
-   - In Decryption mode (`-op decrypt`), the user may supply the authentication tag in any of the three formats:
-     - The **Hardware Raw Tag** (`0b9c...`)
-     - The **Bit-Reversed Tag** (`d039...`)
-     - The **NIST Official Golden Tag** (`539a...`)
-   - `host.py` cross-checks against the internal mapping table and marks the packet as authentic if any valid representation matches.
-3. **Comprehensive Automated Audit:**
-   - In automated self-test mode (`--test`), `host.py` prints a structured audit box displaying both forms of Ciphertext and Authentication Tag for every vector, enabling instant verification.
+| Test Case | Variant | PT / AAD | Ciphertext | Authentication Tag |
+|:---|:---:|:---:|:---|:---|
+| **NIST TC2** | AES-128 | 16B PT<br>0B AAD | `0388dace60b6a392f328c2b971b2fe78` | `ab6e47d42cec13bdf53a67b21257bddf` |
+| **NIST TC3** | AES-128 | 64B PT<br>0B AAD | `42831ec2217774244b7221b784d0d49c...`<br>(64 bytes) | `4d5c2af327cd64a62cf35abd2ba6fab4` |
+| **GCM spec TC14** | AES-256 | 16B PT<br>0B AAD | `cea7403d4d606b6e074ec5d3baf39d18` | `d0d1c8a799996bf0265b98b5d48ab919` |
+| **GCM spec TC15** | AES-256 | 64B PT<br>0B AAD | `522dc1f099567d07f47f37a32a84427d...`<br>(64 bytes) | `b094dac5d93471bdec1a502270e3cc6c` |
+| **Custom AAD vector** | AES-256 | 16B PT<br>16B AAD | `522dc1f099567d07f47f37a32a84427d` | `03a2864be371e37753a80e8e240ff2f0` |
+
+The tags were cross-checked against the PyCryptodome `AES.MODE_GCM` implementation.
+
+---
+
+### 5.3 What `host.py` Does
+
+1. **Direct display:** the ciphertext/plaintext and the tag are printed exactly as received from the FPGA.
+2. **Tag verification:** in decrypt mode (`-op decrypt`), the tag returned by the FPGA is compared byte-for-byte with `--tag`.
+3. **Self-test audit:** `--test` prints a summary table and, for every vector, the hardware tag next to the NIST reference tag.

@@ -184,6 +184,11 @@ module aes256_uart_wrapper #(
     logic [3:0] cur_aad_idx;
     logic [3:0] cur_pt_idx;
 
+    // The core needs at least one block, so START with nothing loaded is refused.
+    logic start_requested, start_without_pt;
+    assign start_requested  = parser_cmd_start_encrypt_done | parser_cmd_start_decrypt_done;
+    assign start_without_pt = start_requested && (wrap_state == WRAP_IDLE) && (cnt_pt_blocks == 4'd0);
+
     //-------------------------------------------------------------------------
     // Common Module Instantiations
     //-------------------------------------------------------------------------
@@ -347,6 +352,11 @@ module aes256_uart_wrapper #(
             if (parser_cmd_load_aad_done) builder_send_ack_aad <= 1'b1;
             if (parser_cmd_load_pt_done)  builder_send_ack_pt  <= 1'b1;
 
+            if (start_without_pt) begin
+                builder_send_err_len <= 1'b1;
+                builder_err_code     <= parser_cmd_start_decrypt_done ? CMD_START_DECRYPT : CMD_START_ENCRYPT;
+            end
+
             if (parser_err_unknown) begin
                 builder_send_err_unknown <= 1'b1;
                 builder_err_code         <= parser_err_code;
@@ -437,7 +447,7 @@ module aes256_uart_wrapper #(
                     cur_pt_idx   <= 4'd0;
                     tag_ref_sent <= 1'b0;
 
-                    if (parser_cmd_start_encrypt_done || parser_cmd_start_decrypt_done) begin
+                    if (start_requested && (cnt_pt_blocks != 4'd0)) begin
                         // 0 = Encryption, 1 = Decryption
                         reg_aes_mode   <= parser_cmd_start_decrypt_done;
                         aes_cipher_key <= reg_key;
