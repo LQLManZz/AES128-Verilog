@@ -1,0 +1,7 @@
+output/
+input/*
+!input/.gitkeep
+esp32_bridge/.pio/
+esp32_bridge/src/secrets.h
+esp32_bridge/sdkconfig.*
+!esp32_bridge/sdkconfig.defaults

@@ -1,0 +1,19 @@
+# I/O constraints for aes256_spi_wrapper / aes128_spi_wrapper.
+# PolarFire SoC Discovery Kit, SPI on the mikroBUS socket J5 (Bank 1, 3.3 V: J45 closed 1-2).
+# Check J5 against the kit schematic before wiring: see realtime_env/INSTRUCTIONS.md.
+
+set_io -port_name clk         -pin_name R18  -fixed true -io_std LVCMOS18 -DIRECTION INPUT
+set_io -port_name rst_n       -pin_name T19  -fixed true -io_std LVCMOS18 -DIRECTION INPUT
+
+set_io -port_name spi_cs_n    -pin_name C16  -fixed true -io_std LVCMOS33 -DIRECTION INPUT
+set_io -port_name spi_sclk    -pin_name E17  -fixed true -io_std LVCMOS33 -DIRECTION INPUT
+set_io -port_name spi_miso    -pin_name A18  -fixed true -io_std LVCMOS33 -DIRECTION OUTPUT
+set_io -port_name spi_mosi    -pin_name E11  -fixed true -io_std LVCMOS33 -DIRECTION INPUT
+
+set_io -port_name led_busy      -pin_name T18  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name led_done      -pin_name V17  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[0]} -pin_name U20  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[1]} -pin_name U21  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[2]} -pin_name AA18 -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[3]} -pin_name V16  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[4]} -pin_name U15  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT

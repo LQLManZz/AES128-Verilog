@@ -13,9 +13,8 @@ AES-GCM-Libero
 edaplayground
 *.log
 *.tcl
-!uart_integration/common/*.tcl
+!realtime_env/rtl/common/*.tcl
 *.bak
-uart_integration/python/__pycache__/
 # ESP32-S3 bench: Wi-Fi password, camera captures, generated tools
 test/
 # Simulation / tool artifacts

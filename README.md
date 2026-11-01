@@ -61,7 +61,7 @@ Dùng EDA Playground: chi tiết xem [`edaplayground/README.md`](edaplayground/R
 ## Tài liệu
 
 - [Báo cáo khoa học và báo cáo sản phẩm](docs/)
-- [Giao thức UART](uart_integration/docs/protocol.md) và [hướng dẫn tích hợp](uart_integration/docs/integration_guide.md)
+- [Giao thức UART](realtime_env/docs/protocol.md) và [hướng dẫn tích hợp](realtime_env/docs/integration_guide.md)
 - Tiêu chuẩn tham chiếu trong [`References/`](References/)
 
 ## Nhóm thực hiện
