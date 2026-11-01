@@ -60,7 +60,7 @@
 #define RESP_BRIDGE_ERR 0xEF
 #define STATUS_NO_ANSWER 0x00
 #define IDLE_READS 64       // Empty READ frames before the SPI task rests
-#define RING_BYTES (64 * 1024)  // Holds the 37 KB that arrive during the worst Wi-Fi stall measured
+#define RING_BYTES (32 * 1024)  // 64 KB each way leaves 48 KB of heap, and sending over Wi-Fi all but stops
 #define PACE_TIMEOUT_US 500000
 #define LOAD_FRAMES_PER_REST 64 // About 110 ms of SPI, so the idle task of this core still runs
 

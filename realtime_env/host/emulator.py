@@ -2,7 +2,7 @@
 
 The numbers come from wifi-test and the RTL runs in INSTRUCTIONS.md. The IP is not a stage here:
 it stayed ahead of the link up to 80 MHz SCLK in simulation, far above every link in LINKS.
-Not modelled: ESP32 load while Wi-Fi and SPI run together, Wi-Fi interference, lost connections.
+Not modelled: Wi-Fi interference, lost connections, and the ESP32 copying real packets between them.
 """
 
 import multiprocessing
@@ -22,13 +22,13 @@ _SPIN_S = 1e-3      # time.sleep overshoots on Windows, so the last millisecond 
 _LATE_S = 1e-3      # A burst this far behind its schedule counts as late
 _REPLY_WAIT_S = 5.0
 
-# wifi-test with esp32_bridge, firmware window 32 KB
-WIFI_UP = 2829 * _KB
-WIFI_DOWN = 3278 * _KB
-WIFI_TOTAL = 3594 * _KB
+# wifi-test --spi-load with esp32_bridge, firmware window 32 KB, SPI clocking nonstop: the worst case
+WIFI_UP = 4340 * _KB
+WIFI_DOWN = 3636 * _KB
+WIFI_TOTAL = 3992 * _KB
 WIFI_RTT_MIN_S = 1.5e-3     # Assumed: wifi-test reports only the mean and the maximum
-WIFI_RTT_MEAN_S = 2.7e-3
-WIFI_RTT_MAX_S = 10.6e-3
+WIFI_RTT_MEAN_S = 3.6e-3
+WIFI_RTT_MAX_S = 17.2e-3
 
 USB_RTT_S = 1e-3            # Assumed, never measured: the USB adapters of uart2m, uart12m and spi30
 

@@ -114,7 +114,7 @@ def test_paced_frame_waits_for_wifi_once(monkeypatch):
     assert burst_trips == 4 and trips["count"] == 1
 
 
-@pytest.mark.parametrize("kilobytes, schedule_ms", ((29, 20.1), (19, 14.2), (16, 12.4)))
+@pytest.mark.parametrize("kilobytes, schedule_ms", ((29, 19.2), (19, 13.9), (16, 12.2)))
 def test_paced_frame_time_stays_on_the_forecast(kilobytes, schedule_ms):
     data = bytes(kilobytes * 1024)
     mean = sum(timed("spi40", data, True, seed, links.PACED_WINDOW)[0] for seed in range(40)) / 40
