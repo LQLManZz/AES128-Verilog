@@ -264,7 +264,7 @@ Cả sáu root không có slack âm ở cả setup và hold, độ phủ constra
 - Input và output delay trong `aes_spi.sdc` là giả định, nên slack ở trên không phải số đo trên board.
 - `camera` với camera thật và phần cứng thật. Mới chạy với file video trên software model.
 - `Ft232hLink` với FT232H thật; `uart2m`, `uart12m` với board thật.
-- Mọi số tốc độ trên phần cứng.
+- Mọi số tốc độ trên phần cứng, trừ đoạn Wi-Fi từ PC tới ESP32 ở mục 10.
 - 12 Mbaud trên đường FT4232HL tới W21/Y21: không đọc được schematic nên chưa biết có level shifter không.
 - Metastability, độ trễ I/O và nhiễu dây, những thứ mô phỏng RTL không thể hiện.
 - Sơ đồ chân J5, J6, W21, Y21 so với schematic của kit.
@@ -289,17 +289,20 @@ MISO được phát ngay tại cạnh lên mà master lấy mẫu, nên vòng đ
 | Wi-Fi qua router | 532 KB/s | 538 KB/s | Chưa đo |
 | Wi-Fi AP | 934 KB/s | 997 KB/s | 1 024-1 127 KB/s tổng |
 
-`esp32_bridge` dùng cửa sổ 32 KB. Espressif công bố TCP khoảng 60 Mbit/s ở cấu hình này, đo trong buồng chắn với router, nên số thật trên PC của bạn phải đo bằng `wifi-test`.
+`esp32_bridge` dùng cửa sổ 32 KB, đo bằng `wifi-test` trên PC thật:
 
-<!-- WIFI -->
+| Đường PC tới ESP32 | PC → board | board → PC | Hai chiều cùng lúc |
+|---|---|---|---|
+| Wi-Fi AP, `esp32_bridge` | 2 829 KB/s | 3 278 KB/s | 3 594 KB/s tổng |
+
+Ping trung bình 2,7 ms, tối đa 10,6 ms. Kênh 1, băng thông 40 MHz, RSSI -24 dBm, tức ESP32 đặt rất gần PC. Bài đo chỉ gồm Wi-Fi và bộ nhớ ESP32, chưa có tải SPI, nên số trên là trần của đoạn này. Số vẫn thấp hơn mức khoảng 60 Mbit/s Espressif công bố, vì mức đó đo trong buồng chắn với router.
 
 **Số khung/giây theo tổng băng thông hai chiều**, tính cả overhead 9%, mã hoá và trả về:
 
 | Tổng hai chiều | JPEG 640×480 q50 (16 KB) | JPEG 1280×720 q50 (39 KB) | Raw RGB 256×256 (192 KB) |
 |---|---|---|---|
 | 1,05 MB/s (đo với firmware Arduino) | khoảng 31 fps | khoảng 13 fps | khoảng 2,6 fps |
-| 3 MB/s (giả định) | khoảng 86 fps | khoảng 35 fps | khoảng 7 fps |
-| 5 MB/s (giả định) | khoảng 143 fps | khoảng 59 fps | khoảng 12 fps |
+| 3,51 MB/s (đo với `esp32_bridge`) | khoảng 103 fps | khoảng 42 fps | khoảng 8,6 fps |
 
 `--fpga-decrypt` chia đôi các số trên. Camera laptop chỉ khoảng 27 fps. Nếu tổng hai chiều vượt khoảng 8 MB/s thì SPI 40 MHz mới thành nút thắt, lúc đó mới cần xét 80 MHz.
 
