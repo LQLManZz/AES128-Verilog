@@ -303,7 +303,7 @@ Cả sáu root không có slack âm ở cả setup và hold, độ phủ constra
 - Toàn chuỗi ESP32-S3 tới FPGA: chưa nối J5. Code bóc MISO trong firmware không có test tự động, phải kiểm khi bring-up.
 - `BRIDGE PACED` với FPGA thật: mới kiểm phần đếm trong `pace.c`, chưa kiểm vòng `spi_task` quanh nó. `SPILOAD` chưa chạy trên ESP32.
 - Input và output delay trong `aes_spi.sdc` là giả định, nên slack ở trên không phải số đo trên board.
-- `camera` với camera thật và phần cứng thật. Mới chạy với file video trên software model.
+- `camera` trên phần cứng thật. Webcam thật mới chạy qua `--sim emu`.
 - `Ft232hLink` với FT232H thật; `uart2m`, `uart12m` với board thật.
 - Mọi số tốc độ trên phần cứng, trừ đoạn Wi-Fi từ PC tới ESP32 ở mục 10.
 - 12 Mbaud trên đường FT4232HL tới W21/Y21: không đọc được schematic nên chưa biết có level shifter không.
@@ -369,6 +369,8 @@ Bảng này thay ước tính cũ chỉ tính băng thông, vốn cao gần gấ
 | `spi40 --paced --fpga-decrypt` | 21,5 fps | 21,9 fps, có bỏ khung |
 
 Khi link theo kịp, khung phải đi sau khung trái đúng phần đệm, khoảng 0,5 giây với 15 khung. Khi link chậm hơn camera, hàng đợi đầy ở 2N khung và khung cũ nhất bị bỏ, nên trễ tăng tới khoảng 2N ÷ fps, chẳng hạn gần 5 giây trên `uart2m`.
+
+Webcam thật 640×480 q50 cho khoảng 16 KB mỗi khung, nhẹ hơn clip thử. Qua `spi40 --paced --sim emu`, window chạy 240 khung ở 30 fps, không bỏ khung. Vì vậy JPEG đã đủ cho `spi40`, `spi30` và `uart12m`. H.264 giảm còn 0,6 KB mỗi khung trên cảnh ít chuyển động, nhưng khung giữa của window chỉ còn vài ô và các khung phụ thuộc nhau, nên chưa đưa vào.
 
 `spi30` dừng ở 52 fps thay vì 75 fps vì mỗi khung còn tốn khoảng 10 ms giải mã trên PC và tranh GIL với các luồng khác. Tất cả số trên chưa tính tải ESP32 khi Wi-Fi và SPI chạy cùng lúc. Dòng `Giả lập` trong tổng kết báo số burst trễ hơn lịch, tức lần chạy đó bị CPU giới hạn.
 
