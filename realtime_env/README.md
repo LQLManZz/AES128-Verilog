@@ -67,7 +67,7 @@ Không cần phần cứng thì thêm một trong ba giá trị `--sim`:
 | `rtl` | QuestaSim đúng tốc độ của link đó |
 | `emu` | Software model trả lời theo lịch đo được của link đó, dùng để chạy camera khi chưa có kit. Xem mục 1 của [INSTRUCTIONS.md](INSTRUCTIONS.md) |
 
-Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`, đoạn Wi-Fi chậm hơn nhiều: xem mục 10 của [INSTRUCTIONS.md](INSTRUCTIONS.md).
+Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`, đoạn Wi-Fi chậm hơn nhiều: xem mục 10 của [INSTRUCTIONS.md](INSTRUCTIONS.md). `--paced` để ESP32 tự điều phối burst, giảm thời gian chờ Wi-Fi, nhưng chưa kiểm chứng trên kit: xem mục 6.
 
 ### Chế độ xử lý
 
@@ -76,7 +76,7 @@ Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`,
 | `raw --data` | Đúng một message GCM từ giá trị bạn đưa, tối đa 240 byte. `--op decrypt --tag <hex>` để giải mã có `VERIFY` |
 | `raw --file` | File nhị phân bất kỳ: chia chunk, mã hoá, giải mã, so từng byte |
 | `image` | Ảnh hoặc thư mục ảnh, in từng bước và lưu `console_<link>.png` |
-| `camera` | PC nén JPEG, FPGA mã hoá, PC giải mã. `--fpga-decrypt` cho FPGA giải mã và kiểm tag, gấp đôi thời gian trên đường truyền. `--source <video>` thay camera |
+| `camera` | PC nén JPEG, FPGA mã hoá, PC giải mã. `--fpga-decrypt` cho FPGA giải mã và kiểm tag, gấp đôi thời gian trên đường truyền. `--source <video>` thay camera. `--buffer-frames N` đủ N khung mới truyền, mặc định 15 |
 
 ### Window camera
 
@@ -84,11 +84,19 @@ Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`,
 
 | Khung | Nội dung |
 |---|---|
-| Trái | Camera trực tiếp, không chờ đường truyền |
+| Trái | Nguồn hình trực tiếp, không chờ đường truyền. Nhãn ghi `Camera trực tiếp`, `Video thời gian thực` hoặc `Video từng khung` |
 | Giữa | Byte ciphertext thật xếp thành ô RGB. JPEG ít byte hơn số pixel nên ô to hơn `cipher.png` |
 | Phải | Ảnh giải nén từ byte đã giải mã. Tag lỗi thì hiện `TAG FAIL` và không hiện plaintext của khung đó |
 
-Khung phải chậm hơn khung trái, đó là độ trễ thật của chuỗi. Nhấn `q`, `Esc` hoặc nút X để dừng. `--no-window` chạy không có cửa sổ.
+| Ô số | Nội dung |
+|---|---|
+| `Xử lý`, `Trễ p95` | Tính trên 3 giây gần nhất, nên đoạn chậm hiện ra ngay. Trễ tính từ lúc lấy khung đến lúc giải mã xong. Console in số của cả lần chạy |
+| `Hàng đợi` | Số khung chờ gửi trên sức chứa 2N. Đứng yên là link theo kịp, tăng dần là link chậm hơn camera, đầy là đang bỏ khung cũ nhất |
+| `Tag` | Số khung lỗi tag cộng dồn |
+
+Khi mở window, khung camera chạy trước, hai khung còn lại hiện `Đang đệm` đến khi đủ N khung rồi mới truyền. Sau đó khung phải phát đều theo fps nguồn và ghi độ trễ thật. Bộ đệm làm hình mượt và chuỗi tận dụng hết link, nhưng không tạo thêm băng thông: link chậm hơn camera vẫn phải bỏ khung. Bộ đệm nằm trong RAM vì chứa JPEG chưa mã hoá.
+
+Nhấn `q`, `Esc` hoặc nút X để dừng. `--no-window` chạy không có cửa sổ.
 
 ## Key, IV và AAD
 

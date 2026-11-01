@@ -5,6 +5,7 @@ it stayed ahead of the link up to 80 MHz SCLK in simulation, far above every lin
 Not modelled: ESP32 load while Wi-Fi and SPI run together, Wi-Fi interference, lost connections.
 """
 
+import multiprocessing
 import random
 import time
 from collections import deque
@@ -19,6 +20,7 @@ from .protocol import parse_packets
 _KB = 1024
 _SPIN_S = 1e-3      # time.sleep overshoots on Windows, so the last millisecond is a busy wait
 _LATE_S = 1e-3      # A burst this far behind its schedule counts as late
+_REPLY_WAIT_S = 5.0
 
 # wifi-test with esp32_bridge, firmware window 32 KB
 WIFI_UP = 2829 * _KB
@@ -110,6 +112,10 @@ class EmulatedClient:
         self._down_free = 0.0
         self.late = 0
 
+    @property
+    def pending(self) -> int:
+        return len(self._replies)
+
     def _deliver(self, ready: float, size: int, direction: str) -> float:
         """Moves `size` bytes across the Wi-Fi hop when there is one."""
         return self._wifi.carry(ready, size, direction) if self._wifi else ready
@@ -130,9 +136,9 @@ class EmulatedClient:
         if not self._replies:
             raise TimeoutError("The emulated IP has no reply pending")
         due, response = self._replies.popleft()
-        if not self._replies:  # Only the end of a burst matters: the model answers it all at once
+        if not self._replies:  # Only the end of a burst matters, and each wait costs a turn for the GIL
             self.late += self._clock.now() > due + _LATE_S
-        self._clock.wait_until(due)
+            self._clock.wait_until(due)
         return response
 
     def close(self) -> None:
@@ -141,3 +147,55 @@ class EmulatedClient:
 
 def open_client(link: str, host_hop: bool = True, seed: int = 1, clock=None) -> EmulatedClient:
     return EmulatedClient(profile_of(link, host_hop), seed, clock)
+
+
+def _serve(connection, profile: Profile, seed: int) -> None:
+    client = EmulatedClient(profile, seed)
+    connection.send(True)
+    while True:
+        try:
+            data = connection.recv_bytes()
+        except EOFError:
+            return
+        client.send_stream(data)
+        replies = [client.receive_packet() for _ in range(client.pending)]
+        connection.send((replies, client.late))
+
+
+class RemoteClient:
+    """EmulatedClient in its own process, where the FPGA would be.
+
+    In this process the model would take about 9 ms of GIL per frame from the camera threads,
+    which the kit never does, and the frame rate would measure the PC instead of the link.
+    """
+
+    def __init__(self, profile: Profile, seed: int = 1):
+        self._connection, far = multiprocessing.Pipe()
+        self._process = multiprocessing.get_context("spawn").Process(target=_serve, args=(far, profile, seed), daemon=True)
+        self._process.start()
+        far.close()
+        self._connection.recv()  # Importing takes a while, and must not count as link time
+        self._replies: Deque[Packet] = deque()
+        self.late = 0
+
+    def send_stream(self, data: bytes) -> None:
+        self._connection.send_bytes(data)
+
+    def receive_packet(self) -> Packet:
+        if not self._replies:
+            if not self._connection.poll(_REPLY_WAIT_S):
+                raise TimeoutError("The emulated IP has no reply pending")
+            try:
+                replies, self.late = self._connection.recv()
+            except EOFError as error:
+                raise OSError("The emulated IP stopped") from error
+            self._replies.extend(replies)
+        return self._replies.popleft()
+
+    def close(self) -> None:
+        self._connection.close()
+        self._process.join(_REPLY_WAIT_S)
+
+
+def open_remote(link: str, seed: int = 1) -> RemoteClient:
+    return RemoteClient(profile_of(link), seed)

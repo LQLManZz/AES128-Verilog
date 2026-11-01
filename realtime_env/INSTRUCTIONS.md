@@ -40,7 +40,7 @@ python realtime_env/main.py image realtime_env/input/color_test.png --link spi40
 
 ### Giả lập đường truyền khi chưa có kit
 
-`--sim emu` dùng software model để trả lời, nhưng trả theo đúng lịch của `--link`, qua cùng hàm `transfer()` với phần cứng. Lệnh này chạy camera từ file video, có window:
+`--sim emu` dùng software model để trả lời, nhưng trả theo đúng lịch của `--link`, qua cùng hàm `transfer()` với phần cứng. Model chạy ở process riêng, đúng vai trò của FPGA, để không chiếm GIL của các luồng camera. Lệnh này chạy camera từ file video, có window:
 
 ```bash
 python realtime_env/main.py camera --link spi40 --sim emu --key <hex> --iv <hex> --source clip.avi --realtime --loop
@@ -65,6 +65,8 @@ Cờ thêm của `camera`:
 | `--realtime` | Phát `--source` đúng fps gốc và bỏ khung trễ, như camera thật |
 | `--loop` | Phát lặp lại `--source` |
 | `--tamper-every N` | Lật 1 bit ciphertext mỗi N khung để xem trạng thái `TAG FAIL` |
+| `--buffer-frames N` | Với nguồn trực tiếp: đủ N khung mới bắt đầu truyền, mặc định 15, `0` là truyền ngay |
+| `--paced` | Chỉ `spi40`: ESP32 tự điều phối burst, xem mục 6 |
 
 Testbench tự kiểm tra, chạy từ gốc repo:
 
@@ -202,9 +204,17 @@ C:\Users\long5\.platformio\penv\Scripts\pio.exe run -t upload
 python realtime_env/main.py wifi-test --out wifi_idf_result.txt
 ```
 
+Đo lại khi SPI chạy liên tục ở 40 MHz, không cần nối FPGA:
+
+```bash
+python realtime_env/main.py wifi-test --spi-load --out wifi_spi_load.txt
+```
+
 ESP32 là đường ống byte: PC gửi cùng packet như UART, ESP32 gói vào frame SPI, bỏ STATUS và số 0 rỗng rồi trả packet về. STATUS khác `0xA0` về PC bằng packet `0xEF`.
 
-**Không dùng PSRAM.** Đệm 32 KB nằm trong RAM nội, đủ cho một burst 32 message, khoảng 8,6 KB. DMA qua PSRAM dùng chung băng thông MSPI nên có thể mất dữ liệu.
+**`--paced` để ESP32 tự điều phối burst.** Bình thường PC gửi 32 message rồi chờ phản hồi qua Wi-Fi, nên khung 29 KB tốn 4 lần RTT. Với `BRIDGE PACED`, PC gửi cả khung một lần, `pace.c` giữ giới hạn 32 message ngay cạnh FPGA, và mỗi khung chỉ còn 1 RTT. FPGA ngừng trả lời 0,5 giây thì PC nhận packet `0xEF` với status `0x00`. **Cờ này mặc định tắt vì chưa chạy với FPGA thật.** Khi bring-up, chạy bản thường trước, rồi mới bật `--paced`.
+
+**Không dùng PSRAM, không cần thẻ SD.** Đệm 64 KB mỗi chiều nằm trong RAM nội, chứa được khoảng 37 KB đến trong đợt trễ Wi-Fi 10,6 ms. Đệm lớn hơn không nâng được tốc độ trung bình, vì mọi byte vẫn đi qua Wi-Fi hai lần. DMA qua PSRAM dùng chung băng thông MSPI nên có thể mất dữ liệu. Thẻ SD còn để lại ảnh chưa mã hoá trên thiết bị.
 
 **`input_delay_ns` phải để 0.** FPGA phát MISO ngay tại cạnh lên mà master lấy mẫu, nên master lấy mẫu trễ sẽ đọc nhầm bit sau.
 
@@ -271,8 +281,9 @@ Kết quả mô phỏng RTL ngày 01/11/2026 qua `main.py`, ảnh RGB tổng h�
 - `raw --file` với file JPEG qua `spi40`, khớp từng byte, 5/5 chunk.
 - Cố ý lật 1 bit ciphertext ở chunk 7: IP báo `FAIL` đúng chunk đó và `decrypted.png` không được ghi.
 - Mọi frame SPI đều có STATUS `0xA0`, tức không overflow.
-- Host: 228 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu, camera từ file video, window vẽ không cần màn hình và lịch `--sim emu`.
-- Window camera thật trên Windows qua cả bốn link với `--sim emu`, hai chế độ giải mã, `--realtime` bỏ khung trễ, `--tamper-every` hiện `TAG FAIL` mà không lộ plaintext.
+- Host: 293 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu, camera từ file video, ba luồng xử lý, window vẽ không cần màn hình và lịch `--sim emu`.
+- `pace.c` được biên dịch bằng `gcc` và chạy trong pytest với packet thật của `framing`: burst khớp `framing.batches`, kể cả khi byte đến rời rạc, cả giải mã tag đúng và tag sai. Firmware build không cảnh báo.
+- Window camera thật trên Windows qua cả bốn link với `--sim emu`, hai chế độ giải mã, `--buffer-frames`, `--paced`, `--realtime` bỏ khung trễ, `--tamper-every` hiện `TAG FAIL` mà không lộ plaintext.
 - UART 12 Mbaud trên RTL: mọi bit TX đúng 10 clock, đủ 256 byte qua hai miền clock khi host đúng baud và lệch ±2% (`tb_uart_phy`).
 - Libero 2026.1, post-layout, ba corner, `MPFS095T-1FCSG325E`:
 
@@ -290,6 +301,7 @@ Cả sáu root không có slack âm ở cả setup và hold, độ phủ constra
 **Chưa kiểm chứng**
 
 - Toàn chuỗi ESP32-S3 tới FPGA: chưa nối J5. Code bóc MISO trong firmware không có test tự động, phải kiểm khi bring-up.
+- `BRIDGE PACED` với FPGA thật: mới kiểm phần đếm trong `pace.c`, chưa kiểm vòng `spi_task` quanh nó. `SPILOAD` chưa chạy trên ESP32.
 - Input và output delay trong `aes_spi.sdc` là giả định, nên slack ở trên không phải số đo trên board.
 - `camera` với camera thật và phần cứng thật. Mới chạy với file video trên software model.
 - `Ft232hLink` với FT232H thật; `uart2m`, `uart12m` với board thật.
@@ -335,18 +347,29 @@ Ping trung bình 2,7 ms, tối đa 10,6 ms. Kênh 1, băng thông 40 MHz, RSSI -
 | `uart12m` | 47 fps | 27 fps | 20 fps | 4,2 fps |
 | `uart2m` | 10 fps | 5,7 fps | 4,2 fps | 0,9 fps |
 
+Khung 29 KB trên `spi40` tốn 29,2 ms, trong đó riêng SPI chỉ 7,0 ms. Phần còn lại là băng thông Wi-Fi, khoảng 18 ms, và chờ RTT sau 4 burst, khoảng 11 ms. `--paced` bỏ được phần chờ RTT, còn băng thông chỉ giảm khi gửi ít byte hơn:
+
+| `spi40` | JPEG 16 KB | JPEG 19 KB | JPEG 29 KB |
+|---|---|---|---|
+| Bình thường | 54 fps | 50 fps | 34 fps |
+| `--paced` | 81 fps | 71 fps | 50 fps |
+
 Bảng này thay ước tính cũ chỉ tính băng thông, vốn cao gần gấp đôi với burst nhỏ. Kích thước JPEG phụ thuộc nội dung: clip thử có chi tiết và nhiễu cho 29 KB ở 640×480 q50, 19 KB ở q25. `--fpga-decrypt` gấp đôi thời gian trên đường truyền. Nếu tổng hai chiều vượt khoảng 8 MB/s thì SPI 40 MHz mới thành nút thắt, lúc đó mới cần xét 80 MHz.
 
-**Chạy thật bằng `--sim emu`, có window, JPEG 640×480:**
+**Chạy thật bằng `--sim emu`, JPEG 640×480 q50 (29 KB).** Nén, truyền và giải mã chạy trên ba luồng, nên fps do bước chậm nhất quyết định:
 
-| `--link` | PC giải mã | `--fpga-decrypt` |
+| Cấu hình | Không window, không giới hạn nguồn | Có window, video 30 fps, đệm 15 khung |
 |---|---|---|
-| `spi40`, q50 (29 KB) | 18,6 fps | 13,0 fps |
-| `spi40`, q25 (19 KB) | 27,7 fps | 19,6 fps |
-| `spi30`, q50 | 26,9 fps | 20,8 fps |
-| `uart12m`, q50 | 17,6 fps | 11,6 fps |
-| `uart2m`, q50 | 4,9 fps | 2,6 fps |
+| `spi30` | 51,9 fps | Theo kịp, 0 khung bỏ |
+| `spi40 --paced` | 44,1 fps | Theo kịp, 0 khung bỏ |
+| `spi40` | 29,5 fps | Sát 30 fps, tuỳ lần chạy |
+| `uart12m` | 24,5 fps | 24,7 fps, có bỏ khung |
+| `uart2m` | 5,6 fps | 5,6 fps, bỏ phần lớn khung |
+| `spi40 --fpga-decrypt` | 14,8 fps | 14,7 fps, có bỏ khung |
+| `spi40 --paced --fpga-decrypt` | 21,5 fps | 21,9 fps, có bỏ khung |
 
-Số này thấp hơn trần vì CPU của PC cũng là một tầng: mỗi khung 29 KB tốn khoảng 8,6 ms giải mã trên PC và 8,7 ms cho software model. Phần software model không có trên kit, nên số thật có thể nhỉnh hơn nếu Wi-Fi giữ được tốc độ khi có tải SPI. Cả hai điều đó đều chưa đo. Dòng `Giả lập` trong tổng kết báo số burst trễ hơn lịch, tức lần chạy đó bị CPU giới hạn.
+Khi link theo kịp, khung phải đi sau khung trái đúng phần đệm, khoảng 0,5 giây với 15 khung. Khi link chậm hơn camera, hàng đợi đầy ở 2N khung và khung cũ nhất bị bỏ, nên trễ tăng tới khoảng 2N ÷ fps, chẳng hạn gần 5 giây trên `uart2m`.
+
+`spi30` dừng ở 52 fps thay vì 75 fps vì mỗi khung còn tốn khoảng 10 ms giải mã trên PC và tranh GIL với các luồng khác. Tất cả số trên chưa tính tải ESP32 khi Wi-Fi và SPI chạy cùng lúc. Dòng `Giả lập` trong tổng kết báo số burst trễ hơn lịch, tức lần chạy đó bị CPU giới hạn.
 
 Từ PC, ESP32-S3 không phải đường nhanh nhất. Ảnh RGB 256×256 qua `spi30` khoảng 0,09 s, `spi40` khoảng 0,19 s, `uart12m` khoảng 0,24 s. Giá trị của `spi40` là không dây.

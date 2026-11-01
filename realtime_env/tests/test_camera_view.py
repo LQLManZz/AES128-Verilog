@@ -6,7 +6,7 @@ cv2 = pytest.importorskip("cv2")
 import numpy as np  # noqa: E402
 
 from host import camera, camera_view  # noqa: E402
-from host.camera_view import FrameResult, View  # noqa: E402
+from host.camera_view import Backlog, FrameResult, Playback, View  # noqa: E402
 
 SIZE = (64, 48)
 
@@ -27,7 +27,7 @@ def third_panel(view):
 
 @pytest.fixture
 def view():
-    return View("spi40, AES-256", "Giả lập, không phải kit", SIZE)
+    return View("spi40, AES-256", "Giả lập, không phải kit", SIZE, "Camera trực tiếp")
 
 
 @pytest.fixture
@@ -147,6 +147,7 @@ def test_an_error_on_the_link_reaches_the_main_thread(view, stats, monkeypatch):
 
     class Source:
         dropped = 0
+        live = False
 
         def read(self):
             raise TimeoutError("link lost")
@@ -155,7 +156,7 @@ def test_an_error_on_the_link_reaches_the_main_thread(view, stats, monkeypatch):
             return None
 
     class Args:
-        frames = 0
+        frames, buffer_frames = 0, 0
 
     class Secrets:
         iv = bytes(12)
@@ -180,3 +181,104 @@ def test_only_the_newest_result_is_drawn(view, stats):
     view.publish(FrameResult(2, bytes(1000), jpeg_of(filled(0, 0, 200))))
     view.compose(None, stats, 0)
     assert third_panel(view)[10, 10].tolist() == [0, 0, 200]
+
+
+def result(number, good=True):
+    return FrameResult(number, bytes(1000), jpeg_of(filled(0, 0, 200)) if good else None)
+
+
+def test_playback_keeps_the_pace_of_the_camera():
+    playback = Playback(0.1)
+    for number in (1, 2, 3):
+        playback.push(result(number))
+    assert [item.number for item in playback.take(10.0)] == [1]
+    assert playback.take(10.05) == []
+    assert [item.number for item in playback.take(10.1)] == [2]
+    assert [item.number for item in playback.take(10.2)] == [3]
+    assert len(playback) == 0
+
+
+def test_a_late_redraw_keeps_the_beat():
+    playback = Playback(0.1)
+    for number in (1, 2, 3):
+        playback.push(result(number))
+    playback.take(10.0)
+    assert len(playback.take(10.13)) == 1
+    assert len(playback.take(10.2)) == 1  # On 10.2, not 10.23
+
+
+def test_a_slow_redraw_catches_up_so_the_delay_cannot_grow():
+    playback = Playback(0.1)
+    for number in range(5):
+        playback.push(result(number))
+    playback.take(10.0)
+    assert len(playback.take(10.35)) == 3
+
+
+def test_a_gap_in_the_frames_restarts_the_beat():
+    playback = Playback(0.1)
+    playback.push(result(1))
+    playback.take(10.0)
+    playback.push(result(2))
+    playback.push(result(3))
+    assert len(playback.take(20.0)) == 1
+    assert len(playback.take(20.05)) == 0
+
+
+def test_period_zero_releases_everything():
+    playback = Playback(0.0)
+    playback.push(result(1))
+    playback.push(result(2))
+    assert len(playback.take(10.0)) == 2
+
+
+def test_the_window_waits_out_the_frames_it_still_holds(stats, monkeypatch):
+    FakeWindow(monkeypatch)
+    view = View("t", "b", SIZE, "Camera trực tiếp", 0.0)
+    view.publish(result(1))
+    view.run(lambda: None, stats, lambda: 0, lambda: False)
+    assert view._last_number == 1
+
+
+def test_a_failure_is_never_skipped_with_a_redraw(view, stats):
+    view.publish(result(1, good=False))
+    view.publish(result(2))
+    view.compose(None, stats, 0)
+    assert third_panel(view)[10, 10].tolist() == list(camera_view._FAIL_PANEL)
+
+
+def test_panels_say_they_are_buffering(view, stats):
+    view.compose(None, stats, 0, Backlog(3, 30, 15))
+    assert (third_panel(view) != np.array(camera_view._CARD)).any()
+
+
+def test_buffering_text_goes_once_a_frame_arrives(view, stats):
+    view.publish(result(1))
+    view.compose(None, stats, 0, Backlog(3, 30, 15))
+    assert third_panel(view)[10, 10].tolist() == [0, 0, 200]
+
+
+def test_buffering_never_counts_backwards(view, stats):
+    view.compose(None, stats, 0, Backlog(15, 30, 15))
+    view.compose(None, stats, 0, Backlog(14, 30, 15))
+    assert view._filled == 15
+
+
+def test_queue_card_warns_when_full_and_says_when_off(view):
+    assert view._queue_card(Backlog(12, 30, 15)) == ("Hàng đợi", "12/30 khung", camera_view._TEXT)
+    assert view._queue_card(Backlog(30, 30, 15)) == ("Hàng đợi", "30/30 khung", camera_view._WARN)
+    assert view._queue_card(None) == ("Hàng đợi", "Tắt", camera_view._MUTED)
+
+
+def test_the_delay_is_drawn_from_when_the_frame_was_captured(view, stats, monkeypatch):
+    moment = [100.0]
+    monkeypatch.setattr(camera_view.time, "perf_counter", lambda: moment[0])
+    view.publish(FrameResult(1, bytes(1000), jpeg_of(filled(0, 0, 200)), 99.5))
+    view.compose(None, stats, 0)
+    assert view._delay_s == pytest.approx(0.5)
+
+
+def test_numbers_are_drawn_with_no_frame_in_the_window(view, stats):
+    stats.record(20.0)
+    stats.marks[0] = (0.0, 20.0)
+    assert view.compose(None, stats, 0).shape == view.canvas.shape

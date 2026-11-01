@@ -35,7 +35,7 @@ def run(video, *options):
 def test_default_decrypts_on_the_pc(video, capsys):
     assert run(video) == 0
     text = capsys.readouterr().out
-    assert "6 khung, 0 khung lỗi tag" in text and "FPGA mã hoá, PC giải mã" in text
+    assert "6 khung, 0 khung lỗi tag" in text and "Software model mã hoá, PC giải mã" in text
 
 
 def test_fpga_decrypt_goes_through_the_link_twice(video, capsys, monkeypatch):
@@ -49,7 +49,7 @@ def test_fpga_decrypt_goes_through_the_link_twice(video, capsys, monkeypatch):
     monkeypatch.setattr(gcm_model, "simulate", counted)
     assert run(video, "--fpga-decrypt") == 0
     assert len(exchanges) == 12
-    assert "FPGA mã hoá, FPGA giải mã" in capsys.readouterr().out
+    assert "Software model mã hoá, Software model giải mã" in capsys.readouterr().out
 
 
 def test_frames_limit_stops_early(video, capsys):
@@ -91,7 +91,7 @@ def test_compress_gives_a_jpeg():
 
 def process(video, fpga_decrypt=False, tamper_every=0):
     class Args:
-        size, quality, frames = SIZE, 50, 0
+        size, quality, frames, buffer_frames = SIZE, 50, 0, 0
 
     class Secrets:
         key, iv, aad = KEY, IV, AAD
@@ -100,7 +100,7 @@ def process(video, fpga_decrypt=False, tamper_every=0):
     results = []
     stats = camera.Stats()
     source = camera.open_source(str(video), 0)
-    camera.process_frames(Args, Secrets, links.ModelChannel(), source, stats, results.append, lambda: False)
+    camera.process_frames(Args, Secrets, links.ModelChannel(), source, stats, results.append)
     source.close()
     return results, stats
 
@@ -192,3 +192,77 @@ def test_live_source_keeps_only_the_newest_frame():
     assert source.read()[0, 0, 0] == 2
     assert source.dropped == 2
     source.close()
+
+
+class Options:
+    sim, source, realtime, fpga_decrypt = None, None, False, False
+
+
+def options(**values):
+    return type("Options", (Options,), values)
+
+
+def test_the_label_names_the_fpga_only_on_hardware():
+    assert camera.describe_work(options()) == "FPGA mã hoá, PC giải mã"
+    assert camera.describe_work(options(fpga_decrypt=True)) == "FPGA mã hoá, FPGA giải mã"
+    assert camera.describe_work(options(sim="emu")) == "Software model mã hoá, PC giải mã"
+    assert camera.describe_work(options(sim="model", fpga_decrypt=True)) == "Software model mã hoá, Software model giải mã"
+
+
+def test_the_left_panel_names_its_source():
+    assert camera.source_name(options()) == "Camera trực tiếp"
+    assert camera.source_name(options(source="clip.avi", realtime=True)) == "Video thời gian thực"
+    assert camera.source_name(options(source="clip.avi")) == "Video từng khung"
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    moment = [1000.0]
+    monkeypatch.setattr(camera.time, "perf_counter", lambda: moment[0])
+    return moment
+
+
+def test_recent_forgets_frames_older_than_the_window(clock):
+    stats = camera.Stats(started=clock[0])
+    stats.record(500.0)
+    clock[0] += 10.0
+    stats.record(20.0)
+    assert stats.recent(3.0) == (1 / 3.0, 20.0)
+
+
+def test_recent_divides_by_the_time_run_so_far_at_the_start(clock):
+    stats = camera.Stats(started=clock[0])
+    clock[0] += 1.0
+    stats.record(20.0)
+    stats.record(20.0)
+    assert stats.recent(3.0).fps == 2.0
+
+
+def test_a_slow_patch_shows_in_recent_but_hardly_in_the_whole_run(clock):
+    stats = camera.Stats(started=clock[0])
+    for _ in range(600):
+        clock[0] += 0.02
+        stats.record(20.0)
+        stats.frames += 1
+    for _ in range(8):
+        clock[0] += 0.5
+        stats.record(500.0)
+        stats.frames += 1
+    assert stats.recent(3.0).fps < 2.5 and stats.recent(3.0).rtt_p95 == 500.0
+    assert stats.fps > 30.0 and stats.rtt_percentile(95) == 20.0
+
+
+def test_rate_stops_with_the_last_frame_not_with_the_window(clock):
+    stats = camera.Stats(started=clock[0])
+    clock[0] += 2.0
+    stats.frames = 10
+    stats.ended = clock[0]
+    clock[0] += 60.0
+    assert stats.fps == 5.0
+
+
+def test_no_frame_in_the_window_gives_no_delay(clock):
+    stats = camera.Stats(started=clock[0])
+    stats.record(20.0)
+    clock[0] += 10.0
+    assert stats.recent(3.0) == (0.0, None)

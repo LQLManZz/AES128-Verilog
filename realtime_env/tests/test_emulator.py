@@ -97,10 +97,47 @@ def test_a_full_burst_both_ways_takes_the_measured_total():
     assert bytes_both_ways / max(transfer_time, 1e-3) > emulator.WIFI_TOTAL * 0.8
 
 
+def test_paced_frame_waits_for_wifi_once(monkeypatch):
+    data = bytes(29 * 1024)
+    trips = {"count": 0}
+    real = emulator.Wifi.round_trip
+
+    def counted(self):
+        trips["count"] += 1
+        return real(self)
+
+    monkeypatch.setattr(emulator.Wifi, "round_trip", counted)
+    timed("spi40", data, host_hop=True)
+    burst_trips = trips["count"]
+    trips["count"] = 0
+    timed("spi40", data, host_hop=True, window=links.PACED_WINDOW)
+    assert burst_trips == 4 and trips["count"] == 1
+
+
+@pytest.mark.parametrize("kilobytes, schedule_ms", ((29, 20.1), (19, 14.2), (16, 12.4)))
+def test_paced_frame_time_stays_on_the_forecast(kilobytes, schedule_ms):
+    data = bytes(kilobytes * 1024)
+    mean = sum(timed("spi40", data, True, seed, links.PACED_WINDOW)[0] for seed in range(40)) / 40
+    assert mean * 1e3 == pytest.approx(schedule_ms, rel=0.1)
+
+
+def test_paced_runs_only_where_the_bridge_is():
+    with pytest.raises(ValueError, match="--paced"):
+        links.open_channel("uart12m", "emu", links.Options(paced=True), KEY)
+    with pytest.raises(ValueError, match="--paced"):
+        links.open_channel("spi40", "model", links.Options(paced=True), KEY)
+
+
+def test_paced_channel_says_so():
+    channel = links.open_channel("spi40", "emu", links.Options(paced=True), KEY)
+    assert "ESP32 điều phối burst" in channel.label
+
+
 def test_bursts_behind_schedule_are_counted():
     class Slow(VirtualClock):
         def now(self):
-            return self.moment + 1.0
+            self.moment += 1.0
+            return self.moment
 
     client = emulator.EmulatedClient(Profile(1e12), clock=Slow())
     links.transfer(client, framing.build_tx(bytes(16), KEY, IV))
@@ -122,3 +159,10 @@ def test_channel_answers_through_transfer():
 def test_no_pending_reply_is_a_timeout():
     with pytest.raises(TimeoutError):
         emulator.EmulatedClient(Profile(1e6), clock=VirtualClock()).receive_packet()
+
+
+def test_the_remote_model_answers_like_the_local_one():
+    client = emulator.open_remote("spi40")
+    packets = framing.build_tx(bytes(240 * 40), KEY, IV)
+    assert links.transfer(client, packets) == gcm_model.simulate(packets)
+    client.close()

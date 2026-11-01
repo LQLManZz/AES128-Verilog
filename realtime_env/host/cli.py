@@ -65,7 +65,7 @@ def read_secrets(args: argparse.Namespace, report: console.Report) -> Secrets:
 
 
 def link_options(args: argparse.Namespace) -> links.Options:
-    return links.Options(args.window, args.port, args.timeout, args.esp_host, args.ftdi_url)
+    return links.Options(args.window, args.port, args.timeout, args.esp_host, args.ftdi_url, args.paced)
 
 
 def answer_stream(packets: List[Packet], name: str, channel, report: console.Report) -> List[Packet]:
@@ -316,6 +316,8 @@ def camera_mode(args: argparse.Namespace) -> int:
         raise ValueError("--realtime and --loop replay a video: give --source")
     if args.loop and args.no_window and not args.frames:
         raise ValueError("--loop with --no-window would never end: give --frames")
+    if args.buffer_frames < 0:
+        raise ValueError("--buffer-frames cannot be negative")
     report = console.Report()
     secrets = read_secrets(args, report)
     channel = links.open_channel(args.link, args.sim, link_options(args), secrets.key)
@@ -326,7 +328,7 @@ def camera_mode(args: argparse.Namespace) -> int:
 
 
 def wifi_test_mode(args: argparse.Namespace) -> int:
-    result = esp_link.wifi_test(args.esp_host, args.mb, args.rounds)
+    result = esp_link.wifi_test(args.esp_host, args.mb, args.rounds, spi_load=args.spi_load)
     lines = esp_link.describe(result)
     print("\n".join(lines))
     if args.out:
@@ -343,6 +345,8 @@ def add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--aad", default="", help="AAD in hex, up to 240 bytes (default: none)")
     parser.add_argument("--window", type=int, default=BURST_MESSAGES,
                         help=f"Messages sent before reading their replies, 1 = stop-and-wait (default: {BURST_MESSAGES})")
+    parser.add_argument("--paced", action="store_true",
+                        help="spi40 only: the ESP32 paces the bursts, so the PC waits for Wi-Fi once per frame. Not yet proven on the kit")
     parser.add_argument("-p", "--port", help="Serial port for uart2m and uart12m (default: auto-detect)")
     parser.add_argument("-t", "--timeout", type=float, default=3.0, help="Reply timeout in seconds (default: 3.0)")
     parser.add_argument("--esp-host", default="192.168.4.1", help="ESP32 bridge address for spi40 (default: 192.168.4.1)")
@@ -389,6 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
     camera_cmd.add_argument("--realtime", action="store_true", help="Play --source at its own frame rate, dropping late frames as a camera does")
     camera_cmd.add_argument("--loop", action="store_true", help="Restart --source when it ends")
     camera_cmd.add_argument("--tamper-every", type=int, default=0, metavar="N", help="Flip a ciphertext bit in every Nth frame before decrypting")
+    camera_cmd.add_argument("--buffer-frames", type=int, default=15, metavar="N",
+                            help="Live source: hold N frames before sending the first, 0 = send at once (default: 15)")
 
     sample_cmd = commands.add_parser("sample", help="Write a color test image")
     sample_cmd.add_argument("-o", "--output", type=Path, default=APP_ROOT / "input" / "color_test.png")
@@ -398,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     wifi_cmd.add_argument("--esp-host", default="192.168.4.1", help="ESP32 address (default: 192.168.4.1)")
     wifi_cmd.add_argument("--mb", type=int, default=4, help="Megabytes per run (default: 4)")
     wifi_cmd.add_argument("--rounds", type=int, default=3, help="Runs, keeping the best (default: 3)")
+    wifi_cmd.add_argument("--spi-load", action="store_true", help="Keep SPI running at 40 MHz during the test. The FPGA need not be connected")
     wifi_cmd.add_argument("--out", type=Path, help="Also write the result to this file")
     return parser
 

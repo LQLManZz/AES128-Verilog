@@ -15,8 +15,10 @@ IV = bytes(range(12))
 class FakeBridge:
     """Speaks the firmware's text commands and answers BRIDGE packets with the software model."""
 
-    def __init__(self, status=None):
+    def __init__(self, status=None, current=True):
         self.status = status
+        self.current = current  # False: firmware from before BRIDGE PACED and SPILOAD
+        self.commands = []
         self.server = socket.create_server(("127.0.0.1", 0))
         self.port = self.server.getsockname()[1]
         threading.Thread(target=self._accept, daemon=True).start()
@@ -41,13 +43,16 @@ class FakeBridge:
                 line = stream.readline().strip()
                 if not line:
                     return
+                self.commands.append(line)
                 if line == b"PING":
                     connection.sendall(b"PONG\n")
                 elif line == b"INFO":
                     connection.sendall(b"OK mode=ap ch=1 bw=40 rssi=-30\n")
-                elif line == b"BRIDGE":
+                elif line == b"BRIDGE" or (line == b"BRIDGE PACED" and self.current):
                     connection.sendall(b"OK\n")
                     return self._bridge(connection, stream)
+                elif line.startswith(b"SPILOAD") and self.current:
+                    connection.sendall(b"OK\n")
                 elif line == b"ECHO":
                     connection.sendall(b"OK\n")
                     while data := stream.read1(1 << 16):
@@ -58,6 +63,8 @@ class FakeBridge:
                     connection.sendall(b"OK 1\n")
                 elif line.startswith(b"SRC"):
                     connection.sendall(bytes(int(line.split()[1])) + b"OK 1\n")
+                else:
+                    connection.sendall(b"ERR unknown command\n")
 
     def _bridge(self, connection, stream):
         sent = []
@@ -132,3 +139,35 @@ def test_wifi_test_measures_all_three_directions(bridge):
 
 def test_parse_packets_reads_what_the_bridge_sends():
     assert parse_packets(build_packet(RESP_BRIDGE_ERR, b"\xa1")) == [(RESP_BRIDGE_ERR, b"\xa1")]
+
+
+def test_paced_bridge_takes_a_whole_frame_at_once(bridge):
+    client = esp_link.EspBridge("127.0.0.1", bridge.port, paced=True)
+    packets = tx_packets()
+    assert links.transfer(client, packets, window=links.PACED_WINDOW) == gcm_model.simulate(packets)
+    client.close()
+    assert b"BRIDGE PACED" in bridge.commands
+
+
+def test_firmware_without_paced_says_to_flash():
+    fake = FakeBridge(current=False)
+    with pytest.raises(OSError, match="flash the current esp32_bridge"):
+        esp_link.EspBridge("127.0.0.1", fake.port, paced=True)
+    fake.close()
+
+
+def test_plain_bridge_still_works_with_old_firmware():
+    fake = FakeBridge(current=False)
+    esp_link.EspBridge("127.0.0.1", fake.port).close()
+    fake.close()
+
+
+def test_wifi_test_switches_the_spi_load_on_and_off(bridge):
+    esp_link.wifi_test("127.0.0.1", 1, rounds=1, port=bridge.port, timeout=5.0, spi_load=True)
+    loads = [command for command in bridge.commands if command.startswith(b"SPILOAD")]
+    assert loads == [b"SPILOAD 1", b"SPILOAD 0"]
+
+
+def test_wifi_test_without_load_leaves_spi_alone(bridge):
+    esp_link.wifi_test("127.0.0.1", 1, rounds=1, port=bridge.port, timeout=5.0)
+    assert not [command for command in bridge.commands if command.startswith(b"SPILOAD")]

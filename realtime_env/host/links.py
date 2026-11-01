@@ -15,6 +15,7 @@ _ENCRYPT_RESPONSES = (RESP_CIPHERTEXT, RESP_AUTH_TAG)
 _DECRYPT_RESPONSES = (RESP_CIPHERTEXT, RESP_AUTH_TAG, RESP_VERIFY_RESULT)
 _REJECTED_RESPONSES = (RESP_AUTH_TAG, RESP_VERIFY_RESULT)  # The IP withheld the plaintext
 _RX_BUFFER_BYTES = 1 << 16  # Must hold a whole window of replies while the host is still writing
+PACED_WINDOW = 1024         # About 280 KB of replies, well inside the 1 MB socket buffer of esp_link
 MAX_REPORTED_DIFFERENCES = 5
 
 
@@ -44,6 +45,7 @@ class Options:
     timeout: float = 3.0
     esp_host: str = "192.168.4.1"
     ftdi_url: str = "ftdi://ftdi:232h/1"
+    paced: bool = False
 
 
 @dataclass
@@ -201,7 +203,8 @@ class EmulatedChannel:
     is_model = True  # The bytes are the model's, so comparing against it proves nothing
 
     def __init__(self, preset: Preset, client, window: int):
-        self.label = f"giả lập theo số đo, không phải phần cứng | {preset.label}, burst {window} message"
+        burst = "ESP32 điều phối burst" if window == PACED_WINDOW else f"burst {window} message"
+        self.label = f"giả lập theo số đo, không phải phần cứng | {preset.label}, {burst}"
         self._client = client
         self._window = window
 
@@ -215,29 +218,32 @@ class EmulatedChannel:
         return Exchange(responses, time.perf_counter() - started, "thời gian giả lập")
 
     def close(self) -> None:
-        pass
+        self._client.close()
 
 
 def open_channel(link: str, sim: Optional[str], options: Options, key: bytes):
     """Opens what --link and --sim name. `key` only tells the UART client its key size."""
     preset = LINKS[link]
+    if options.paced and (preset.transport != "esp" or sim in ("model", "rtl")):
+        raise ValueError("--paced runs in esp32_bridge: use --link spi40, on hardware or with --sim emu")
+    window = PACED_WINDOW if options.paced else options.window
     if sim == "model":
         return ModelChannel()
     if sim == "rtl":
-        return RtlChannel(preset, options.window)
+        return RtlChannel(preset, window)
     if sim == "emu":
         from . import emulator  # It imports this module
-        return EmulatedChannel(preset, emulator.open_client(link), options.window)
+        return EmulatedChannel(preset, emulator.open_remote(link), window)
 
     def play(client, packets, on_chunk):
-        return transfer(client, packets, on_chunk, options.window)
+        return transfer(client, packets, on_chunk, window)
 
     if preset.transport == "uart":
         client = open_client(key, options.port, preset.baud, options.timeout)
         return HardwareChannel(f"{preset.label}, {client.port}", client, play)
     if preset.transport == "esp":
         from . import esp_link
-        client = esp_link.EspBridge(options.esp_host, timeout=options.timeout)
+        client = esp_link.EspBridge(options.esp_host, timeout=options.timeout, paced=options.paced)
         return HardwareChannel(f"{preset.label}, {options.esp_host}", client, play)
 
     from . import spi_link

@@ -62,11 +62,12 @@ class _Socket:
 class EspBridge:
     """Packet stream to the FPGA behind the bridge, with the methods of the UART client."""
 
-    def __init__(self, host: str, port: int = PORT, timeout: float = 3.0):
+    def __init__(self, host: str, port: int = PORT, timeout: float = 3.0, paced: bool = False):
         self._socket = _Socket(host, port, timeout)
-        answer = self._socket.command("BRIDGE")
+        answer = self._socket.command("BRIDGE PACED" if paced else "BRIDGE")
         if answer != "OK":
-            raise OSError(f"The ESP32 refused bridge mode: {answer}")
+            hint = ": flash the current esp32_bridge" if paced else ""
+            raise OSError(f"The ESP32 refused bridge mode: {answer}{hint}")
 
     def send_stream(self, data: bytes) -> None:
         self._socket.sock.sendall(data)
@@ -131,11 +132,23 @@ def _echo(host: str, port: int, count: int, timeout: float) -> float:
         link.sock.close()
 
 
-def wifi_test(host: str, megabytes: int = 4, rounds: int = 3, port: int = PORT, timeout: float = 30.0) -> WifiResult:
-    """Measures the Wi-Fi hop alone, keeping the best round like tools/wifitool.py did."""
+def _set_spi_load(link: _Socket, enabled: bool) -> None:
+    answer = link.command(f"SPILOAD {int(enabled)}")
+    if answer != "OK":
+        raise OSError(f"The ESP32 refused SPILOAD: {answer}: flash the current esp32_bridge")
+
+
+def wifi_test(host: str, megabytes: int = 4, rounds: int = 3, port: int = PORT, timeout: float = 30.0,
+              spi_load: bool = False) -> WifiResult:
+    """Measures the Wi-Fi hop, keeping the best round like tools/wifitool.py did.
+
+    `spi_load` keeps the SPI clock busy meanwhile. The FPGA need not be connected.
+    """
     count = megabytes * 1024 * 1024
     link = _Socket(host, port, timeout)
     try:
+        if spi_load:
+            _set_spi_load(link, True)
         info = link.command("INFO")
         pings = []
         for _ in range(_PINGS):
@@ -146,7 +159,13 @@ def wifi_test(host: str, megabytes: int = 4, rounds: int = 3, port: int = PORT, 
         down = max(_source(link, count) for _ in range(rounds))
     finally:
         link.sock.close()
-    duplex = max(_echo(host, port, count, timeout) for _ in range(rounds))
+    try:
+        duplex = max(_echo(host, port, count, timeout) for _ in range(rounds))
+    finally:
+        if spi_load:  # The load outlives each connection, so it has to be switched off by name
+            last = _Socket(host, port, timeout)
+            _set_spi_load(last, False)
+            last.sock.close()
     return WifiResult(info, pings, up, down, duplex)
 
 

@@ -45,8 +45,10 @@ def ask_mode_options(ask: Callable[[str], str], mode: str) -> List[str]:
     quality = ask("Chất lượng JPEG 1..100 (Enter để dùng 50): ").strip()
     fpga = ask("Giải mã trên FPGA? y/N: ").strip().lower() == "y"
     video = ask("File video thay camera (Enter để dùng camera): ").strip()
+    frames = ask("Số khung đệm trước khi truyền (Enter để dùng 15): ").strip()
     return ((["--size", size] if size else []) + (["--quality", quality] if quality else [])
-            + (["--fpga-decrypt"] if fpga else []) + (["--source", video, "--realtime", "--loop"] if video else []))
+            + (["--fpga-decrypt"] if fpga else []) + (["--source", video, "--realtime", "--loop"] if video else [])
+            + (["--buffer-frames", frames] if frames else []))
 
 
 def ask_arguments(ask: Callable[[str], str]) -> List[str]:
@@ -57,6 +59,8 @@ def ask_arguments(ask: Callable[[str], str]) -> List[str]:
     sim = choose(ask, "Chạy trên", sims)
     arguments = [mode, *ask_mode_options(ask, mode), "--link", link]
     arguments += ["--sim", sim] if sim else []
+    if LINKS[link].transport == "esp" and sim in ("", "emu"):
+        arguments += ["--paced"] if ask("ESP32 tự điều phối burst? Chưa kiểm chứng trên kit. y/N: ").strip().lower() == "y" else []
     arguments += ["--key", required(ask, "Key hex (16 hoặc 32 byte): ")]
     arguments += ["--iv", required(ask, "IV hex (12 byte, mỗi lần chạy một giá trị mới): ")]
     aad = ask("AAD hex (Enter nếu không có): ").strip()

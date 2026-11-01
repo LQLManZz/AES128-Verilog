@@ -21,7 +21,7 @@ def test_raw_message_answers_become_arguments():
 
 
 def test_raw_decrypt_asks_for_the_tag():
-    arguments = menu.ask_arguments(answers("1", "3", "1", "", "00ff", "ab" * 16, KEY, IV, ""))
+    arguments = menu.ask_arguments(answers("1", "3", "1", "", "00ff", "ab" * 16, "", KEY, IV, ""))
     assert arguments == ["raw", "--data", "00ff", "--op", "decrypt", "--tag", "ab" * 16,
                          "--link", "spi40", "--key", KEY, "--iv", IV]
 
@@ -32,13 +32,13 @@ def test_image_keeps_the_defaults_on_enter():
 
 
 def test_camera_offers_no_rtl_and_can_decrypt_on_the_fpga():
-    arguments = menu.ask_arguments(answers("3", "3", "1", "1280x720", "70", "y", "", KEY, IV, ""))
+    arguments = menu.ask_arguments(answers("3", "3", "1", "1280x720", "70", "y", "", "", "", KEY, IV, ""))
     assert arguments == ["camera", "--size", "1280x720", "--quality", "70", "--fpga-decrypt",
                          "--link", "spi40", "--key", KEY, "--iv", IV]
 
 
 def test_camera_can_replay_a_video_on_the_emulated_link():
-    arguments = menu.ask_arguments(answers("3", "3", "3", "", "", "n", "clip.avi", KEY, IV, ""))
+    arguments = menu.ask_arguments(answers("3", "3", "3", "", "", "n", "clip.avi", "", "", KEY, IV, ""))
     assert arguments == ["camera", "--source", "clip.avi", "--realtime", "--loop",
                          "--link", "spi40", "--sim", "emu", "--key", KEY, "--iv", IV]
 
@@ -58,3 +58,14 @@ def test_no_arguments_opens_the_menu(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     assert main([]) == 0
     assert "0388dace 60b6a392" in capsys.readouterr().out
+
+
+def test_camera_can_set_the_buffer_and_paced_bursts():
+    arguments = menu.ask_arguments(answers("3", "3", "3", "", "", "n", "", "30", "y", KEY, IV, ""))
+    assert arguments == ["camera", "--buffer-frames", "30", "--link", "spi40", "--sim", "emu", "--paced",
+                         "--key", KEY, "--iv", IV]
+
+
+def test_paced_is_not_offered_where_it_cannot_run():
+    arguments = menu.ask_arguments(answers("3", "2", "3", "", "", "n", "", "", KEY, IV, ""))
+    assert "--paced" not in arguments

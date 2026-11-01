@@ -180,3 +180,20 @@ The first MISO byte is the status byte `{4'hA, 1'b0, bad_op, tx_overflow, rx_ove
 The following MISO bytes are response packets from the TX FIFO, in every frame type, and `0x00` when it is empty. No response opcode is `0x00`, so the host skips zeros where an opcode is due and never inside a payload.
 
 Each message answers about 6 bytes more than it sends and replies trail the data by about one message, so a `DATA` frame carries at most 32 messages and `READ` frames collect the rest.
+
+## ESP32 Bridge Text Commands
+
+`esp32_bridge` takes one text command per line on TCP port 5001 before any packet flows.
+
+| Command | Reply | Meaning |
+|---|---|---|
+| `PING` | `PONG` | Liveness |
+| `INFO` | `OK mode=ap ...` | Wi-Fi and SPI state |
+| `SINK <bytes>` | `OK <ms>` after reading them | Upstream speed |
+| `SRC <bytes>` | The bytes, then `OK <ms>` | Downstream speed |
+| `ECHO` | `OK`, then every byte comes back | Both directions at once |
+| `SPILOAD <0\|1>` | `OK` | SPI clocks nonstop while 1, for measuring Wi-Fi under load. The FPGA need not be connected |
+| `BRIDGE` | `OK` | Packets flow to the FPGA. The host keeps at most 32 messages in flight |
+| `BRIDGE PACED` | `OK` | The host may stream: the bridge holds back what follows a 32nd `START` until every reply of that burst is in |
+
+In both bridge modes a bad SPI status reaches the host as packet `0xEF` with the status byte. In `BRIDGE PACED`, status `0x00` means the FPGA left a burst unanswered for 0.5 s.

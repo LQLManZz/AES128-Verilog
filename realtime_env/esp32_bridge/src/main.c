@@ -7,10 +7,13 @@
 //   SRC <bytes>   -> sends <bytes>, then "OK <ms>"
 //   ECHO          -> "OK", then every byte received goes straight back
 //   BRIDGE        -> "OK", then packets flow to the FPGA until the client leaves
+//   BRIDGE PACED  -> the same, and the client may stream without waiting for replies
+//   SPILOAD <0|1> -> "OK", with SPI clocking nonstop while 1, for measuring Wi-Fi under load
 //
 // In BRIDGE the board is a byte pipe: the client writes the same [CMD][LEN][payload] packets
 // as over UART. Frames, the STATUS byte and idle zeros stay on this side of the link, as in
-// host/spi_frames.py. A bad STATUS reaches the client as packet 0xEF.
+// host/spi_frames.py. A bad STATUS reaches the client as packet 0xEF, and so does status 0x00
+// when the FPGA stops answering a paced burst.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +34,7 @@
 #include "lwip/sockets.h"
 #include "nvs_flash.h"
 
+#include "pace.h"
 #include "secrets.h"
 
 #define TAG "bridge"
@@ -54,15 +58,28 @@
 #define OP_CLEAR 0xC3
 #define STATUS_OK 0xA0
 #define RESP_BRIDGE_ERR 0xEF
+#define STATUS_NO_ANSWER 0x00
 #define IDLE_READS 64       // Empty READ frames before the SPI task rests
-#define RING_BYTES (32 * 1024)
+#define RING_BYTES (64 * 1024)  // Holds the 37 KB that arrive during the worst Wi-Fi stall measured
+#define PACE_TIMEOUT_US 500000
+#define LOAD_FRAMES_PER_REST 64 // About 110 ms of SPI, so the idle task of this core still runs
 
 static spi_device_handle_t spi;
 static StreamBufferHandle_t to_fpga;
 static StreamBufferHandle_t to_client;
 static SemaphoreHandle_t spi_idle;
 static volatile bool bridging;
+static volatile bool paced;
+static volatile bool spi_load;
 static uint8_t *block;
+static pace_t pace;
+
+// What came out of to_fpga but has to wait for the replies of a full burst.
+static struct {
+    uint8_t data[FRAME_BYTES];
+    size_t start;
+    size_t left;
+} held;
 
 // Rebuilds packets from MISO, like spi_frames.MisoDecoder: a zero where an opcode is due is idle.
 static struct {
@@ -88,6 +105,7 @@ static bool decode_miso(const uint8_t *data, size_t length) {
         miso.packet[miso.have++] = data[i];
         if (miso.have == 2) miso.need = 2 + miso.packet[1];
         if (miso.have >= 2 && miso.have == miso.need) {
+            pace_reply(&pace, miso.packet[0]);
             send_to_client(miso.packet, miso.have);
             miso.have = 0;
         }
@@ -105,6 +123,29 @@ static void report_status(uint8_t status) {
     send_to_client(packet, sizeof packet);
 }
 
+// The next bytes for the FPGA, stopping at the end of a burst until its replies are in.
+static size_t next_paced(uint8_t *out, TickType_t wait) {
+    if (pace_blocked(&pace)) return 0;
+    if (!held.left) {
+        held.start = 0;
+        held.left = xStreamBufferReceive(to_fpga, held.data, FRAME_BYTES - 1, wait);
+    }
+    size_t length = pace_outgoing(&pace, held.data + held.start, held.left);
+    memcpy(out, held.data + held.start, length);
+    held.start += length;
+    held.left -= length;
+    return length;
+}
+
+static void run_spi_load(uint8_t *tx, uint8_t *rx) {
+    memset(tx, 0, FRAME_BYTES);
+    tx[0] = OP_READ;
+    for (unsigned frames = 1; spi_load; frames++) {
+        spi_frame(tx, rx, FRAME_BYTES);
+        if (frames % LOAD_FRAMES_PER_REST == 0) vTaskDelay(1);
+    }
+}
+
 // Runs one frame at a time on its own core, so Wi-Fi never stalls the SPI clock.
 static void spi_task(void *unused) {
     uint8_t *tx = heap_caps_malloc(FRAME_BYTES, MALLOC_CAP_DMA);
@@ -113,20 +154,29 @@ static void spi_task(void *unused) {
 
     for (;;) {
         xSemaphoreGive(spi_idle);
-        while (!bridging) vTaskDelay(pdMS_TO_TICKS(5));
+        while (!bridging && !spi_load) vTaskDelay(pdMS_TO_TICKS(5));
         xSemaphoreTake(spi_idle, 0);
+        if (spi_load) {
+            run_spi_load(tx, rx);
+            continue;
+        }
 
         tx[0] = OP_CLEAR;
         spi_frame(tx, rx, 1);
         miso.have = 0;
+        pace_reset(&pace);
+        held.left = 0;
 
         int idle = IDLE_READS;
+        int64_t progress = esp_timer_get_time();
         while (bridging) {
-            size_t length = xStreamBufferReceive(to_fpga, tx + 1, FRAME_BYTES - 1, idle < IDLE_READS ? 0 : pdMS_TO_TICKS(1));
+            bool reading = idle < IDLE_READS || pace_awaiting(&pace);
+            TickType_t wait = reading ? 0 : pdMS_TO_TICKS(1);
+            size_t length = paced ? next_paced(tx + 1, wait) : xStreamBufferReceive(to_fpga, tx + 1, FRAME_BYTES - 1, wait);
             if (length) {
                 tx[0] = OP_DATA;
                 idle = 0;
-            } else if (idle < IDLE_READS) {
+            } else if (reading) {
                 tx[0] = OP_READ;
                 memset(tx + 1, 0, READ_BYTES);
                 length = READ_BYTES;
@@ -136,7 +186,17 @@ static void spi_task(void *unused) {
 
             spi_frame(tx, rx, length + 1);
             if (rx[0] != STATUS_OK) report_status(rx[0]);
-            idle = decode_miso(rx + 1, length) ? 0 : idle + 1;
+            bool active = decode_miso(rx + 1, length);
+            idle = active ? 0 : idle + 1;
+
+            int64_t now = esp_timer_get_time();
+            if (active || tx[0] == OP_DATA) {
+                progress = now;
+            } else if (pace_awaiting(&pace) && now - progress > PACE_TIMEOUT_US) {
+                report_status(STATUS_NO_ANSWER);  // Better an error at the client than a silent hang
+                pace_reset(&pace);
+                progress = now;
+            }
         }
     }
 }
@@ -152,9 +212,11 @@ static void client_task(void *argument) {
     vTaskDelete(NULL);
 }
 
-static void run_bridge(int sock) {
+static void run_bridge(int sock, bool pace_bursts) {
+    spi_load = false;
     xStreamBufferReset(to_fpga);
     xStreamBufferReset(to_client);
+    paced = pace_bursts;
     bridging = true;
     xTaskCreatePinnedToCore(client_task, "client", 4096, (void *)sock, 5, NULL, 0);
 
@@ -265,9 +327,12 @@ static void serve(int sock) {
         } else if (!strcmp(line, "ECHO")) {
             do_echo(sock);
             return;
-        } else if (!strcmp(line, "BRIDGE")) {
+        } else if (sscanf(line, "SPILOAD %u", &count) == 1) {
+            spi_load = count != 0;
             reply(sock, "OK\n");
-            run_bridge(sock);
+        } else if (!strcmp(line, "BRIDGE") || !strcmp(line, "BRIDGE PACED")) {
+            reply(sock, "OK\n");
+            run_bridge(sock, !strcmp(line, "BRIDGE PACED"));
             return;
         } else {
             reply(sock, "ERR unknown command\n");
