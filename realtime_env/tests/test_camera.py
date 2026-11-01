@@ -1,11 +1,13 @@
 """Runs the camera loop on a short video file against the software model."""
 
+import time
+
 import pytest
 
 cv2 = pytest.importorskip("cv2")
 import numpy as np  # noqa: E402
 
-from host import camera, framing, gcm_model  # noqa: E402
+from host import camera, framing, gcm_model, links  # noqa: E402
 from host.cli import main  # noqa: E402
 
 KEY = bytes(range(32))
@@ -87,8 +89,91 @@ def test_compress_gives_a_jpeg():
     assert camera.compress(frame, (32, 24), 50)[:2] == b"\xff\xd8"
 
 
-def test_cipher_panel_is_square_and_colored():
-    assert camera.cipher_panel(bytes(1000), 90).shape == (90, 90, 3)
+def process(video, fpga_decrypt=False, tamper_every=0):
+    class Args:
+        size, quality, frames = SIZE, 50, 0
+
+    class Secrets:
+        key, iv, aad = KEY, IV, AAD
+
+    Args.fpga_decrypt, Args.tamper_every = fpga_decrypt, tamper_every
+    results = []
+    stats = camera.Stats()
+    source = camera.open_source(str(video), 0)
+    camera.process_frames(Args, Secrets, links.ModelChannel(), source, stats, results.append, lambda: False)
+    source.close()
+    return results, stats
+
+
+def test_decrypt_on_the_fpga_counts_both_trips(video):
+    assert process(video, fpga_decrypt=True)[1].wire_bytes > 1.5 * process(video)[1].wire_bytes
+
+
+def test_tamper_every_fails_only_those_frames(video, capsys):
+    assert run(video, "--tamper-every", "3") == 1
+    assert "6 khung, 2 khung lỗi tag" in capsys.readouterr().out
+
+
+def test_tamper_every_also_fails_in_the_ip(video, capsys):
+    assert run(video, "--tamper-every", "3", "--fpga-decrypt") == 1
+    assert "6 khung, 2 khung lỗi tag" in capsys.readouterr().out
+
+
+def test_failed_frame_publishes_no_plaintext(video):
+    results = process(video, tamper_every=2)[0]
+    assert [result.jpeg is None for result in results] == [False, True] * 3
+    assert all(result.cipher for result in results)
+    assert results[0].jpeg[:2] == b"\xff\xd8"
+
+
+def test_emu_runs_the_camera_on_the_link_schedule(video, capsys):
+    assert main(["camera", "--link", "uart2m", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(),
+                 "--source", str(video), "--size", "64x48", "--no-window"]) == 0
+    text = capsys.readouterr().out
+    assert "giả lập theo số đo, không phải phần cứng" in text and "6 khung, 0 khung lỗi tag" in text
+
+
+def test_realtime_needs_a_video(capsys):
+    assert main(["camera", "--link", "spi40", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(), "--realtime"]) == 1
+    assert "--source" in capsys.readouterr().out
+
+
+def test_loop_without_window_needs_a_frame_limit(video, capsys):
+    assert run(video, "--loop") == 1
+    assert "--frames" in capsys.readouterr().out
+
+
+def test_loop_restarts_the_video(video, capsys):
+    assert run(video, "--loop", "--frames", "15") == 0
+    assert "15 khung," in capsys.readouterr().out
+
+
+def test_realtime_source_drops_frames_a_slow_link_cannot_take(video):
+    source = camera.open_source(str(video), 0, realtime=True)
+    frames = 0
+    while source.read() is not None:
+        frames += 1
+        time.sleep(0.25)  # The clip runs at 10 fps
+    source.close()
+    assert source.dropped >= 2 and frames + source.dropped == 6
+
+
+def test_peek_leaves_the_frame_for_read():
+    class Capture:
+        frames = [np.full((2, 2, 3), 7, dtype=np.uint8)]
+
+        def read(self):
+            return (True, self.frames.pop(0)) if self.frames else (False, None)
+
+        def release(self):
+            pass
+
+    source = camera.LiveSource(Capture())
+    source._thread.join(timeout=2.0)
+    assert source.peek()[0, 0, 0] == 7
+    assert source.read()[0, 0, 0] == 7
+    assert source.peek()[0, 0, 0] == 7
+    source.close()
 
 
 def test_live_source_keeps_only_the_newest_frame():

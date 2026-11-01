@@ -32,9 +32,15 @@ def test_image_keeps_the_defaults_on_enter():
 
 
 def test_camera_offers_no_rtl_and_can_decrypt_on_the_fpga():
-    arguments = menu.ask_arguments(answers("3", "3", "1", "1280x720", "70", "y", KEY, IV, ""))
+    arguments = menu.ask_arguments(answers("3", "3", "1", "1280x720", "70", "y", "", KEY, IV, ""))
     assert arguments == ["camera", "--size", "1280x720", "--quality", "70", "--fpga-decrypt",
                          "--link", "spi40", "--key", KEY, "--iv", IV]
+
+
+def test_camera_can_replay_a_video_on_the_emulated_link():
+    arguments = menu.ask_arguments(answers("3", "3", "3", "", "", "n", "clip.avi", KEY, IV, ""))
+    assert arguments == ["camera", "--source", "clip.avi", "--realtime", "--loop",
+                         "--link", "spi40", "--sim", "emu", "--key", KEY, "--iv", IV]
 
 
 def test_a_wrong_number_is_asked_again(capsys):

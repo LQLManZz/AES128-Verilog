@@ -59,7 +59,13 @@ python realtime_env/main.py camera --link spi40 --key <hex> --iv <hex> --size 64
 | `spi30` | 3,16 MB/s | FT232H ở J5 |
 | `spi40` | 4,22 MB/s | ESP32-S3 ở J5, PC nối qua Wi-Fi |
 
-Thêm `--sim model` để chạy software model, `--sim rtl` để chạy QuestaSim đúng tốc độ của link đó, không cần phần cứng.
+Không cần phần cứng thì thêm một trong ba giá trị `--sim`:
+
+| `--sim` | Việc làm |
+|---|---|
+| `model` | Software model, không có ràng buộc thời gian |
+| `rtl` | QuestaSim đúng tốc độ của link đó |
+| `emu` | Software model trả lời theo lịch đo được của link đó, dùng để chạy camera khi chưa có kit. Xem mục 1 của [INSTRUCTIONS.md](INSTRUCTIONS.md) |
 
 Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`, đoạn Wi-Fi chậm hơn nhiều: xem mục 10 của [INSTRUCTIONS.md](INSTRUCTIONS.md).
 
@@ -70,7 +76,19 @@ Tốc độ trên là đoạn tới FPGA với host lý tưởng. Với `spi40`,
 | `raw --data` | Đúng một message GCM từ giá trị bạn đưa, tối đa 240 byte. `--op decrypt --tag <hex>` để giải mã có `VERIFY` |
 | `raw --file` | File nhị phân bất kỳ: chia chunk, mã hoá, giải mã, so từng byte |
 | `image` | Ảnh hoặc thư mục ảnh, in từng bước và lưu `console_<link>.png` |
-| `camera` | PC nén JPEG, FPGA mã hoá, PC giải mã. `--fpga-decrypt` cho FPGA giải mã và kiểm tag, fps còn khoảng một nửa. `--source <video>` thay camera |
+| `camera` | PC nén JPEG, FPGA mã hoá, PC giải mã. `--fpga-decrypt` cho FPGA giải mã và kiểm tag, gấp đôi thời gian trên đường truyền. `--source <video>` thay camera |
+
+### Window camera
+
+![Window camera ở chế độ giả lập](docs/camera_window.jpg)
+
+| Khung | Nội dung |
+|---|---|
+| Trái | Camera trực tiếp, không chờ đường truyền |
+| Giữa | Byte ciphertext thật xếp thành ô RGB. JPEG ít byte hơn số pixel nên ô to hơn `cipher.png` |
+| Phải | Ảnh giải nén từ byte đã giải mã. Tag lỗi thì hiện `TAG FAIL` và không hiện plaintext của khung đó |
+
+Khung phải chậm hơn khung trái, đó là độ trễ thật của chuỗi. Nhấn `q`, `Esc` hoặc nút X để dừng. `--no-window` chạy không có cửa sổ.
 
 ## Key, IV và AAD
 

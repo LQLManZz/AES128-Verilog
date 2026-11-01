@@ -5,7 +5,8 @@ from typing import Callable, List, Sequence, Tuple
 from .links import LINKS
 
 MODES = (("raw", "Gửi raw key, IV, AAD, dữ liệu"), ("image", "Xử lý ảnh"), ("camera", "Camera realtime"))
-SIMS = (("", "Phần cứng thật"), ("model", "Software model"), ("rtl", "Mô phỏng RTL (QuestaSim)"))
+SIMS = (("", "Phần cứng thật"), ("model", "Software model"), ("rtl", "Mô phỏng RTL (QuestaSim)"),
+        ("emu", "Giả lập theo số đo của đường truyền"))
 
 
 def choose(ask: Callable[[str], str], title: str, options: Sequence[Tuple[str, str]]) -> str:
@@ -43,8 +44,9 @@ def ask_mode_options(ask: Callable[[str], str], mode: str) -> List[str]:
     size = ask("Kích thước khung WxH (Enter để dùng 640x480): ").strip()
     quality = ask("Chất lượng JPEG 1..100 (Enter để dùng 50): ").strip()
     fpga = ask("Giải mã trên FPGA? y/N: ").strip().lower() == "y"
+    video = ask("File video thay camera (Enter để dùng camera): ").strip()
     return ((["--size", size] if size else []) + (["--quality", quality] if quality else [])
-            + (["--fpga-decrypt"] if fpga else []))
+            + (["--fpga-decrypt"] if fpga else []) + (["--source", video, "--realtime", "--loop"] if video else []))
 
 
 def ask_arguments(ask: Callable[[str], str]) -> List[str]:

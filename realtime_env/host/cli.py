@@ -11,7 +11,7 @@ from . import console, esp_link, framing, gcm_model, image_io, links, menu, pack
 from .packet_file import Packet
 from .protocol import (
     BURST_MESSAGES, CMD_LOAD_AAD, CMD_LOAD_IV, CMD_LOAD_KEY, CMD_LOAD_PLAINTEXT, CMD_LOAD_TAG_REF,
-    CMD_START_DECRYPT, CMD_START_ENCRYPT, MAX_DATA_BLOCKS, MAX_DATA_BYTES, RESP_CIPHERTEXT,
+    CMD_START_DECRYPT, CMD_START_ENCRYPT, MAX_DATA_BLOCKS, MAX_DATA_BYTES,
 )
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -90,18 +90,6 @@ def report_overhead(packets: List[Packet], responses: List[Packet], data_bytes: 
     report.field("Đường dây", f"{sent} B đi, {received} B về, overhead {extra * 100:.1f}%")
 
 
-def flip_ciphertext(responses: List[Packet], chunk: int) -> List[Packet]:
-    """Flips one ciphertext bit, as a corrupted link or an attacker would."""
-    seen = -1
-    changed = list(responses)
-    for index, (cmd, payload) in enumerate(changed):
-        seen += cmd == RESP_CIPHERTEXT
-        if cmd == RESP_CIPHERTEXT and seen == chunk:
-            changed[index] = (cmd, bytes([payload[0] ^ 1]) + payload[1:])
-            return changed
-    raise ValueError(f"RX stream has no chunk {chunk}")
-
-
 def decrypt_and_verify(key: bytes, messages: List[framing.Message], encrypted: List[framing.Reply], folder: Path,
                        channel, report: console.Report) -> List[framing.Reply]:
     """Runs the ciphertext through START_DECRYPT and raises unless the IP verifies every tag."""
@@ -166,7 +154,7 @@ def run_image(image: Path, args: argparse.Namespace, secrets: Secrets, channel, 
     responses = answer_stream(packets, f"{folder.name}_enc", channel, report)
     report_overhead(packets, responses, len(pixels), report)
     if args.tamper_chunk is not None:
-        responses = flip_ciphertext(responses, args.tamper_chunk)
+        responses = framing.flip_ciphertext(responses, args.tamper_chunk)
         report.line(f"[!] Cố ý lật 1 bit ciphertext của chunk {args.tamper_chunk} trước khi giải mã", "fail")
     packet_file.write_stream(responses, folder / "rx", "IP responses to tx")
     encrypted = framing.split_rx(responses)
@@ -291,7 +279,7 @@ def raw_file(args: argparse.Namespace, secrets: Secrets, channel, report: consol
     responses = answer_stream(packets, f"{folder.name}_enc", channel, report)
     report_overhead(packets, responses, len(data), report)
     if args.tamper_chunk is not None:
-        responses = flip_ciphertext(responses, args.tamper_chunk)
+        responses = framing.flip_ciphertext(responses, args.tamper_chunk)
         report.line(f"[!] Cố ý lật 1 bit ciphertext của chunk {args.tamper_chunk} trước khi giải mã", "fail")
     packet_file.write_stream(responses, folder / "rx", "IP responses to tx")
     encrypted = framing.split_rx(responses)
@@ -323,7 +311,11 @@ def camera_mode(args: argparse.Namespace) -> int:
     from . import camera  # Needs OpenCV, the other modes do not
 
     if args.sim == "rtl":
-        raise ValueError("Camera needs real time: use --sim model, or no --sim for the hardware")
+        raise ValueError("Camera needs real time: use --sim emu or model, or no --sim for the hardware")
+    if (args.realtime or args.loop) and not args.source:
+        raise ValueError("--realtime and --loop replay a video: give --source")
+    if args.loop and args.no_window and not args.frames:
+        raise ValueError("--loop with --no-window would never end: give --frames")
     report = console.Report()
     secrets = read_secrets(args, report)
     channel = links.open_channel(args.link, args.sim, link_options(args), secrets.key)
@@ -344,7 +336,8 @@ def wifi_test_mode(args: argparse.Namespace) -> int:
 
 def add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--link", choices=list(links.LINKS), required=True, help="Link to the IP")
-    parser.add_argument("--sim", choices=["model", "rtl"], help="Replace the hardware: software model or QuestaSim")
+    parser.add_argument("--sim", choices=["model", "rtl", "emu"],
+                        help="Replace the hardware: software model, QuestaSim, or the model on the measured timing of the link")
     parser.add_argument("--key", required=True, help="Key in hex, 16 or 32 bytes: picks AES-128 or AES-256")
     parser.add_argument("--iv", required=True, help="IV in hex, 12 bytes. Use a new one for every run")
     parser.add_argument("--aad", default="", help="AAD in hex, up to 240 bytes (default: none)")
@@ -393,6 +386,9 @@ def build_parser() -> argparse.ArgumentParser:
     camera_cmd.add_argument("--camera-index", type=int, default=0, help="Camera number (default: 0)")
     camera_cmd.add_argument("--frames", type=int, default=0, help="Stop after N frames (default: until q or end of file)")
     camera_cmd.add_argument("--no-window", action="store_true", help="Do not open a window")
+    camera_cmd.add_argument("--realtime", action="store_true", help="Play --source at its own frame rate, dropping late frames as a camera does")
+    camera_cmd.add_argument("--loop", action="store_true", help="Restart --source when it ends")
+    camera_cmd.add_argument("--tamper-every", type=int, default=0, metavar="N", help="Flip a ciphertext bit in every Nth frame before decrypting")
 
     sample_cmd = commands.add_parser("sample", help="Write a color test image")
     sample_cmd.add_argument("-o", "--output", type=Path, default=APP_ROOT / "input" / "color_test.png")

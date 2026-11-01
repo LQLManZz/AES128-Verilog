@@ -195,6 +195,29 @@ class HardwareChannel:
         self._client.close()
 
 
+class EmulatedChannel:
+    """The software model behind the real transfer(), answering on the schedule of the link."""
+
+    is_model = True  # The bytes are the model's, so comparing against it proves nothing
+
+    def __init__(self, preset: Preset, client, window: int):
+        self.label = f"giả lập theo số đo, không phải phần cứng | {preset.label}, burst {window} message"
+        self._client = client
+        self._window = window
+
+    @property
+    def late(self) -> int:
+        return self._client.late
+
+    def exchange(self, packets: List[Packet], name: str = "", on_chunk=None) -> Exchange:
+        started = time.perf_counter()
+        responses = transfer(self._client, packets, on_chunk, self._window)
+        return Exchange(responses, time.perf_counter() - started, "thời gian giả lập")
+
+    def close(self) -> None:
+        pass
+
+
 def open_channel(link: str, sim: Optional[str], options: Options, key: bytes):
     """Opens what --link and --sim name. `key` only tells the UART client its key size."""
     preset = LINKS[link]
@@ -202,6 +225,9 @@ def open_channel(link: str, sim: Optional[str], options: Options, key: bytes):
         return ModelChannel()
     if sim == "rtl":
         return RtlChannel(preset, options.window)
+    if sim == "emu":
+        from . import emulator  # It imports this module
+        return EmulatedChannel(preset, emulator.open_client(link), options.window)
 
     def play(client, packets, on_chunk):
         return transfer(client, packets, on_chunk, options.window)

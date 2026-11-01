@@ -191,6 +191,18 @@ def check_replies(expected_tags: List[bytes], replies: List[Reply]) -> None:
         raise TagMismatch(bad)
 
 
+def flip_ciphertext(responses: List[Packet], chunk: int) -> List[Packet]:
+    """Flips one ciphertext bit, as a corrupted link or an attacker would."""
+    seen = -1
+    changed = list(responses)
+    for index, (cmd, payload) in enumerate(changed):
+        seen += cmd == RESP_CIPHERTEXT
+        if cmd == RESP_CIPHERTEXT and seen == chunk:
+            changed[index] = (cmd, bytes([payload[0] ^ 1]) + payload[1:])
+            return changed
+    raise ValueError(f"RX stream has no chunk {chunk}")
+
+
 def wire_bytes(packets: List[Packet]) -> int:
     """Bytes these packets occupy on the link."""
     return sum(2 + len(payload) for _, payload in packets)

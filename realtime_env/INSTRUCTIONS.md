@@ -38,6 +38,34 @@ python realtime_env/main.py image realtime_env/input/color_test.png --link spi40
 
 `--show-chunks N` đổi số chunk đầu và cuối được in. Chunk `FAIL` luôn được in.
 
+### Giả lập đường truyền khi chưa có kit
+
+`--sim emu` dùng software model để trả lời, nhưng trả theo đúng lịch của `--link`, qua cùng hàm `transfer()` với phần cứng. Lệnh này chạy camera từ file video, có window:
+
+```bash
+python realtime_env/main.py camera --link spi40 --sim emu --key <hex> --iv <hex> --source clip.avi --realtime --loop
+```
+
+| Ràng buộc | Giá trị | Nguồn |
+|---|---|---|
+| Wi-Fi `spi40` | 2 829 và 3 278 KB/s, hai chiều cùng lúc tổng 3 594 KB/s | `wifi-test` đo thật |
+| RTT Wi-Fi mỗi burst | Trung bình 2,7 ms, tối đa 10,6 ms, tối thiểu 1,5 ms là giả định | `wifi-test` đo thật |
+| Đoạn SPI và UART | Lịch khớp bảng RTL trong khoảng ±10% | Hiệu chỉnh theo ảnh 64×64 |
+| Burst | 32 message, 240 B mỗi chunk | Giống phần cứng |
+| Trễ USB của `spi30`, `uart12m`, `uart2m` | 1 ms mỗi burst | Giả định, chưa đo |
+
+- **Chưa mô phỏng:** tải CPU của ESP32 khi Wi-Fi và SPI chạy cùng lúc, nhiễu Wi-Fi ngoài bài đo, mất kết nối.
+- **`spi30` đi qua `transfer()` chung,** nên chỉ mô phỏng thời gian, không kiểm tra code FT232H.
+- `--sim model` nhanh hơn nhưng không có ràng buộc thời gian, nên fps của nó không có ý nghĩa.
+
+Cờ thêm của `camera`:
+
+| Cờ | Tác dụng |
+|---|---|
+| `--realtime` | Phát `--source` đúng fps gốc và bỏ khung trễ, như camera thật |
+| `--loop` | Phát lặp lại `--source` |
+| `--tamper-every N` | Lật 1 bit ciphertext mỗi N khung để xem trạng thái `TAG FAIL` |
+
 Testbench tự kiểm tra, chạy từ gốc repo:
 
 ```bash
@@ -243,7 +271,8 @@ Kết quả mô phỏng RTL ngày 01/11/2026 qua `main.py`, ảnh RGB tổng h�
 - `raw --file` với file JPEG qua `spi40`, khớp từng byte, 5/5 chunk.
 - Cố ý lật 1 bit ciphertext ở chunk 7: IP báo `FAIL` đúng chunk đó và `decrypted.png` không được ghi.
 - Mọi frame SPI đều có STATUS `0xA0`, tức không overflow.
-- Host: 180 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu và camera từ file video.
+- Host: 228 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu, camera từ file video, window vẽ không cần màn hình và lịch `--sim emu`.
+- Window camera thật trên Windows qua cả bốn link với `--sim emu`, hai chế độ giải mã, `--realtime` bỏ khung trễ, `--tamper-every` hiện `TAG FAIL` mà không lộ plaintext.
 - UART 12 Mbaud trên RTL: mọi bit TX đúng 10 clock, đủ 256 byte qua hai miền clock khi host đúng baud và lệch ±2% (`tb_uart_phy`).
 - Libero 2026.1, post-layout, ba corner, `MPFS095T-1FCSG325E`:
 
@@ -297,13 +326,27 @@ MISO được phát ngay tại cạnh lên mà master lấy mẫu, nên vòng đ
 
 Ping trung bình 2,7 ms, tối đa 10,6 ms. Kênh 1, băng thông 40 MHz, RSSI -24 dBm, tức ESP32 đặt rất gần PC. Bài đo chỉ gồm Wi-Fi và bộ nhớ ESP32, chưa có tải SPI, nên số trên là trần của đoạn này. Số vẫn thấp hơn mức khoảng 60 Mbit/s Espressif công bố, vì mức đó đo trong buồng chắn với router.
 
-**Số khung/giây theo tổng băng thông hai chiều**, tính cả overhead 9%, mã hoá và trả về:
+**Trần fps của đường truyền**, từ lịch của `--sim emu`, một lượt mã hoá, tính cả overhead 9% và chờ RTT sau mỗi burst 32 message:
 
-| Tổng hai chiều | JPEG 640×480 q50 (16 KB) | JPEG 1280×720 q50 (39 KB) | Raw RGB 256×256 (192 KB) |
-|---|---|---|---|
-| 1,05 MB/s (đo với firmware Arduino) | khoảng 31 fps | khoảng 13 fps | khoảng 2,6 fps |
-| 3,51 MB/s (đo với `esp32_bridge`) | khoảng 103 fps | khoảng 42 fps | khoảng 8,6 fps |
+| `--link` | JPEG 16 KB | JPEG 29 KB | JPEG 39 KB | Raw RGB 256×256 (192 KB) |
+|---|---|---|---|---|
+| `spi40` | 54 fps | 34 fps | 24 fps | 5,2 fps |
+| `spi30` | 122 fps | 75 fps | 54 fps | 11 fps |
+| `uart12m` | 47 fps | 27 fps | 20 fps | 4,2 fps |
+| `uart2m` | 10 fps | 5,7 fps | 4,2 fps | 0,9 fps |
 
-`--fpga-decrypt` chia đôi các số trên. Camera laptop chỉ khoảng 27 fps. Nếu tổng hai chiều vượt khoảng 8 MB/s thì SPI 40 MHz mới thành nút thắt, lúc đó mới cần xét 80 MHz.
+Bảng này thay ước tính cũ chỉ tính băng thông, vốn cao gần gấp đôi với burst nhỏ. Kích thước JPEG phụ thuộc nội dung: clip thử có chi tiết và nhiễu cho 29 KB ở 640×480 q50, 19 KB ở q25. `--fpga-decrypt` gấp đôi thời gian trên đường truyền. Nếu tổng hai chiều vượt khoảng 8 MB/s thì SPI 40 MHz mới thành nút thắt, lúc đó mới cần xét 80 MHz.
 
-Từ PC, ESP32-S3 không phải đường nhanh nhất. Ảnh RGB 256×256 qua `spi30` khoảng 0,06 s, `uart12m` khoảng 0,22 s, `spi40` khoảng 0,4 s với số Wi-Fi hiện có. Giá trị của `spi40` là không dây.
+**Chạy thật bằng `--sim emu`, có window, JPEG 640×480:**
+
+| `--link` | PC giải mã | `--fpga-decrypt` |
+|---|---|---|
+| `spi40`, q50 (29 KB) | 18,6 fps | 13,0 fps |
+| `spi40`, q25 (19 KB) | 27,7 fps | 19,6 fps |
+| `spi30`, q50 | 26,9 fps | 20,8 fps |
+| `uart12m`, q50 | 17,6 fps | 11,6 fps |
+| `uart2m`, q50 | 4,9 fps | 2,6 fps |
+
+Số này thấp hơn trần vì CPU của PC cũng là một tầng: mỗi khung 29 KB tốn khoảng 8,6 ms giải mã trên PC và 8,7 ms cho software model. Phần software model không có trên kit, nên số thật có thể nhỉnh hơn nếu Wi-Fi giữ được tốc độ khi có tải SPI. Cả hai điều đó đều chưa đo. Dòng `Giả lập` trong tổng kết báo số burst trễ hơn lịch, tức lần chạy đó bị CPU giới hạn.
+
+Từ PC, ESP32-S3 không phải đường nhanh nhất. Ảnh RGB 256×256 qua `spi30` khoảng 0,09 s, `spi40` khoảng 0,19 s, `uart12m` khoảng 0,24 s. Giá trị của `spi40` là không dây.

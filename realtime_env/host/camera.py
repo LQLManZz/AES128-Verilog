@@ -1,21 +1,43 @@
 """Realtime camera: the PC compresses JPEG, the IP encrypts, and the frame comes back verified."""
 
-import hmac
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import cv2
 import numpy as np
 
-from . import console, framing, gcm_model
+from . import camera_view, console, framing, gcm_model
+from .camera_view import FrameResult
 from .protocol import MAX_DATA_BLOCKS
 
-_WINDOW = "AES-GCM realtime"
-_QUIT_KEY = ord("q")
-_PANEL_HEIGHT = 360
-_TEXT_COLOR = (0, 255, 0)
+_STOP_WAIT_S = 5.0
+_BADGES = {None: "Phần cứng", "model": "Software model, không phải kit", "emu": "Giả lập, không phải kit"}
+
+
+class ReplayCapture:
+    """A video file with the read() of a camera: paced at its own fps, and restarted if asked."""
+
+    def __init__(self, capture: "cv2.VideoCapture", realtime: bool, loop: bool):
+        self._capture = capture
+        self._period = 1 / (capture.get(cv2.CAP_PROP_FPS) or 30) if realtime else 0.0
+        self._loop = loop
+        self._next = time.perf_counter()
+
+    def read(self) -> Tuple[bool, Optional[np.ndarray]]:
+        wait = self._next - time.perf_counter()
+        if wait > 0:
+            time.sleep(wait)
+        self._next = max(self._next, time.perf_counter()) + self._period
+        ok, frame = self._capture.read()
+        if not ok and self._loop:
+            self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = self._capture.read()
+        return ok, frame
+
+    def release(self) -> None:
+        self._capture.release()
 
 
 class LiveSource:
@@ -25,6 +47,7 @@ class LiveSource:
         self._capture = capture
         self._condition = threading.Condition()
         self._frame = None
+        self._newest = None
         self._running = True
         self.dropped = 0
         self._thread = threading.Thread(target=self._grab, daemon=True)
@@ -38,7 +61,7 @@ class LiveSource:
                     self._running = False
                 else:
                     self.dropped += self._frame is not None
-                    self._frame = frame
+                    self._frame = self._newest = frame
                 self._condition.notify()
 
     def read(self) -> Optional[np.ndarray]:
@@ -47,6 +70,10 @@ class LiveSource:
                 self._condition.wait(timeout=1.0)
             frame, self._frame = self._frame, None
         return frame
+
+    def peek(self) -> Optional[np.ndarray]:
+        """The newest frame for the window, leaving it for read()."""
+        return self._newest
 
     def close(self) -> None:
         self._running = False
@@ -59,22 +86,31 @@ class FileSource:
 
     dropped = 0
 
-    def __init__(self, capture: "cv2.VideoCapture"):
+    def __init__(self, capture: "ReplayCapture"):
         self._capture = capture
+        self._newest = None
 
     def read(self) -> Optional[np.ndarray]:
         ok, frame = self._capture.read()
+        if ok:
+            self._newest = frame
         return frame if ok else None
+
+    def peek(self) -> Optional[np.ndarray]:
+        return self._newest
 
     def close(self) -> None:
         self._capture.release()
 
 
-def open_source(source: Optional[str], index: int):
+def open_source(source: Optional[str], index: int, realtime: bool = False, loop: bool = False):
     capture = cv2.VideoCapture(source if source else index)
     if not capture.isOpened():
         raise OSError(f"Cannot open {'video ' + source if source else f'camera {index}'}")
-    return FileSource(capture) if source else LiveSource(capture)
+    if not source:
+        return LiveSource(capture)
+    replay = ReplayCapture(capture, realtime, loop)
+    return LiveSource(replay) if realtime else FileSource(replay)
 
 
 def compress(frame: np.ndarray, size: Tuple[int, int], quality: int) -> bytes:
@@ -89,19 +125,11 @@ def decrypt_on_pc(key: bytes, messages: List[framing.Message], encrypted: List[f
     """Decrypts in software, refusing the frame if any tag from the IP does not check out."""
     chunks = []
     for index, (message, reply) in enumerate(zip(messages, encrypted)):
-        data, tag = gcm_model.run_message(key, message.iv, message.aad, reply.data, decrypt=True)
-        if not hmac.compare_digest(tag, reply.tag):
+        data = gcm_model.open_message(key, message.iv, message.aad, reply.data, reply.tag)
+        if data is None:
             raise framing.TagMismatch([index])
         chunks.append(data)
     return chunks
-
-
-def decrypt_on_fpga(key: bytes, messages: List[framing.Message], encrypted: List[framing.Reply], channel) -> List[bytes]:
-    expected = [reply.tag for reply in encrypted]
-    packets = framing.build_decrypt_tx(key, messages, [reply.data for reply in encrypted], expected)
-    decrypted = framing.split_rx(channel.exchange(packets, "camera_dec").responses)
-    framing.check_replies(expected, decrypted)
-    return [reply.data for reply in decrypted]
 
 
 @dataclass
@@ -129,86 +157,106 @@ class Stats:
         return float(np.percentile(self.round_trips_ms, percent)) if self.round_trips_ms else 0.0
 
 
-def cipher_panel(cipher: bytes, height: int) -> np.ndarray:
-    """Shows the ciphertext as noise, the way the link sees it."""
-    side = max(int(len(cipher) ** 0.5), 1)
-    noise = np.frombuffer(cipher[:side * side], dtype=np.uint8).reshape(side, side)
-    return cv2.cvtColor(cv2.resize(noise, (height, height), interpolation=cv2.INTER_NEAREST), cv2.COLOR_GRAY2BGR)
+def decrypt_on_fpga(key: bytes, messages: List[framing.Message], encrypted: List[framing.Reply], channel,
+                    stats: Stats) -> List[bytes]:
+    expected = [reply.tag for reply in encrypted]
+    packets = framing.build_decrypt_tx(key, messages, [reply.data for reply in encrypted], expected)
+    responses = channel.exchange(packets, "camera_dec").responses
+    stats.wire_bytes += framing.wire_bytes(packets) + framing.wire_bytes(responses)
+    decrypted = framing.split_rx(responses)
+    framing.check_replies(expected, decrypted)
+    return [reply.data for reply in decrypted]
 
 
-def scaled(frame: np.ndarray, height: int) -> np.ndarray:
-    return cv2.resize(frame, (frame.shape[1] * height // frame.shape[0], height), interpolation=cv2.INTER_AREA)
-
-
-def show(original: np.ndarray, cipher: bytes, jpeg: bytes, stats: Stats) -> bool:
-    """Draws one frame. Returns False when the user asks to stop."""
-    plain = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
-    panels = [scaled(original, _PANEL_HEIGHT), cipher_panel(cipher, _PANEL_HEIGHT), scaled(plain, _PANEL_HEIGHT)]
-    view = np.hstack(panels)
-    text = (f"{stats.fps:.1f} fps  {stats.wire_kbs:.0f} KB/s  RTT p95 {stats.rtt_percentile(95):.0f} ms  "
-            f"tag FAIL {stats.failed}")
-    cv2.putText(view, text, (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, _TEXT_COLOR, 2)
-    cv2.imshow(_WINDOW, view)
-    return (cv2.waitKey(1) & 0xFF) != _QUIT_KEY
-
-
-def report_summary(stats: Stats, source, where: str, report: console.Report) -> None:
+def report_summary(stats: Stats, source, where: str, channel, report: console.Report) -> None:
     report.section("TỔNG KẾT", where)
     report.field("Khung", f"{stats.frames} khung, {stats.failed} khung lỗi tag, {source.dropped} khung bỏ")
     report.field("Tốc độ", f"{stats.fps:.1f} fps, {stats.wire_kbs:.0f} KB/s trên đường truyền")
     if stats.frames:
         report.field("Kích thước", f"{stats.frame_bytes / stats.frames / 1024:.1f} KB/khung JPEG")
     report.field("RTT", f"trung bình {np.mean(stats.round_trips_ms or [0]):.1f} ms, p95 {stats.rtt_percentile(95):.1f} ms")
+    late = getattr(channel, "late", 0)
+    if late:
+        report.field("Giả lập", f"{late} burst trễ hơn lịch: máy tính chậm hơn đường truyền đang giả lập", "fail")
+
+
+def process_frames(args, secrets, channel, source, stats: Stats, publish: Callable[[FrameResult], None],
+                   stopped: Callable[[], bool]) -> None:
+    """Sends every frame through the link. Runs on its own thread when there is a window."""
+    iv = secrets.iv
+    while not stopped() and (not args.frames or stats.frames < args.frames):
+        frame = source.read()
+        if frame is None:
+            break
+        started = time.perf_counter()
+        jpeg = compress(frame, args.size, args.quality)
+        packets = framing.build_tx(jpeg, secrets.key, iv, secrets.aad)
+        key, messages = framing.split_tx(packets)
+        responses = channel.exchange(packets, "camera").responses
+        stats.wire_bytes += framing.wire_bytes(packets) + framing.wire_bytes(responses)
+        iv = framing.advance_iv(iv, len(messages))  # Stays unique across frames
+        if args.tamper_every and (stats.frames + 1) % args.tamper_every == 0:
+            responses = framing.flip_ciphertext(responses, 0)
+        encrypted = framing.split_rx(responses)
+
+        layout = framing.Layout(len(jpeg), len(messages), MAX_DATA_BLOCKS)
+        cipher = framing.join_chunks(layout, [reply.data for reply in encrypted])
+        try:
+            if args.fpga_decrypt:
+                chunks = decrypt_on_fpga(key, messages, encrypted, channel, stats)
+            else:
+                chunks = decrypt_on_pc(key, messages, encrypted)
+            restored = framing.join_chunks(layout, chunks)
+            if restored != jpeg:
+                raise framing.TagMismatch([0])
+        except framing.TagMismatch:
+            stats.failed += 1
+            restored = None
+
+        stats.round_trips_ms.append((time.perf_counter() - started) * 1e3)
+        stats.frames += 1
+        stats.frame_bytes += len(jpeg)
+        publish(FrameResult(stats.frames, cipher, restored))
+
+
+def run_with_window(args, secrets, channel, source, stats: Stats, view: camera_view.View) -> None:
+    """Keeps the window on the main thread, where OpenCV needs it, and the link on another."""
+    stop = threading.Event()
+    failures = []
+
+    def work() -> None:
+        try:
+            process_frames(args, secrets, channel, source, stats, view.publish, stop.is_set)
+        except Exception as error:  # Raised again below, on the thread that reports it
+            failures.append(error)
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    view.run(source.peek, stats, lambda: source.dropped, worker.is_alive)
+    stop.set()
+    worker.join(timeout=_STOP_WAIT_S)
+    if failures:
+        raise failures[0]
 
 
 def run(args, secrets, channel, report: console.Report) -> int:
-    source = open_source(args.source, args.camera_index)
+    source = open_source(args.source, args.camera_index, args.realtime, args.loop)
     where = "FPGA mã hoá, FPGA giải mã" if args.fpga_decrypt else "FPGA mã hoá, PC giải mã"
     report.section("CAMERA", where)
     report.field("Nguồn", channel.label, "dim")
     report.field("Khung", f"{args.size[0]}x{args.size[1]}, JPEG q{args.quality}")
     report.field("IV đầu", secrets.iv.hex())
     if not args.no_window:
-        report.line("Nhấn q trong cửa sổ để dừng.", "dim")
+        report.line("Nhấn q, Esc hoặc nút X trên cửa sổ để dừng.", "dim")
 
     stats = Stats()
-    iv = secrets.iv
     try:
-        while not args.frames or stats.frames < args.frames:
-            frame = source.read()
-            if frame is None:
-                break
-            jpeg = compress(frame, args.size, args.quality)
-            started = time.perf_counter()
-            packets = framing.build_tx(jpeg, secrets.key, iv, secrets.aad)
-            key, messages = framing.split_tx(packets)
-            result = channel.exchange(packets, "camera")
-            encrypted = framing.split_rx(result.responses)
-            stats.wire_bytes += framing.wire_bytes(packets) + framing.wire_bytes(result.responses)
-            iv = framing.advance_iv(iv, len(messages))  # Stays unique across frames
-
-            layout = framing.Layout(len(jpeg), len(messages), MAX_DATA_BLOCKS)
-            cipher = framing.join_chunks(layout, [reply.data for reply in encrypted])
-            try:
-                if args.fpga_decrypt:
-                    chunks = decrypt_on_fpga(key, messages, encrypted, channel)
-                else:
-                    chunks = decrypt_on_pc(key, messages, encrypted)
-                restored = framing.join_chunks(layout, chunks)
-                if restored != jpeg:
-                    raise framing.TagMismatch([0])
-            except framing.TagMismatch:
-                stats.failed += 1
-                restored = None
-
-            stats.round_trips_ms.append((time.perf_counter() - started) * 1e3)
-            stats.frames += 1
-            stats.frame_bytes += len(jpeg)
-            if restored and not args.no_window and not show(frame, cipher, restored, stats):
-                break
+        if args.no_window:
+            process_frames(args, secrets, channel, source, stats, lambda result: None, lambda: False)
+        else:
+            title = f"{args.link}, AES-{len(secrets.key) * 8}, {where}"
+            run_with_window(args, secrets, channel, source, stats, camera_view.View(title, _BADGES[args.sim], args.size))
     finally:
         source.close()
-        if not args.no_window:
-            cv2.destroyAllWindows()
-        report_summary(stats, source, where, report)
+        report_summary(stats, source, where, channel, report)
     return 1 if stats.failed or not stats.frames else 0
