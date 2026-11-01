@@ -2,7 +2,7 @@
 // Package: protocol_pkg.sv
 // Description: Unified SystemVerilog package declaring command opcodes,
 //              response opcodes, error codes, and protocol constants for
-//              the AES-GCM UART communication framework.
+//              the AES-GCM UART and SPI communication framework.
 //=============================================================================
 
 `timescale 1ns / 1ps
@@ -16,6 +16,7 @@ package protocol_pkg;
         CMD_LOAD_AAD       = 8'h03, // Multiples of 16 bytes
         CMD_LOAD_PLAINTEXT = 8'h04, // Multiples of 16 bytes
         CMD_START_ENCRYPT  = 8'h05, // 0 bytes payload (starts encryption pipeline)
+        CMD_LOAD_TAG_REF   = 8'h06, // 16 bytes (expected tag, required before START_DECRYPT)
         CMD_START_DECRYPT  = 8'h07  // 0 bytes payload (starts decryption pipeline)
     } cmd_opcode_t;
 
@@ -25,10 +26,13 @@ package protocol_pkg;
         RESP_ACK_IV        = 8'h82, // 0 bytes payload
         RESP_ACK_AAD       = 8'h83, // 0 bytes payload
         RESP_ACK_PLAINTEXT = 8'h84, // 0 bytes payload
+        RESP_ACK_TAG_REF   = 8'h85, // 0 bytes payload
         RESP_CIPHERTEXT    = 8'h90, // Multiples of 16 bytes payload
         RESP_AUTH_TAG      = 8'h91, // 16 bytes payload (128 bits)
+        RESP_VERIFY_RESULT = 8'h92, // 1 byte payload (1 = tag matched, 0 = plaintext withheld)
         RESP_ERR_UNKNOWN   = 8'hE0, // 1 byte payload (faulty opcode)
-        RESP_ERR_LEN       = 8'hE1  // 1 byte payload (faulty opcode)
+        RESP_ERR_LEN       = 8'hE1, // 1 byte payload (faulty opcode)
+        RESP_ERR_TIMEOUT   = 8'hE2  // 1 byte payload (opcode of the packet that stopped arriving)
     } resp_opcode_t;
 
     // Protocol Limits & Sizes

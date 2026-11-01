@@ -1,10 +1,11 @@
 """Runs the real serial path of host.py against a fake port answered by the software model."""
 
 import pytest
+import serial as pyserial
 from PIL import Image
 from uart_protocol import (
     CMD_LOAD_PLAINTEXT, CMD_START_DECRYPT, CMD_START_ENCRYPT, RESP_ERR_LEN,
-    build_packet, parse_packets,
+    VERIFY_FAIL, VERIFY_PASS, build_packet, parse_packets,
 )
 
 from imgapp import framing, gcm_model, image_io, packet_file, uart_link
@@ -14,7 +15,7 @@ KEY = bytes(range(32))
 
 
 class FakeSerial:
-    """Answers each packet as it is written, and fails if a START overtakes the ACK before it."""
+    """Answers each packet as it is written and records how much was unanswered at each write."""
 
     is_open = True
 
@@ -23,10 +24,12 @@ class FakeSerial:
         self.sent = []
         self.answered = 0
         self.incoming = b""
+        self.writes = []
 
     def write(self, data):
-        assert self.incoming == b"", "host sent a packet before reading the previous reply"
-        self.sent += parse_packets(data)
+        written = parse_packets(data)
+        self.writes.append((len(written), len(self.incoming)))
+        self.sent += written
         responses = gcm_model.simulate(self.sent)
         for packet in responses[self.answered:]:
             self.incoming += self.transform(build_packet(*packet))
@@ -89,9 +92,40 @@ def test_key_is_loaded_only_once():
     assert [cmd for cmd, _ in serial.sent].count(1) == 1
 
 
-def test_start_waits_for_the_plaintext_ack():
-    # FakeSerial rejects any write while a reply is unread
-    uart_link.transfer(make_client(FakeSerial()), tx_packets())
+def test_window_one_is_stop_and_wait():
+    serial = FakeSerial()
+    uart_link.transfer(make_client(serial), tx_packets(), window=1)
+    assert all(count == 1 and unread == 0 for count, unread in serial.writes)
+
+
+def test_burst_writes_a_whole_window_at_once():
+    serial = FakeSerial()
+    packets = tx_packets()  # 7 messages
+    assert uart_link.transfer(make_client(serial), packets, window=4) == gcm_model.simulate(packets)
+    assert len(serial.writes) == 2
+    assert all(unread == 0 for _, unread in serial.writes)  # Every window is read before the next
+
+
+def test_decrypt_with_a_wrong_tag_comes_back_without_data():
+    packets = tx_packets()
+    key, messages = framing.split_tx(packets)
+    replies = framing.split_rx(gcm_model.simulate(packets))
+    tags = [reply.tag for reply in replies]
+    tags[1] = bytes(16)
+    decrypt_tx = framing.build_decrypt_tx(key, messages, [reply.data for reply in replies], tags)
+
+    decrypted = framing.split_rx(uart_link.transfer(make_client(FakeSerial()), decrypt_tx))
+    assert [reply.verified for reply in decrypted] == [True, False] + [True] * 5
+    assert decrypted[1].data == b""
+
+
+def test_port_failure_is_an_os_error(monkeypatch):
+    def refuse(*args, **kwargs):
+        raise pyserial.SerialException("busy")
+
+    monkeypatch.setattr(pyserial, "Serial", refuse)
+    with pytest.raises(OSError, match="COM99"):
+        uart_link.open_client(KEY, "COM99", 2_000_000, 1.0)
 
 
 def test_progress_reports_every_chunk():
@@ -120,6 +154,24 @@ def test_compare_flags_data_and_tag_separately():
     responses[tag_at] = (0x91, bytes(16))
     differences = uart_link.compare_with_model(packets, responses)
     assert len(differences) == 1 and differences[0].startswith("chunk 0: tag differs")
+
+
+def test_compare_flags_a_short_board_answer():
+    packets = tx_packets()
+    responses = gcm_model.simulate(packets)
+    differences = uart_link.compare_with_model(packets, responses[:-4])  # The last chunk's four replies
+    assert differences == ["board answered 6 chunks, model 7"]
+
+
+def test_compare_flags_a_different_verify_result():
+    packets = tx_packets()
+    key, messages = framing.split_tx(packets)
+    replies = framing.split_rx(gcm_model.simulate(packets))
+    decrypt_tx = framing.build_decrypt_tx(key, messages, [r.data for r in replies], [r.tag for r in replies])
+    responses = gcm_model.simulate(decrypt_tx)
+    assert responses[-1] == (0x92, VERIFY_PASS)
+    responses[-1] = (0x92, VERIFY_FAIL)
+    assert uart_link.compare_with_model(decrypt_tx, responses) == ["chunk 6: verify differs (board FAIL, model PASS)"]
 
 
 def test_send_writes_the_same_rx_files_as_simulate(tx_path, board, capsys):
@@ -162,6 +214,11 @@ def test_full_board_round_trip_restores_the_image(tx_path, board):
     assert image_io.read_pixels(result) == image_io.read_pixels(folder / "preview.png")
 
 
+def test_send_can_fall_back_to_stop_and_wait(tx_path, board):
+    assert main(["send", str(tx_path), "--window", "1"]) == 0
+    assert all(count == 1 for count, _ in board.writes)
+
+
 def test_tampered_board_answer_is_rejected(tx_path, board):
     folder = tx_path.parent
     assert main(["send", str(tx_path)]) == 0
@@ -169,7 +226,7 @@ def test_tampered_board_answer_is_rejected(tx_path, board):
     assert main(["send", str(folder / "tx_dec.bin")]) == 0
 
     rx_dec = bytearray((folder / "rx_dec.bin").read_bytes())
-    rx_dec[-1] ^= 1  # Last byte of the last AUTH_TAG
+    rx_dec[-1] ^= 1  # The last VERIFY_RESULT
     (folder / "rx_dec.bin").write_bytes(rx_dec)
 
     result = folder / "board.png"

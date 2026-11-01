@@ -124,7 +124,7 @@ vsim -c -do "run -all; quit" work.tb_aes256_uart_wrapper
    - **For AES-256:** Add `RTL/AES_256_GCM.sv`, `RTL/AES_256_CTR/`, `RTL/GCM-GHASH/`, `RTL/CU/`, `uart_integration/common/`, and `uart_integration/aes256/aes256_uart_wrapper.sv`. Set `aes256_uart_wrapper` as the Design Root.
 3. Physical Constraint file (`.pdc`):
 ```tcl
-# System Clock constraint (50 MHz or 100 MHz on PolarFire Discovery Kit)
+# System Clock constraint (50 MHz on PolarFire Discovery Kit)
 create_clock -period 20.000 [get_ports clk]
 
 # Pin constraints for PolarFire SoC Discovery Kit
@@ -160,7 +160,7 @@ The host CLI utility is located at `uart_integration/python/host.py`.
 | `-v`, `--variant` | Core variant: `aes128` or `aes256` | `aes256` |
 | `-op`, `--operation` | Operation mode: `test`, `encrypt`, `decrypt`, `interactive` | `test` |
 | `-p`, `--port` | Serial COM port (e.g., `COM4` or `/dev/ttyUSB0`) | Auto-detect |
-| `-b`, `--baud` | UART baudrate | `115200` |
+| `-b`, `--baud` | UART baudrate | `2000000` |
 | `-t`, `--timeout` | UART read timeout in seconds | `3.0` |
 | `--verbose` | Print low-level TX/RX packet hex payloads | Disabled |
 | `--mock`, `--dry-run` | Simulate FPGA hardware responses offline without board | Disabled |
@@ -169,7 +169,7 @@ The host CLI utility is located at `uart_integration/python/host.py`.
 | `--aad` | Additional Authenticated Data (hex string or plain text) | Optional |
 | `--pt`, `--plaintext` | Plaintext to encrypt (hex string or plain text) | None |
 | `--ct`, `--ciphertext` | Ciphertext to decrypt (hex string) | None |
-| `--tag` | Expected 16-byte authentication tag in hex (for decrypt mode) | None |
+| `--tag` | Expected 16-byte authentication tag in hex, required for decrypt mode | None |
 | `--test`, `--test-nist` | Execute automated self-test verification suite | False |
 | `--benchmark [N]` | Run continuous benchmark stream of N packets for visual LED activity | Disabled (const: 50) |
 | `-i`, `--interactive` | Launch interactive terminal UI | False |
@@ -216,7 +216,7 @@ python uart_integration/python/host.py -v aes256 -op encrypt --key feffe99286657
 ```
 
 #### AES-256 Decryption & Tag Verification:
-The decrypt command compares the tag returned by the FPGA with the `--tag` value (NIST SP 800-38D byte order):
+The decrypt command loads `--tag` with `LOAD_TAG_REF`, so the IP verifies it and releases the plaintext only on a match (NIST SP 800-38D byte order):
 ```bash
 python uart_integration/python/host.py -v aes256 -op decrypt \
     --key feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308 \
@@ -300,5 +300,5 @@ The tags were cross-checked against the PyCryptodome `AES.MODE_GCM` implementati
 ### 5.3 What `host.py` Does
 
 1. **Direct display:** the ciphertext/plaintext and the tag are printed exactly as received from the FPGA.
-2. **Tag verification:** in decrypt mode (`-op decrypt`), the tag returned by the FPGA is compared byte-for-byte with `--tag`.
+2. **Tag verification:** in decrypt mode (`-op decrypt`), the IP compares its tag with `--tag`, and the host checks that `VERIFY_RESULT` agrees.
 3. **Self-test audit:** `--test` prints a summary table and, for every vector, the hardware tag next to the NIST reference tag.

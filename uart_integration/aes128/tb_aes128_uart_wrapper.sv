@@ -47,8 +47,10 @@ module tb_aes128_uart_wrapper;
     end
 
     initial begin
-        $dumpfile("tb_aes128_uart_wrapper.vcd");
-        $dumpvars(0, tb_aes128_uart_wrapper);
+        if ($test$plusargs("dump")) begin
+            $dumpfile("tb_aes128_uart_wrapper.vcd");
+            $dumpvars(0, tb_aes128_uart_wrapper);
+        end
     end
 
     // UART Bit-level Transmitter Task
@@ -140,6 +142,28 @@ module tb_aes128_uart_wrapper;
             end else begin
                 $display("  [FAIL] %s: Expected ACK 0x%02h, got 0x%02h (len=%0d)",
                          name, expected_ack, r_cmd, r_payload.size());
+                error_count++;
+            end
+        end
+    endtask
+
+    // Fails unless the next packet is exactly `expected_cmd` carrying `expected`
+    task automatic expect_packet(input string name, input logic [7:0] expected_cmd,
+                                 input logic [7:0] expected[]);
+        logic [7:0] cmd_b;
+        logic [7:0] len_b;
+        logic [7:0] payload[];
+        begin
+            test_count++;
+            uart_rx_byte(cmd_b);
+            uart_rx_byte(len_b);
+            payload = new[$isunknown(len_b) ? 0 : len_b];
+            for (int i = 0; i < payload.size(); i++) uart_rx_byte(payload[i]);
+            if (cmd_b === expected_cmd && payload == expected) begin
+                $display("  [PASS] %s: Received 0x%02h (%0d bytes)", name, cmd_b, len_b);
+            end else begin
+                $display("  [FAIL] %s: Expected 0x%02h (%0d bytes), got 0x%02h (%0d bytes)",
+                         name, expected_cmd, expected.size(), cmd_b, len_b);
                 error_count++;
             end
         end
@@ -302,6 +326,43 @@ module tb_aes128_uart_wrapper;
                 $display("  [FAIL] Expected AUTH_TAG (0x91), got 0x%02h", rx_cmd);
                 error_count++;
             end
+        end
+
+        //-------------------------------------------------------------
+        // Test 3: authenticated decryption inside the IP (TC2)
+        //-------------------------------------------------------------
+        $display("\n>>> TEST 3: Decrypt and verify (TC2, AES-128)");
+        begin
+            automatic logic [7:0] zero_key[] = new[16];
+            automatic logic [7:0] zero_iv[]  = new[12];
+            automatic logic [7:0] zero_pt[]  = new[16];
+            automatic logic [7:0] ct_tc2[]   = '{
+                8'h03,8'h88,8'hda,8'hce,8'h60,8'hb6,8'ha3,8'h92,
+                8'hf3,8'h28,8'hc2,8'hb9,8'h71,8'hb2,8'hfe,8'h78
+            };
+            automatic logic [7:0] tag_tc2[]  = '{
+                8'hab,8'h6e,8'h47,8'hd4,8'h2c,8'hec,8'h13,8'hbd,
+                8'hf5,8'h3a,8'h67,8'hb2,8'h12,8'h57,8'hbd,8'hdf
+            };
+            automatic logic [7:0] verdict_pass[] = '{8'h01};
+            automatic logic [7:0] empty_payload[] = new[0];
+
+            foreach (zero_key[i]) zero_key[i] = 8'h00; // new[] leaves the elements unknown
+            foreach (zero_iv[i])  zero_iv[i]  = 8'h00;
+            foreach (zero_pt[i])  zero_pt[i]  = 8'h00;
+
+            send_packet(CMD_LOAD_KEY, zero_key);
+            verify_ack("LOAD_KEY (decrypt)", RESP_ACK_KEY);
+            send_packet(CMD_LOAD_IV, zero_iv);
+            verify_ack("LOAD_IV (decrypt)", RESP_ACK_IV);
+            send_packet(CMD_LOAD_PLAINTEXT, ct_tc2);
+            verify_ack("LOAD_PLAINTEXT (decrypt)", RESP_ACK_PLAINTEXT);
+            send_packet(CMD_LOAD_TAG_REF, tag_tc2);
+            verify_ack("LOAD_TAG_REF", RESP_ACK_TAG_REF);
+            send_packet(CMD_START_DECRYPT, empty_payload);
+            expect_packet("Recovered PLAINTEXT", RESP_CIPHERTEXT, zero_pt);
+            expect_packet("Computed AUTH_TAG", RESP_AUTH_TAG, tag_tc2);
+            expect_packet("VERIFY_RESULT PASS", RESP_VERIFY_RESULT, verdict_pass);
         end
 
         // Summary

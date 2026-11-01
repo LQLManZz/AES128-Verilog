@@ -1,22 +1,22 @@
-# AES-GCM UART Binary Communication Protocol Specification
+# AES-GCM Binary Communication Protocol Specification (UART and SPI)
 
-**Document Version:** 1.0  
+**Document Version:** 2.0  
 **Target Hardware:** PolarFire SoC Discovery Kit (MPFS095T-1FCSG325E)  
-**Interface:** USB Type-C &rarr; FT4232HL USB-UART &rarr; FPGA Fabric UART  
+**Interface:** one bitstream per link: UART on mikroBUS J6, or SPI on mikroBUS J5  
 
 ---
 
 ## 1. Physical Layer Configuration
 
-The UART physical layer connects the host PC application via the FT4232HL USB-to-UART bridge directly to FPGA fabric logic pins.
+The packets below are the same on both links. See section 7 for the SPI framing. The UART bitstream uses the settings in this table on pins E14/E15. The 12 Mbaud bitstreams (`aes256_uart_12m_top`, `aes128_uart_12m_top`) use the same settings on W21/Y21, FT4232HL channel D through the USB-C port.
 
 | Parameter | Setting | Description |
 |---|---|---|
-| **Baud Rate** | Configurable (Default: `115,200` bps) | Configurable via RTL parameter `BAUD_RATE` |
+| **Baud Rate** | Configurable (Default: `2,000,000` bps) | RTL parameter `BAUD_RATE`; use a value that divides 50 MHz exactly, or 120 MHz in `aes_uart_12m_top` (default `12,000,000` bps) |
 | **Data Bits** | `8` | 1 byte per frame |
 | **Parity** | `None` (N) | No parity bit |
 | **Stop Bits** | `1` | 1 stop bit |
-| **Flow Control** | `None` | Software packet handshaking via ACK |
+| **Flow Control** | `None` | The host keeps at most 32 messages in flight; the RX FIFO absorbs them |
 | **Bit Order** | `LSB First` | Standard UART transmission order |
 | **Byte Endianness** | `Big-Endian (MSB First)` | High byte transmitted first for cryptographic vectors |
 
@@ -52,6 +52,7 @@ All communications follow a strictly framed binary packet structure. There are n
 | `0x03` | **`LOAD_AAD`** | $16 \times M$ Bytes ($1 \le M \le 15$) | Loads Additional Authenticated Data in multiples of 16-byte blocks (up to 240 bytes). |
 | `0x04` | **`LOAD_PLAINTEXT`**| $16 \times P$ Bytes ($1 \le P \le 15$) | Loads Plaintext data in multiples of 16-byte blocks (up to 240 bytes). |
 | `0x05` | **`START_ENCRYPT`** | 0 Bytes | Triggers hardware AES-GCM encryption accelerator execution. |
+| `0x06` | **`LOAD_TAG_REF`** | 16 Bytes | Loads the expected tag. Required before `START_DECRYPT`, cleared after each message. |
 | `0x07` | **`START_DECRYPT`** | 0 Bytes | Triggers hardware AES-GCM decryption. The data loaded by `LOAD_PLAINTEXT` is treated as ciphertext. |
 
 > **Message size limit:** each `START_*` runs one independent GCM message of at most 15 blocks (240 bytes), although the wrapper buffers hold 16. `LENGTH` is 8-bit and cannot encode 256, and the 4-bit `cnt_pt_blocks` counter wraps to 0 at 16 blocks. Longer data must be split into several messages, each with its own IV and tag. `uart_protocol.py` exposes this limit as `MAX_DATA_BYTES`.
@@ -98,10 +99,14 @@ All communications follow a strictly framed binary packet structure. There are n
 #### `0x07` - `START_DECRYPT`
 - **Format:** `[0x07] [0x00]`
 - **Payload:** 0 bytes.
-- **Behavior:** Runs the same sequence on the loaded ciphertext. The host compares the returned tag with the expected tag, because the wrapper has no `LOAD_TAG_REF` command yet.
-- **Expected Responses:**
+- **Behavior:** Runs the same sequence on the loaded ciphertext and verifies the tag inside the IP against `LOAD_TAG_REF`. Without `LOAD_TAG_REF` it answers `ERR_LEN_MISMATCH` with `0x07`.
+- **Expected Responses when the tag matches:**
   1. `CIPHERTEXT` (`0x90`) carrying the recovered plaintext.
   2. `AUTH_TAG` (`0x91`) with the computed 16-byte tag.
+  3. `VERIFY_RESULT` (`0x92`) with `0x01`.
+- **Expected Responses when it does not:** the plaintext is withheld.
+  1. `AUTH_TAG` (`0x91`) with the computed 16-byte tag.
+  2. `VERIFY_RESULT` (`0x92`) with `0x00`.
 
 ---
 
@@ -113,10 +118,13 @@ All communications follow a strictly framed binary packet structure. There are n
 | `0x82` | **`ACK_IV`** | 0 Bytes | Confirms successful receipt and latching of IV. |
 | `0x83` | **`ACK_AAD`** | 0 Bytes | Confirms successful receipt and buffering of AAD. |
 | `0x84` | **`ACK_PLAINTEXT`** | 0 Bytes | Confirms successful receipt and buffering of Plaintext. |
+| `0x85` | **`ACK_TAG_REF`** | 0 Bytes | Expected tag loaded. |
 | `0x90` | **`CIPHERTEXT`** | $16 \times P$ Bytes | Encrypted ciphertext corresponding to input plaintext blocks. |
 | `0x91` | **`AUTH_TAG`** | 16 Bytes (128 bits) | Final 128-bit NIST SP 800-38D Authentication Tag. |
+| `0x92` | **`VERIFY_RESULT`** | 1 Byte | Ends a decryption: `0x01` tag matched, `0x00` tag did not match and no plaintext was sent. |
 | `0xE0` | **`ERR_UNKNOWN_CMD`**| 1 Byte | Error: Received opcode is unassigned. Payload contains bad opcode. |
 | `0xE1` | **`ERR_LEN_MISMATCH`**| 1 Byte | Error: Packet length does not match command requirement. Payload contains the rejected opcode. |
+| `0xE2` | **`ERR_TIMEOUT`** | 1 Byte | The packet with this opcode stopped arriving for 10 ms and was dropped. |
 
 ---
 
@@ -151,6 +159,24 @@ Host PC Application                              FPGA aes_uart_wrapper
 ## 6. Extensibility
 
 The protocol opcodes are allocated with wide ranges reserved for future expansion:
-- `0x06` - `LOAD_TAG_REF` (For future Decryption/Authentication mode)
-- `0x92` - `VERIFY_RESULT` (Status byte: `0x01` = PASS, `0x00` = FAIL)
 - `0xA0..0xAF` - Diagnostic and performance counter readout.
+
+---
+
+## 7. SPI Framing
+
+SPI is mode 0, MSB first. One frame is one `spi_cs_n` low period, and its first byte selects what the frame does:
+
+| First MOSI byte | Name | Effect |
+|---|---|---|
+| `0xA5` | `DATA` | The following MOSI bytes are packet bytes for the engine |
+| `0x5A` | `READ` | The following MOSI bytes are ignored |
+| `0xC3` | `CLEAR` | When `spi_cs_n` rises: resets the engine, both FIFOs and the status flags |
+
+The slave changes MISO on the rising SCLK edge, the same edge the master samples, so the master has a whole period for the round trip. The master must sample on that edge, with no added input delay.
+
+The first MISO byte is the status byte `{4'hA, 1'b0, bad_op, tx_overflow, rx_overflow}`. Its high nibble stays `0xA`, so a stuck or absent slave shows up immediately. The flags are sticky until `CLEAR`.
+
+The following MISO bytes are response packets from the TX FIFO, in every frame type, and `0x00` when it is empty. No response opcode is `0x00`, so the host skips zeros where an opcode is due and never inside a payload.
+
+Each message answers about 6 bytes more than it sends and replies trail the data by about one message, so a `DATA` frame carries at most 32 messages and `READ` frames collect the rest.

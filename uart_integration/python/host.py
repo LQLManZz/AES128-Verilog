@@ -34,10 +34,10 @@ except ImportError:
 
 # Shared with image_process/ - see uart_protocol.py
 from uart_protocol import (
-    CMD_LOAD_KEY, CMD_LOAD_IV, CMD_LOAD_AAD, CMD_LOAD_PLAINTEXT,
-    CMD_START_ENCRYPT, CMD_START_DECRYPT,
-    RESP_ACK_KEY, RESP_ACK_IV, RESP_ACK_AAD, RESP_ACK_PLAINTEXT,
-    RESP_CIPHERTEXT, RESP_AUTH_TAG, RESP_NAMES,
+    CMD_LOAD_KEY, CMD_LOAD_IV, CMD_LOAD_AAD, CMD_LOAD_PLAINTEXT, CMD_LOAD_TAG_REF,
+    CMD_START_ENCRYPT, CMD_START_DECRYPT, DEFAULT_BAUD_RATE,
+    RESP_ACK_KEY, RESP_ACK_IV, RESP_ACK_AAD, RESP_ACK_PLAINTEXT, RESP_ACK_TAG_REF,
+    RESP_CIPHERTEXT, RESP_AUTH_TAG, RESP_VERIFY_RESULT, RESP_NAMES, VERIFY_PASS,
     build_packet,
 )
 
@@ -97,7 +97,7 @@ def ascii_repr(data: bytes) -> str:
 class AesGcmUartClient:
     """Handles serial communication and packet protocol with AES-GCM FPGA."""
 
-    def __init__(self, port: Optional[str] = None, baudrate: int = 115200,
+    def __init__(self, port: Optional[str] = None, baudrate: int = DEFAULT_BAUD_RATE,
                  timeout: float = 3.0, variant: str = "aes256", verbose: bool = False,
                  mock: bool = False):
         self.baudrate = baudrate
@@ -114,9 +114,8 @@ class AesGcmUartClient:
                 self.ser.reset_input_buffer()
                 self.ser.reset_output_buffer()
                 self.resync_hardware()
-            except Exception as e:
-                print(f"[!] Error opening serial port {self.port}: {e}")
-                sys.exit(1)
+            except (OSError, serial.SerialException) as e:
+                raise OSError(f"Cannot open serial port {self.port}: {e}") from e
         else:
             self.ser = None
 
@@ -138,8 +137,7 @@ class AesGcmUartClient:
         """Finds FTDI USB bridge or first available serial port."""
         ports = list(serial.tools.list_ports.comports())
         if not ports:
-            print("[-] No serial/COM ports found! Please check FPGA USB connection.")
-            sys.exit(1)
+            raise OSError("No serial/COM ports found! Please check FPGA USB connection.")
 
         for p in ports:
             desc = (p.description or "").lower()
@@ -158,7 +156,11 @@ class AesGcmUartClient:
         packet = build_packet(cmd, payload)
         if self.verbose:
             print(f"  [TX -> FPGA] CMD=0x{cmd:02X} LEN={length} PAYLOAD={payload.hex() if length <= 16 else payload[:16].hex() + '...'}")
-        self.ser.write(packet)
+        self.send_stream(packet)
+
+    def send_stream(self, data: bytes):
+        """Writes bytes that may hold many packets; the FPGA RX FIFO absorbs them."""
+        self.ser.write(data)
         self.ser.flush()
 
     def receive_packet(self) -> Tuple[int, bytes]:
@@ -211,12 +213,23 @@ class AesGcmUartClient:
         if resp != RESP_ACK_PLAINTEXT:
             raise RuntimeError(f"Expected ACK_PLAINTEXT (0x84), received 0x{resp:02X}")
 
+    def load_tag_ref(self, tag_bytes: bytes):
+        if len(tag_bytes) != 16:
+            raise ValueError(f"Expected tag must be 16 bytes (got {len(tag_bytes)})")
+        self.send_packet(CMD_LOAD_TAG_REF, tag_bytes)
+        resp, _ = self.receive_packet()
+        if resp != RESP_ACK_TAG_REF:
+            raise RuntimeError(f"Expected ACK_TAG_REF (0x85), received 0x{resp:02X}")
+
     def execute(self, key: bytes, iv: bytes, data: bytes, aad: Optional[bytes] = None,
-                is_decrypt: bool = False) -> Tuple[bytes, bytes, float]:
+                is_decrypt: bool = False, tag_ref: Optional[bytes] = None) -> Tuple[bytes, bytes, float]:
         """
         Loads parameters into FPGA, triggers accelerator execution,
         and collects output data (ciphertext / plaintext) + authentication tag.
+        Decryption needs tag_ref: the IP verifies it and returns no data when it fails.
         """
+        if is_decrypt and tag_ref is None:
+            raise ValueError("Decryption needs the expected tag (tag_ref)")
         t0 = time.perf_counter()
         if self.mock:
             # Mock hardware responses for simulation/offline cross-referencing
@@ -271,17 +284,28 @@ class AesGcmUartClient:
         if aad:
             self.load_aad(aad)
         self.load_data(data)
+        if is_decrypt:
+            self.load_tag_ref(tag_ref)
 
         cmd_trigger = CMD_START_DECRYPT if is_decrypt else CMD_START_ENCRYPT
         self.send_packet(cmd_trigger, b"")
 
-        resp_data, out_data = self.receive_packet()
-        if resp_data != RESP_CIPHERTEXT:
-            raise RuntimeError(f"Expected DATA (0x90), received 0x{resp_data:02X}")
-
+        out_data = b""
         resp_tag, out_tag = self.receive_packet()
+        if resp_tag == RESP_CIPHERTEXT:
+            out_data = out_tag
+            resp_tag, out_tag = self.receive_packet()
+        elif not is_decrypt:
+            raise RuntimeError(f"Expected DATA (0x90), received 0x{resp_tag:02X}")
         if resp_tag != RESP_AUTH_TAG:
             raise RuntimeError(f"Expected AUTH_TAG (0x91), received 0x{resp_tag:02X}")
+
+        if is_decrypt:
+            resp_verify, verdict = self.receive_packet()
+            if resp_verify != RESP_VERIFY_RESULT:
+                raise RuntimeError(f"Expected VERIFY_RESULT (0x92), received 0x{resp_verify:02X}")
+            if (verdict == VERIFY_PASS) != (out_tag == tag_ref):
+                raise RuntimeError("VERIFY_RESULT disagrees with the tags")
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         return out_data, out_tag, elapsed_ms
@@ -576,7 +600,8 @@ def run_self_tests(client: AesGcmUartClient):
     results = []
     for tc in test_cases:
         is_dec = (tc.get("mode") == "DEC")
-        out_data, out_tag, _ = client.execute(tc["key"], tc["iv"], tc["data"], tc["aad"], is_decrypt=is_dec)
+        out_data, out_tag, _ = client.execute(tc["key"], tc["iv"], tc["data"], tc["aad"], is_decrypt=is_dec,
+                                              tag_ref=tc["expected_tag"] if is_dec else None)
         ct_ok  = (out_data == tc["expected_ct"])
         tag_ok = (out_tag == tc["expected_tag"])
         results.append({
@@ -704,7 +729,8 @@ def run_interactive(client: AesGcmUartClient):
                 print(f"[!] Expected tag must be 16 bytes, got {len(expected_tag_b)} bytes.")
                 return
 
-        out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt)
+        out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt,
+                                                       tag_ref=expected_tag_b)
 
         print_execution_report(
             operation=op_name,
@@ -750,7 +776,7 @@ Examples:
     parser.add_argument("-op", "--operation", type=str, choices=["encrypt", "decrypt", "test", "interactive"],
                         default="test", help="Operation mode: encrypt | decrypt | test | interactive (default: test)")
     parser.add_argument("-p", "--port", type=str, default=None, help="Serial COM port (e.g. COM4 or /dev/ttyUSB0)")
-    parser.add_argument("-b", "--baud", type=int, default=115200, help="UART baud rate (default: 115200)")
+    parser.add_argument("-b", "--baud", type=int, default=DEFAULT_BAUD_RATE, help=f"UART baud rate (default: {DEFAULT_BAUD_RATE})")
     parser.add_argument("-t", "--timeout", type=float, default=3.0, help="UART response timeout in seconds (default: 3.0)")
     parser.add_argument("--verbose", action="store_true", help="Print raw TX/RX serial packet exchanges")
 
@@ -782,14 +808,18 @@ Examples:
     elif args.pt and not args.ct:
         op = "encrypt"
 
-    client = AesGcmUartClient(
-        port=args.port,
-        baudrate=args.baud,
-        timeout=args.timeout,
-        variant=args.variant,
-        verbose=args.verbose,
-        mock=args.mock
-    )
+    try:
+        client = AesGcmUartClient(
+            port=args.port,
+            baudrate=args.baud,
+            timeout=args.timeout,
+            variant=args.variant,
+            verbose=args.verbose,
+            mock=args.mock
+        )
+    except OSError as error:
+        print(f"[!] {error}")
+        sys.exit(1)
 
     try:
         if op == "interactive":
@@ -817,8 +847,12 @@ Examples:
             data_b   = parse_bytes(data_str, "Data", pad_to_16=True)
 
             expected_tag_b = parse_bytes(args.tag, "Tag") if (is_decrypt and args.tag) else None
+            if is_decrypt and expected_tag_b is None:
+                print("[!] Error: decrypt needs --tag, the IP verifies it before releasing the plaintext.")
+                return
 
-            out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt)
+            out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt,
+                                                           tag_ref=expected_tag_b)
 
             print_execution_report(
                 operation="DECRYPT" if is_decrypt else "ENCRYPT",

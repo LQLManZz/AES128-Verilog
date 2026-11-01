@@ -75,7 +75,6 @@ module uart_tx #(
 
                 // Transmit 8 Data Bits (LSB first)
                 TX_DATA: begin
-                    tx <= shift_reg[bit_idx];
                     if (clk_cnt == (CLKS_PER_BIT - 1)) begin
                         clk_cnt <= '0;
                         if (bit_idx == 3'd7) begin
@@ -84,6 +83,7 @@ module uart_tx #(
                             state   <= TX_STOP;
                         end else begin
                             bit_idx <= bit_idx + 1'b1;
+                            tx      <= shift_reg[bit_idx + 3'd1];
                         end
                     end else begin
                         clk_cnt <= clk_cnt + 1'b1;

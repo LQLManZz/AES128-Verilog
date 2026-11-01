@@ -112,7 +112,7 @@ Declares standardized SystemVerilog package containing:
 
 ## 4. Clocking and Reset Architecture
 
-- **Single Clock Domain:** Single synchronous clock (`clk`, 100 MHz nominal).
-- **Zero Clock Crossing:** All modules share the exact same clock edge, eliminating FIFO synchronizers and metastability risks.
+- **Core Clock Domain:** Single synchronous clock (`clk`, 50 MHz from pin R18, no PLL in the core path).
+- **Clock Crossing:** The 2 Mbaud UART bitstream has none. In the SPI bitstream, `spi_link.sv` shifts on `spi_sclk` and hands whole bytes to `clk` through toggle synchronizers. In the 12 Mbaud bitstream (`aes_uart_12m_top.sv`), `uart_rx` and `uart_tx` run on `clk_uart`, 120 MHz from PF_CCC, and `uart_cdc_link.sv` crosses the byte strobes through toggle synchronizers. The engine stays on 50 MHz.
 - **Master Reset:** Active-low asynchronous reset (`rst_n`).
 - **Transaction Reset:** Internal `finish_reset = (~rst_n) | finish;` resets message states between successive encryptions while preserving expanded subkeys $H$.

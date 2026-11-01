@@ -1,4 +1,4 @@
-"""Grayscale image <-> AES-GCM UART packet streams."""
+"""8-bit image <-> AES-GCM packet streams."""
 
 import sys
 from pathlib import Path

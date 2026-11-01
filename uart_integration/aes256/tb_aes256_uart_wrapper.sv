@@ -48,31 +48,9 @@ module tb_aes256_uart_wrapper;
     end
 
     initial begin
-        $dumpfile("tb_aes256_uart_wrapper.vcd");
-        $dumpvars(0, tb_aes256_uart_wrapper);
-    end
-
-    always @(posedge clk) begin
-        if (dut.u_aes256_gcm.AES.data_type_in != 2'b00) begin
-            $display("[AES_IN]  time=%0t type=%b data_in=%032h CTR_counter=%08h counter_block=%032h",
-                $time,
-                dut.u_aes256_gcm.AES.data_type_in,
-                dut.u_aes256_gcm.AES.AES_data_in,
-                dut.u_aes256_gcm.AES.count_gen.CTR_counter,
-                dut.u_aes256_gcm.AES.count_gen.counter_block);
-        end
-        if (dut.u_aes256_gcm.AES.data_type_out != 2'b00) begin
-            $display("[AES_OUT] time=%0t type_out=%b data_out=%032h",
-                $time,
-                dut.u_aes256_gcm.AES.data_type_out,
-                dut.u_aes256_gcm.AES.AES_data_out);
-        end
-        if (dut.u_aes256_gcm.AES.data_valid) begin
-            $display("[CTR_OUT] time=%0t data_out=%032h FIFO_data=%032h keystream=%032h",
-                $time,
-                dut.u_aes256_gcm.AES.data_out,
-                dut.u_aes256_gcm.AES.FIFO_data[127:0],
-                dut.u_aes256_gcm.AES.keystream);
+        if ($test$plusargs("dump")) begin
+            $dumpfile("tb_aes256_uart_wrapper.vcd");
+            $dumpvars(0, tb_aes256_uart_wrapper);
         end
     end
 
@@ -170,6 +148,45 @@ module tb_aes256_uart_wrapper;
         end
     endtask
 
+    // Fails unless the next packet is exactly `expected_cmd` carrying `expected`
+    task automatic expect_packet(input string name, input logic [7:0] expected_cmd,
+                                 input logic [7:0] expected[], input time timeout = 5ms);
+        logic [7:0] cmd_b;
+        logic [7:0] len_b;
+        logic [7:0] payload[];
+        begin
+            test_count++;
+            uart_rx_byte(cmd_b, timeout);
+            uart_rx_byte(len_b);
+            payload = new[$isunknown(len_b) ? 0 : len_b];
+            for (int i = 0; i < payload.size(); i++) uart_rx_byte(payload[i]);
+            if (cmd_b === expected_cmd && payload == expected) begin
+                $display("  [PASS] %s: Received 0x%02h (%0d bytes)", name, cmd_b, len_b);
+            end else begin
+                $display("  [FAIL] %s: Expected 0x%02h (%0d bytes), got 0x%02h (%0d bytes)",
+                         name, expected_cmd, expected.size(), cmd_b, len_b);
+                error_count++;
+            end
+        end
+    endtask
+
+    // Loads a message for decryption, with `tag` as the reference when `use_tag` is set
+    task automatic load_decrypt(input logic [7:0] key[], input logic [7:0] iv[], input logic [7:0] ct[],
+                                input logic [7:0] tag[], input bit use_tag);
+        begin
+            send_packet(CMD_LOAD_KEY, key);
+            verify_ack("LOAD_KEY (decrypt)", RESP_ACK_KEY);
+            send_packet(CMD_LOAD_IV, iv);
+            verify_ack("LOAD_IV (decrypt)", RESP_ACK_IV);
+            send_packet(CMD_LOAD_PLAINTEXT, ct);
+            verify_ack("LOAD_PLAINTEXT (decrypt)", RESP_ACK_PLAINTEXT);
+            if (use_tag) begin
+                send_packet(CMD_LOAD_TAG_REF, tag);
+                verify_ack("LOAD_TAG_REF", RESP_ACK_TAG_REF);
+            end
+        end
+    endtask
+
     initial begin
         uart_rx = 1'b1;
         rst_n   = 1'b0;
@@ -251,11 +268,6 @@ module tb_aes256_uart_wrapper;
                 if (tag_match) $display("  [PASS] AUTH_TAG (TC14) matched GCM spec vector.");
                 else begin
                     $display("  [FAIL] AUTH_TAG (TC14) content mismatch!");
-                    $display("         [DIAGNOSTIC] H_reg       = %032h", dut.u_aes256_gcm.tag_pro.H_reg);
-                    $display("         [DIAGNOSTIC] E_reg       = %032h", dut.u_aes256_gcm.tag_pro.E_reg);
-                    $display("         [DIAGNOSTIC] len_block   = %032h", dut.u_aes256_gcm.tag_pro.length_block);
-                    $display("         [DIAGNOSTIC] ghash_out   = %032h", dut.u_aes256_gcm.tag_pro.ghash_out);
-                    $display("         [DIAGNOSTIC] tag_reg     = %032h", dut.reg_tag);
                     error_count++;
                 end
             end else begin
@@ -339,17 +351,95 @@ module tb_aes256_uart_wrapper;
                 if (tag_match) $display("  [PASS] AUTH_TAG (TC15) matched GCM spec vector.");
                 else begin
                     $display("  [FAIL] AUTH_TAG (TC15) content mismatch!");
-                    $display("         [DIAGNOSTIC] H_reg       = %032h", dut.u_aes256_gcm.tag_pro.H_reg);
-                    $display("         [DIAGNOSTIC] E_reg       = %032h", dut.u_aes256_gcm.tag_pro.E_reg);
-                    $display("         [DIAGNOSTIC] len_block   = %032h", dut.u_aes256_gcm.tag_pro.length_block);
-                    $display("         [DIAGNOSTIC] ghash_out   = %032h", dut.u_aes256_gcm.tag_pro.ghash_out);
-                    $display("         [DIAGNOSTIC] tag_reg     = %032h", dut.reg_tag);
                     error_count++;
                 end
             end else begin
                 $display("  [FAIL] Expected AUTH_TAG (0x91), got 0x%02h", rx_cmd);
                 error_count++;
             end
+        end
+
+        //-------------------------------------------------------------
+        // Tests 3-5: authenticated decryption inside the IP (TC15)
+        //-------------------------------------------------------------
+        begin
+            automatic logic [7:0] key_tc15[] = '{
+                8'hfe,8'hff,8'he9,8'h92,8'h86,8'h65,8'h73,8'h1c,
+                8'h6d,8'h6a,8'h8f,8'h94,8'h67,8'h30,8'h83,8'h08,
+                8'hfe,8'hff,8'he9,8'h92,8'h86,8'h65,8'h73,8'h1c,
+                8'h6d,8'h6a,8'h8f,8'h94,8'h67,8'h30,8'h83,8'h08
+            };
+            automatic logic [7:0] iv_tc15[] = '{
+                8'hca,8'hfe,8'hba,8'hbe,8'hfa,8'hce,8'hdb,8'had,8'hde,8'hca,8'hf8,8'h88
+            };
+            automatic logic [7:0] pt_tc15[] = '{
+                8'hd9,8'h31,8'h32,8'h25,8'hf8,8'h84,8'h06,8'he5,8'ha5,8'h59,8'h09,8'hc5,8'haf,8'hf5,8'h26,8'h9a,
+                8'h86,8'ha7,8'ha9,8'h53,8'h15,8'h34,8'hf7,8'hda,8'h2e,8'h4c,8'h30,8'h3d,8'h8a,8'h31,8'h8a,8'h72,
+                8'h1c,8'h3c,8'h0c,8'h95,8'h95,8'h68,8'h09,8'h53,8'h2f,8'hcf,8'h0e,8'h24,8'h49,8'ha6,8'hb5,8'h25,
+                8'hb1,8'h6a,8'hed,8'hf5,8'haa,8'h0d,8'he6,8'h57,8'hba,8'h63,8'h7b,8'h39,8'h1a,8'haf,8'hd2,8'h55
+            };
+            automatic logic [7:0] ct_tc15[] = '{
+                8'h52,8'h2d,8'hc1,8'hf0,8'h99,8'h56,8'h7d,8'h07,8'hf4,8'h7f,8'h37,8'ha3,8'h2a,8'h84,8'h42,8'h7d,
+                8'h64,8'h3a,8'h8c,8'hdc,8'hbf,8'he5,8'hc0,8'hc9,8'h75,8'h98,8'ha2,8'hbd,8'h25,8'h55,8'hd1,8'haa,
+                8'h8c,8'hb0,8'h8e,8'h48,8'h59,8'h0d,8'hbb,8'h3d,8'ha7,8'hb0,8'h8b,8'h10,8'h56,8'h82,8'h88,8'h38,
+                8'hc5,8'hf6,8'h1e,8'h63,8'h93,8'hba,8'h7a,8'h0a,8'hbc,8'hc9,8'hf6,8'h62,8'h89,8'h80,8'h15,8'had
+            };
+            automatic logic [7:0] tag_tc15[] = '{
+                8'hb0,8'h94,8'hda,8'hc5,8'hd9,8'h34,8'h71,8'hbd,
+                8'hec,8'h1a,8'h50,8'h22,8'h70,8'he3,8'hcc,8'h6c
+            };
+            logic [7:0] bad_tag[];
+            logic [7:0] empty_payload[];
+            automatic logic [7:0] code_decrypt[] = '{CMD_START_DECRYPT};
+            automatic logic [7:0] code_key[]     = '{CMD_LOAD_KEY};
+            automatic logic [7:0] code_pt[]      = '{CMD_LOAD_PLAINTEXT};
+            automatic logic [7:0] code_odd[]     = '{8'h7F};
+            automatic logic [7:0] verdict_pass[] = '{8'h01};
+            automatic logic [7:0] verdict_fail[] = '{8'h00};
+            automatic logic [7:0] short_key[]    = new[16];
+            automatic logic [7:0] odd_payload[]  = '{8'h01, 8'h02, 8'h03};
+
+            empty_payload = new[0];
+            bad_tag = tag_tc15;
+            bad_tag[15] ^= 8'h01;
+
+            $display("\n>>> TEST 3: Decrypt with the right tag releases the plaintext");
+            load_decrypt(key_tc15, iv_tc15, ct_tc15, tag_tc15, 1'b1);
+            send_packet(CMD_START_DECRYPT, empty_payload);
+            expect_packet("Recovered PLAINTEXT", RESP_CIPHERTEXT, pt_tc15);
+            expect_packet("Computed AUTH_TAG", RESP_AUTH_TAG, tag_tc15);
+            expect_packet("VERIFY_RESULT PASS", RESP_VERIFY_RESULT, verdict_pass);
+
+            $display("\n>>> TEST 4: Decrypt with a wrong tag withholds the plaintext");
+            load_decrypt(key_tc15, iv_tc15, ct_tc15, bad_tag, 1'b1);
+            send_packet(CMD_START_DECRYPT, empty_payload);
+            expect_packet("Computed AUTH_TAG, no plaintext", RESP_AUTH_TAG, tag_tc15);
+            expect_packet("VERIFY_RESULT FAIL", RESP_VERIFY_RESULT, verdict_fail);
+
+            $display("\n>>> TEST 5: Decrypt without LOAD_TAG_REF is refused");
+            load_decrypt(key_tc15, iv_tc15, ct_tc15, tag_tc15, 1'b0);
+            send_packet(CMD_START_DECRYPT, empty_payload);
+            expect_packet("ERR_LEN for START_DECRYPT", RESP_ERR_LEN, code_decrypt);
+
+            $display("\n>>> TEST 6: A packet cut short times out, then the link still works");
+            uart_tx_byte(CMD_LOAD_PLAINTEXT);
+            uart_tx_byte(8'd16);
+            uart_tx_byte(8'hAA);
+            expect_packet("ERR_TIMEOUT for LOAD_PLAINTEXT", RESP_ERR_TIMEOUT, code_pt, 20ms);
+            send_packet(CMD_LOAD_IV, iv_tc15);
+            verify_ack("LOAD_IV after the timeout", RESP_ACK_IV);
+
+            $display("\n>>> TEST 7: A key of the wrong length is refused");
+            send_packet(CMD_LOAD_KEY, short_key);
+            expect_packet("ERR_LEN for a 16-byte key", RESP_ERR_LEN, code_key);
+
+            $display("\n>>> TEST 8: An unknown opcode's payload is skipped");
+            fork // The error follows the header, while the payload is still being sent
+                send_packet(8'h7F, odd_payload);
+                expect_packet("ERR_UNKNOWN", RESP_ERR_UNKNOWN, code_odd);
+            join
+            send_packet(CMD_LOAD_IV, iv_tc15);
+            verify_ack("LOAD_IV after the unknown opcode", RESP_ACK_IV);
         end
 
         // Summary

@@ -13,8 +13,11 @@ AES-GCM-Libero
 edaplayground
 *.log
 *.tcl
+!uart_integration/common/*.tcl
 *.bak
-uart_integration\python\__pycache__\
+uart_integration/python/__pycache__/
+# ESP32-S3 bench: Wi-Fi password, camera captures, generated tools
+test/
 # Simulation / tool artifacts
 *.vcd
 *.wlf
@@ -22,6 +25,7 @@ uart_integration\python\__pycache__\
 *.vvp
 *.jou
 *.wdb
+*.vstf
 work/
 transcript
 modelsim.ini

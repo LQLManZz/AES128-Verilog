@@ -1,4 +1,9 @@
 import pytest
+from uart_protocol import (
+    CMD_LOAD_IV, CMD_LOAD_KEY, CMD_LOAD_PLAINTEXT, CMD_LOAD_TAG_REF, CMD_START_DECRYPT,
+    CMD_START_ENCRYPT, RESP_ACK_IV, RESP_ACK_KEY, RESP_ACK_PLAINTEXT, RESP_ACK_TAG_REF,
+    RESP_AUTH_TAG, RESP_CIPHERTEXT, RESP_ERR_LEN, RESP_VERIFY_RESULT, VERIFY_FAIL, VERIFY_PASS,
+)
 
 from imgapp import gcm_model
 
@@ -35,3 +40,47 @@ def test_decrypt_recovers_plaintext_with_the_same_tag():
     plaintext, decrypt_tag = gcm_model.run_message(KEY_128, IV, AAD, ciphertext, decrypt=True)
     assert plaintext == PT_64
     assert decrypt_tag == tag
+
+
+def decrypt_stream(ciphertext, tag_ref):
+    packets = [(CMD_LOAD_KEY, KEY_128), (CMD_LOAD_IV, IV), (CMD_LOAD_PLAINTEXT, ciphertext)]
+    if tag_ref is not None:
+        packets.append((CMD_LOAD_TAG_REF, tag_ref))
+    return packets + [(CMD_START_DECRYPT, b"")]
+
+
+ACKS = [(RESP_ACK_KEY, b""), (RESP_ACK_IV, b""), (RESP_ACK_PLAINTEXT, b"")]
+
+
+def test_decrypt_with_the_right_tag_releases_the_plaintext():
+    ciphertext, tag = gcm_model.run_message(KEY_128, IV, b"", PT_64)
+    assert gcm_model.simulate(decrypt_stream(ciphertext, tag)) == ACKS + [
+        (RESP_ACK_TAG_REF, b""), (RESP_CIPHERTEXT, PT_64), (RESP_AUTH_TAG, tag),
+        (RESP_VERIFY_RESULT, VERIFY_PASS),
+    ]
+
+
+def test_decrypt_with_a_wrong_tag_withholds_the_plaintext():
+    ciphertext, tag = gcm_model.run_message(KEY_128, IV, b"", PT_64)
+    assert gcm_model.simulate(decrypt_stream(ciphertext, bytes(16))) == ACKS + [
+        (RESP_ACK_TAG_REF, b""), (RESP_AUTH_TAG, tag), (RESP_VERIFY_RESULT, VERIFY_FAIL),
+    ]
+
+
+def test_decrypt_without_a_tag_ref_is_refused():
+    ciphertext, _ = gcm_model.run_message(KEY_128, IV, b"", PT_64)
+    assert gcm_model.simulate(decrypt_stream(ciphertext, None)) == ACKS + [
+        (RESP_ERR_LEN, bytes([CMD_START_DECRYPT])),
+    ]
+
+
+def test_tag_ref_does_not_carry_over_to_the_next_message():
+    ciphertext, tag = gcm_model.run_message(KEY_128, IV, b"", PT_64)
+    responses = gcm_model.simulate(decrypt_stream(ciphertext, tag) + [
+        (CMD_LOAD_IV, IV), (CMD_LOAD_PLAINTEXT, ciphertext), (CMD_START_DECRYPT, b"")])
+    assert responses[-1] == (RESP_ERR_LEN, bytes([CMD_START_DECRYPT]))
+
+
+def test_start_without_data_is_refused():
+    assert gcm_model.simulate([(CMD_LOAD_KEY, KEY_128), (CMD_LOAD_IV, IV), (CMD_START_ENCRYPT, b"")])[-1] == (
+        RESP_ERR_LEN, bytes([CMD_START_ENCRYPT]))

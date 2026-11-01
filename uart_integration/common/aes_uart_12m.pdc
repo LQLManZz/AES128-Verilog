@@ -1,0 +1,17 @@
+# I/O constraints for aes256_uart_12m_top / aes128_uart_12m_top.
+# PolarFire SoC Discovery Kit. W21/Y21 are FT4232HL channel D (UART_D, Bank 0, 1.8 V), reached
+# through the USB-C port J4: no external adapter. Pins from Microchip's reference design.
+
+set_io -port_name clk         -pin_name R18  -fixed true -io_std LVCMOS18 -DIRECTION INPUT
+set_io -port_name rst_n       -pin_name T19  -fixed true -io_std LVCMOS18 -DIRECTION INPUT
+
+set_io -port_name uart_rx     -pin_name W21  -fixed true -io_std LVCMOS18 -DIRECTION INPUT
+set_io -port_name uart_tx     -pin_name Y21  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+
+set_io -port_name led_busy      -pin_name T18  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name led_done      -pin_name V17  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[0]} -pin_name U20  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[1]} -pin_name U21  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[2]} -pin_name AA18 -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[3]} -pin_name V16  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT
+set_io -port_name {led_unused[4]} -pin_name U15  -fixed true -io_std LVCMOS18 -DIRECTION OUTPUT

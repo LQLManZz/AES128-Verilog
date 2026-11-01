@@ -3,17 +3,20 @@
 // Directory: uart_integration/common/
 // Description: Shared response packet builder and serializer for the AES-GCM 
 //              framework. Formats response packets (ACKs, Ciphertext, Tag, Errors)
-//              and serializes them byte-by-byte through uart_tx.
+//              and serializes them byte-by-byte through the link layer.
 //
 // Response Opcodes (protocol_pkg):
 //   0x81: RESP_ACK_KEY        (Length: 0)
 //   0x82: RESP_ACK_IV         (Length: 0)
 //   0x83: RESP_ACK_AAD        (Length: 0)
 //   0x84: RESP_ACK_PLAINTEXT  (Length: 0)
+//   0x85: RESP_ACK_TAG_REF    (Length: 0)
 //   0x90: RESP_CIPHERTEXT     (Length: N bytes)
 //   0x91: RESP_AUTH_TAG       (Length: 16 bytes)
+//   0x92: RESP_VERIFY_RESULT  (Length: 1 byte)
 //   0xE0: RESP_ERR_UNKNOWN    (Length: 1 byte)
 //   0xE1: RESP_ERR_LEN        (Length: 1 byte)
+//   0xE2: RESP_ERR_TIMEOUT    (Length: 1 byte)
 //=============================================================================
 
 `timescale 1ns / 1ps
@@ -29,6 +32,7 @@ module packet_builder (
     input  logic         send_ack_iv,
     input  logic         send_ack_aad,
     input  logic         send_ack_pt,
+    input  logic         send_ack_tag_ref,
 
     input  logic         send_ciphertext,
     input  logic [7:0]   ct_len_bytes,
@@ -38,11 +42,15 @@ module packet_builder (
     input  logic         send_auth_tag,
     input  logic [127:0] tag_data,
 
+    input  logic         send_verify,
+    input  logic         verify_pass_in,
+
     input  logic         send_err_unknown,
     input  logic         send_err_len,
+    input  logic         send_err_timeout,
     input  logic [7:0]   err_code_in,
 
-    // Interface to uart_tx
+    // Interface to the link layer (uart_tx or spi_link)
     output logic [7:0]   tx_data,
     output logic         tx_start,
     input  logic         tx_busy,
@@ -94,7 +102,7 @@ module packet_builder (
                     current_tx_byte = tag_reg[127 - 8*payload_idx[3:0] -: 8];
                 end
 
-                RESP_ERR_UNKNOWN, RESP_ERR_LEN: begin
+                RESP_ERR_UNKNOWN, RESP_ERR_LEN, RESP_ERR_TIMEOUT, RESP_VERIFY_RESULT: begin
                     current_tx_byte = err_code_reg;
                 end
 
@@ -151,6 +159,12 @@ module packet_builder (
                         total_bytes  <= 9'd2;
                         builder_busy <= 1'b1;
                         state        <= ST_SEND_BYTE;
+                    end else if (send_ack_tag_ref) begin
+                        cmd_reg      <= RESP_ACK_TAG_REF;
+                        len_reg      <= 8'h00;
+                        total_bytes  <= 9'd2;
+                        builder_busy <= 1'b1;
+                        state        <= ST_SEND_BYTE;
                     end else if (send_ciphertext) begin
                         cmd_reg      <= RESP_CIPHERTEXT;
                         len_reg      <= ct_len_bytes;
@@ -164,6 +178,13 @@ module packet_builder (
                         total_bytes  <= 9'd18; // 2 + 16
                         builder_busy <= 1'b1;
                         state        <= ST_SEND_BYTE;
+                    end else if (send_verify) begin
+                        cmd_reg      <= RESP_VERIFY_RESULT;
+                        len_reg      <= 8'd1;
+                        err_code_reg <= {7'd0, verify_pass_in};
+                        total_bytes  <= 9'd3;
+                        builder_busy <= 1'b1;
+                        state        <= ST_SEND_BYTE;
                     end else if (send_err_unknown) begin
                         cmd_reg      <= RESP_ERR_UNKNOWN;
                         len_reg      <= 8'd1;
@@ -173,6 +194,13 @@ module packet_builder (
                         state        <= ST_SEND_BYTE;
                     end else if (send_err_len) begin
                         cmd_reg      <= RESP_ERR_LEN;
+                        len_reg      <= 8'd1;
+                        err_code_reg <= err_code_in;
+                        total_bytes  <= 9'd3;
+                        builder_busy <= 1'b1;
+                        state        <= ST_SEND_BYTE;
+                    end else if (send_err_timeout) begin
+                        cmd_reg      <= RESP_ERR_TIMEOUT;
                         len_reg      <= 8'd1;
                         err_code_reg <= err_code_in;
                         total_bytes  <= 9'd3;
