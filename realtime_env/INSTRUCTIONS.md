@@ -2,7 +2,7 @@
 
 Tài liệu này dành cho build bitstream, nối dây và đưa lên PolarFire SoC Discovery Kit. Cách dùng script nằm trong [README.md](README.md), định dạng lệnh nằm trong [docs/protocol.md](docs/protocol.md).
 
-**Trạng thái:** code đã qua mô phỏng RTL trong QuestaSim, sáu Design Root đã qua Verify Timing. **Chưa tạo bitstream, chưa nạp board, chưa chạy thử toàn chuỗi ESP32 tới FPGA.** Xem mục 9 và 10.
+**Trạng thái:** code đã qua mô phỏng RTL trong QuestaSim, sáu Design Root đã qua Verify Timing và đã có file nạp. **Chưa nạp board, chưa chạy thử toàn chuỗi ESP32 tới FPGA.** Xem mục 9 và 10.
 
 ```
 spi40:    PC ─ Wi-Fi ─► ESP32-S3 ─► spi_link (miền SCLK) ─┐
@@ -17,14 +17,14 @@ uart12m:  FT4232HL kênh D ─► uart_rx, uart_tx (120 MHz) ─► uart_cdc_lin
 
 ## 1. Mô phỏng trước khi đụng phần cứng
 
-Cần `pip install -r realtime_env/requirements.txt` và QuestaSim đi kèm Libero. Nếu Libero không nằm ở `C:\Microchip\Libero_SoC_2026.1`, đặt biến môi trường `QUESTA_BIN` trỏ tới thư mục `QuestaSim_Pro\win64`.
+Cần `pip install -r realtime_env/requirements.txt` và QuestaSim đi kèm Libero. Từ 03/11/2026, mọi đường truyền khác `uart12m`, `--sim rtl`, `--sim emu`, các lệnh `sample`, `wifi-test`, `selftest` và các cờ menu thường không hỏi đều cần `--advanced`, như trong các lệnh dưới đây. Nếu Libero không nằm ở `C:\Microchip\Libero_SoC_2026.1`, đặt biến môi trường `QUESTA_BIN` trỏ tới thư mục `QuestaSim_Pro\win64`.
 
 ```bash
-python realtime_env/main.py sample -o realtime_env/input/color_test.png --size 64x64
+python realtime_env/main.py --advanced sample -o realtime_env/input/color_test.png --size 64x64
 ```
 
 ```bash
-python realtime_env/main.py image realtime_env/input/color_test.png --link spi40 --sim rtl --size 64x64 --key 603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4 --iv cafebabefacedbad00000001 --aad feedfacedeadbeeffeedfacedeadbeef
+python realtime_env/main.py --advanced image realtime_env/input/color_test.png --link spi40 --sim rtl --size 64x64 --key 603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4 --iv cafebabefacedbad00000001 --aad feedfacedeadbeeffeedfacedeadbeef
 ```
 
 Đổi `--link` thành `spi30`, `uart12m`, `uart2m` để mô phỏng đúng tốc độ của từng link. Thêm `--tamper-chunk 7` để xem IP từ chối chunk bị sửa. Mô phỏng 256×256 mất vài phút.
@@ -43,7 +43,7 @@ python realtime_env/main.py image realtime_env/input/color_test.png --link spi40
 `--sim emu` dùng software model để trả lời, nhưng trả theo đúng lịch của `--link`, qua cùng hàm `transfer()` với phần cứng. Model chạy ở process riêng, đúng vai trò của FPGA, để không chiếm GIL của các luồng camera. Lệnh này chạy camera từ file video, có window:
 
 ```bash
-python realtime_env/main.py camera --link spi40 --sim emu --key <hex> --iv <hex> --source clip.avi --realtime --loop
+python realtime_env/main.py --advanced camera --link spi40 --sim emu --key <hex> --iv <hex> --source clip.avi --realtime --loop
 ```
 
 | Ràng buộc | Giá trị | Nguồn |
@@ -58,14 +58,14 @@ python realtime_env/main.py camera --link spi40 --sim emu --key <hex> --iv <hex>
 - **`spi30` đi qua `transfer()` chung,** nên chỉ mô phỏng thời gian, không kiểm tra code FT232H.
 - `--sim model` nhanh hơn nhưng không có ràng buộc thời gian, nên fps của nó không có ý nghĩa.
 
-Cờ thêm của `camera`:
+Cờ thêm của `camera`, đều cần `--advanced`. Bộ đệm cố định 2 khung, `--buffer-frames` đã bỏ từ 03/11/2026:
 
 | Cờ | Tác dụng |
 |---|---|
 | `--realtime` | Phát `--source` đúng fps gốc và bỏ khung trễ, như camera thật |
 | `--loop` | Phát lặp lại `--source` |
 | `--tamper-every N` | Lật 1 bit ciphertext mỗi N khung để xem trạng thái `TAG FAIL` |
-| `--buffer-frames N` | Với nguồn trực tiếp: đủ N khung mới bắt đầu truyền, mặc định 15, `0` là truyền ngay |
+| `--codec jpeg` | Dùng JPEG thay H.264 mặc định, mỗi khung độc lập, bỏ được khung cũ nhất khi đường truyền chậm |
 | `--paced` | Chỉ `spi40`: ESP32 tự điều phối burst, xem mục 6 |
 
 Testbench tự kiểm tra, chạy từ gốc repo:
@@ -98,11 +98,21 @@ Host phải khớp bitstream: key 32 byte cho AES-256, 16 byte cho AES-128. Key 
 
 Project `AES-GCM-Libero/` đã chứa lõi 128 và 256 cùng sáu root trên. Project bị gitignore nên không có trong commit. Hai file `SubWord.sv` giống hệt nhau nên project chỉ link `RTL/Key_Expansion_256/SubWord.sv`, vì một tên module chỉ link được một lần. Libero lưu kết quả theo root, trong `designer/<root>/` và `synthesis/<root>.vm`.
 
-Để có bitstream:
+**Tạo file nạp cho cả sáu root**, chạy từ gốc repo:
 
-1. Đặt Design Root theo bảng ở mục 2.
-2. Chạy Generate FPGA Array Data, Generate Bitstream.
-3. Nạp bằng FlashPro5 trên kit theo Appendix A của User Guide.
+```bash
+"C:\Microchip\Libero_SoC_2026.1\Libero_SoC\Designer\bin\libero.exe" SCRIPT:realtime_env/rtl/common/export_bitstreams.tcl
+```
+
+Thêm `"SCRIPT_ARGS:aes256_spi_wrapper"` để chỉ tạo một root. Script ghi `AES-GCM-Libero/bitstreams/<root>.job` và `<root>_job.digest`. Libero tự chạy lại bước đã lỗi thời, nên sau khi sửa RTL chỉ cần chạy lại lệnh này. Root không đạt timing bị in `FAILED` và không có file `.job`. Đóng Libero GUI trước khi chạy. Cả sáu root hết khoảng 55 phút lần đầu, vì lần export đầu của một root có thể chạy lại Place and Route, những lần sau khoảng 4 phút mỗi root. Digest fabric trước và sau lần chạy lại đó trùng nhau.
+
+**Nạp lên kit**, chỉ đổi tên root theo bảng ở mục 2:
+
+```bash
+"C:\Microchip\Libero_SoC_2026.1\Libero_SoC\Designer\bin\FPExpress.exe" SCRIPT:realtime_env/rtl/common/flash.tcl "SCRIPT_ARGS:aes256_spi_wrapper" console_mode:show
+```
+
+Thêm `READ_IDCODE` sau tên root để thử kết nối mà không ghi gì lên kit. Hoặc mở file `.job` trong FlashPro Express rồi chọn PROGRAM.
 
 **Dựng lại từ đầu**, trong Project > Execute Script, từng dòng một:
 
@@ -162,7 +172,11 @@ Dây dưới 10 cm, không nối nguồn giữa hai mạch. Bốn chân GPIO nà
 
 **`uart12m`**, không cần nối dây hay adapter. Cáp USB-C ở J4 vừa cấp nguồn vừa là đường dữ liệu: `UART_D` của FT4232HL nối W21 (FPGA RX) và Y21 (FPGA TX) ở Bank 0, 1,8 V, theo reference design của Microchip. Chân lấy từ `MPFS_DISCOVERY_UARTS.pdc` và FIR demo của Microchip, chưa đối chiếu schematic.
 
-Windows tạo nhiều cổng COM. Kênh D thường là cổng số lớn nhất nhưng không đảm bảo, nên thử `--test` trên từng cổng. Nên đặt latency timer 1 ms trong Device Manager > Port Settings > Advanced. `UART_D` không có RTS/CTS, nên không có flow control phần cứng. Giữ `--window` mặc định.
+Windows hiện kit thành ba cổng `FlashPro5 Port`. Kênh D là cổng có USB serial kết thúc bằng `D`. Không có `-p`, `uart12m` tự chọn cổng này. Menu cũng tự tìm kênh D và ghi cổng ở dòng đầu; chỉ khi không thấy kit nó mới hỏi `Cổng COM:` một lần cho cả phiên. COM thấp nhất, kênh B, không nối IP mà liên tục trả về `0x00`, nên chọn nhầm sẽ báo `expected ACK_KEY, received UNKNOWN (0x00)`.
+
+**Đặt latency timer 1 ms** trong Device Manager > Ports > cổng kênh D > Port Settings > Advanced, rồi rút và cắm lại kit. Mặc định 16 ms cộng thêm khoảng 16 ms mỗi burst: khung 29 KB đo được 97 ms, tức 10 fps, thay vì khoảng 37 ms theo lịch.
+
+`UART_D` không có RTS/CTS, nên không có flow control phần cứng. Giữ `--window` mặc định: gửi 124 message một lượt đã làm tràn FIFO và IP trả `ERR_UNKNOWN_CMD`.
 
 **`uart2m`**, cần adapter USB-UART ngoài:
 
@@ -201,13 +215,13 @@ C:\Users\long5\.platformio\penv\Scripts\pio.exe run -t upload
 5. Đo riêng đoạn Wi-Fi:
 
 ```bash
-python realtime_env/main.py wifi-test --out wifi_idf_result.txt
+python realtime_env/main.py --advanced wifi-test --out wifi_idf_result.txt
 ```
 
 Đo lại khi SPI chạy liên tục ở 40 MHz, không cần nối FPGA:
 
 ```bash
-python realtime_env/main.py wifi-test --spi-load --out wifi_spi_load.txt
+python realtime_env/main.py --advanced wifi-test --spi-load --out wifi_spi_load.txt
 ```
 
 ESP32 là đường ống byte: PC gửi cùng packet như UART, ESP32 gói vào frame SPI, bỏ STATUS và số 0 rỗng rồi trả packet về. STATUS khác `0xA0` về PC bằng packet `0xEF`.
@@ -225,19 +239,19 @@ Sau khi nạp, `led_done` phải nháy 1 Hz. Nếu không nháy, kiểm tra cloc
 Dùng `raw` với vector NIST trước, vì kết quả đã biết. Ví dụ AES-128 TC2, đúng khi ciphertext là `0388dace...` và tag là `ab6e47d4...`:
 
 ```bash
-python realtime_env/main.py raw --link uart12m -p COM4 --key 00000000000000000000000000000000 --iv 000000000000000000000000 --data 00000000000000000000000000000000
+python realtime_env/main.py raw -p COM12 --key 00000000000000000000000000000000 --iv 000000000000000000000000 --data 00000000000000000000000000000000
 ```
 
-Với UART, chạy thêm test NIST từ trong `realtime_env/`:
+Chạy thêm test NIST qua đúng đường truyền đang dùng:
 
 ```bash
-python -m host.uart_client --test -v aes256 -p COM4 -b 12000000
+python realtime_env/main.py --advanced selftest --aes 256 -p COM12
 ```
 
 Sau đó thử ảnh nhỏ với `--window 1`, nếu khớp model thì bỏ cờ này:
 
 ```bash
-python realtime_env/main.py image realtime_env/input/color_test.png --link uart12m -p COM4 --size 64x64 --window 1 --key <hex> --iv <hex>
+python realtime_env/main.py --advanced image realtime_env/input/color_test.png -p COM12 --size 64x64 --window 1 --key <hex> --iv <hex>
 ```
 
 Với `uart12m`, nếu lỗi thì đo W21 và Y21 bằng oscilloscope, rồi build lại ở 8 hoặc 6 Mbaud.
@@ -281,9 +295,9 @@ Kết quả mô phỏng RTL ngày 01/11/2026 qua `main.py`, ảnh RGB tổng h�
 - `raw --file` với file JPEG qua `spi40`, khớp từng byte, 5/5 chunk.
 - Cố ý lật 1 bit ciphertext ở chunk 7: IP báo `FAIL` đúng chunk đó và `decrypted.png` không được ghi.
 - Mọi frame SPI đều có STATUS `0xA0`, tức không overflow.
-- Host: 293 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu, camera từ file video, ba luồng xử lý, window vẽ không cần màn hình và lịch `--sim emu`.
+- Host: 298 test pytest, gồm cổng serial giả, SPI giả, cầu nối ESP32 giả, menu, camera từ file video, ba luồng xử lý, window vẽ không cần màn hình và lịch `--sim emu`.
 - `pace.c` được biên dịch bằng `gcc` và chạy trong pytest với packet thật của `framing`: burst khớp `framing.batches`, kể cả khi byte đến rời rạc, cả giải mã tag đúng và tag sai. Firmware build không cảnh báo.
-- Window camera thật trên Windows qua cả bốn link với `--sim emu`, hai chế độ giải mã, `--buffer-frames`, `--paced`, `--realtime` bỏ khung trễ, `--tamper-every` hiện `TAG FAIL` mà không lộ plaintext.
+- Window camera thật trên Windows qua cả bốn link với `--sim emu`, hai chế độ giải mã, `--buffer-frames` (đã bỏ từ 03/11/2026), `--paced`, `--realtime` bỏ khung trễ, `--tamper-every` hiện `TAG FAIL` mà không lộ plaintext.
 - UART 12 Mbaud trên RTL: mọi bit TX đúng 10 clock, đủ 256 byte qua hai miền clock khi host đúng baud và lệch ±2% (`tb_uart_phy`).
 - Libero 2026.1, post-layout, ba corner, `MPFS095T-1FCSG325E`:
 
@@ -300,13 +314,13 @@ Cả sáu root không có slack âm ở cả setup và hold, độ phủ constra
 
 **Chưa kiểm chứng**
 
+- Nạp file `.job` lên kit. Lệnh trong `flash.tcl` mới chạy tới bước tìm programmer, vì kit chưa cắm vào máy.
 - Toàn chuỗi ESP32-S3 tới FPGA: chưa nối J5. Code bóc MISO trong firmware không có test tự động, phải kiểm khi bring-up.
 - `BRIDGE PACED` với FPGA thật: ESP32 đã nhận lệnh và `pace.c` đã qua test, nhưng vòng `spi_task` quanh nó chưa chạy với packet thật.
 - Input và output delay trong `aes_spi.sdc` là giả định, nên slack ở trên không phải số đo trên board.
-- `camera` trên phần cứng thật. Webcam thật mới chạy qua `--sim emu`.
-- `Ft232hLink` với FT232H thật; `uart2m`, `uart12m` với board thật.
+- `camera` qua `spi40` và `spi30` trên phần cứng thật. `uart12m` đã chạy 120 khung video AES-256 trên kit, 0 khung lỗi tag.
+- `Ft232hLink` với FT232H thật; `uart2m` với board thật.
 - Mọi số tốc độ trên phần cứng, trừ đoạn Wi-Fi từ PC tới ESP32 ở mục 10.
-- 12 Mbaud trên đường FT4232HL tới W21/Y21: không đọc được schematic nên chưa biết có level shifter không.
 - Metastability, độ trễ I/O và nhiễu dây, những thứ mô phỏng RTL không thể hiện.
 - Sơ đồ chân J5, J6, W21, Y21 so với schematic của kit.
 
@@ -372,8 +386,27 @@ Bảng này thay ước tính cũ chỉ tính băng thông, vốn cao gần gấ
 
 Khi link theo kịp, khung phải đi sau khung trái đúng phần đệm, khoảng 0,5 giây với 15 khung. Khi link chậm hơn camera, hàng đợi đầy ở 2N khung và khung cũ nhất bị bỏ, nên trễ tăng tới khoảng 2N ÷ fps, chẳng hạn gần 5 giây trên `uart2m`.
 
-Webcam thật 640×480 q50 cho khoảng 16 KB mỗi khung, nhẹ hơn clip thử. Qua `spi40 --paced --sim emu`, window chạy 240 khung ở 30 fps, không bỏ khung. Theo lịch, JPEG 16 KB đạt 49 fps trên `spi40` và 47 fps trên `uart12m`, nên JPEG đã đủ cho ba link nhanh. H.264 giảm còn 0,6 KB mỗi khung trên cảnh ít chuyển động, nhưng khung giữa của window chỉ còn vài ô và các khung phụ thuộc nhau, nên chưa đưa vào.
+Webcam thật 640×480 q50 cho khoảng 16 KB mỗi khung, nhẹ hơn clip thử. Qua `spi40 --paced --sim emu`, window chạy 240 khung ở 30 fps, không bỏ khung. Theo lịch, JPEG 16 KB đạt 49 fps trên `spi40` và 47 fps trên `uart12m`, nên JPEG đã đủ cho ba link nhanh. H.264 giảm còn 0,6 KB mỗi khung trên cảnh ít chuyển động. Từ 03/11/2026 H.264 là mặc định: khung giữa của window hiện 24 KB ciphertext gần nhất, còn sự phụ thuộc giữa các khung được xử lý bằng intra refresh và khung IDR sau khung lỗi tag. Xem mục H.264 dưới đây.
 
 `spi30` dừng ở 55 fps thay vì 75 fps vì mỗi khung còn tốn khoảng 10 ms giải mã trên PC và tranh GIL với các luồng khác. Hàng `--fpga-decrypt` có window và `uart12m` đo trước khi cập nhật số Wi-Fi có tải. Dòng `Giả lập` trong tổng kết báo số burst trễ hơn lịch, tức lần chạy đó bị CPU giới hạn.
 
 Từ PC, ESP32-S3 không phải đường nhanh nhất. Ảnh RGB 256×256 qua `spi30` khoảng 0,09 s, `spi40` khoảng 0,19 s, `uart12m` khoảng 0,24 s. Giá trị của `spi40` là không dây.
+
+
+## H.264 mặc định cho camera (03/11/2026)
+
+Đo trên máy Linux, clip 300 khung 640×480 dựng từ `boat.512.tiff` có vật chuyển động và nhiễu nhẹ, x264 `ultrafast`, `zerolatency`, không B-frame, khung I mỗi 30 khung. Thời gian truyền ước theo bảng uart12m, `1,95 + 1,21 × KB` ms. Đây không phải webcam thật, nên so sánh theo tỉ lệ.
+
+| Cảnh | JPEG q50 | JPEG q70 | H.264 CRF 23 trung bình | Khung P | Khung I |
+|---|---|---|---|---|---|
+| Đứng yên | 26,6 KB | 36,0 KB | 3,1 KB | 1,2 KB | 59 KB |
+| Lia chậm | 26,7 KB | 36,0 KB | 3,7 KB | 1,9 KB | 58 KB |
+| Rung tay | 26,7 KB | 36,1 KB | 5,0 KB | 3,2 KB | 56 KB |
+| Thời gian truyền | 34 ms | 45 ms | | khoảng 4–6 ms | khoảng 70 ms |
+
+Khung I 70 ms dài hơn 2 chu kỳ khung, nên bản cài đặt dùng intra refresh thay cho khung I định kỳ. Thử lại với intra refresh trên clip lia 2 px mỗi khung: các khung sau khung đầu 1–11 KB, chỉ khung đầu và khung IDR sau lỗi tag khoảng 45–50 KB. Chưa đo trên kit: hãy chạy 300 khung webcam cho mỗi codec và so hai file `logs/*_frames.csv`:
+
+```bash
+python realtime_env/main.py --advanced camera -p COM12 --codec h264 --frames 300 --key <hex> --iv <hex>
+python realtime_env/main.py --advanced camera -p COM12 --codec jpeg --frames 300 --key <hex> --iv <iv mới>
+```

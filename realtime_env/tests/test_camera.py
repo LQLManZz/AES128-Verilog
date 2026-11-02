@@ -28,7 +28,7 @@ def video(tmp_path):
 
 
 def run(video, *options):
-    return main(["camera", "--link", "spi40", "--sim", "model", "--key", KEY.hex(), "--iv", IV.hex(),
+    return main(["--advanced", "camera", "--link", "spi40", "--sim", "model", "--key", KEY.hex(), "--iv", IV.hex(),
                  "--aad", AAD.hex(), "--source", str(video), "--size", "64x48", "--no-window", *options])
 
 
@@ -121,20 +121,20 @@ def test_tamper_every_also_fails_in_the_ip(video, capsys):
 
 def test_failed_frame_publishes_no_plaintext(video):
     results = process(video, tamper_every=2)[0]
-    assert [result.jpeg is None for result in results] == [False, True] * 3
+    assert [result.plain is None for result in results] == [False, True] * 3
     assert all(result.cipher for result in results)
-    assert results[0].jpeg[:2] == b"\xff\xd8"
+    assert results[0].plain[:2] == b"\xff\xd8"
 
 
 def test_emu_runs_the_camera_on_the_link_schedule(video, capsys):
-    assert main(["camera", "--link", "uart2m", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(),
+    assert main(["--advanced", "camera", "--link", "uart2m", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(),
                  "--source", str(video), "--size", "64x48", "--no-window"]) == 0
     text = capsys.readouterr().out
     assert "giả lập theo số đo, không phải phần cứng" in text and "6 khung, 0 khung lỗi tag" in text
 
 
 def test_realtime_needs_a_video(capsys):
-    assert main(["camera", "--link", "spi40", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(), "--realtime"]) == 1
+    assert main(["--advanced", "camera", "--link", "spi40", "--sim", "emu", "--key", KEY.hex(), "--iv", IV.hex(), "--realtime"]) == 1
     assert "--source" in capsys.readouterr().out
 
 
@@ -194,6 +194,42 @@ def test_live_source_keeps_only_the_newest_frame():
     source.close()
 
 
+class FastCamera:
+    def read(self):
+        time.sleep(0.001)
+        return True, np.zeros((2, 2, 3), dtype=np.uint8)
+
+    def release(self):
+        pass
+
+
+def test_fps_limit_spaces_the_frames_and_counts_no_drop():
+    source = camera.LiveSource(FastCamera(), 100, limit=50)
+    started = time.perf_counter()
+    for _ in range(6):
+        source.read()
+    assert time.perf_counter() - started >= 5 / 50
+    assert source.fps == 50
+    assert source.dropped == 0
+    source.close()
+
+
+def test_fps_limit_never_raises_the_rate_of_the_camera():
+    source = camera.LiveSource(FastCamera(), 30, limit=60)
+    assert source.fps == 30
+    source.close()
+    source = camera.LiveSource(FastCamera(), 30, limit=10)
+    assert source.fps == 10
+    source.close()
+
+
+@pytest.mark.parametrize("extra, message", ((["--fps", "-1"], "--fps"), (["--fps", "10", "--source", "clip.avi"], "--realtime")))
+def test_fps_limit_needs_a_live_source(extra, message, capsys):
+    arguments = ["camera", "--link", "spi40", "--sim", "model", "--key", "00" * 32, "--iv", "00" * 12, *extra]
+    assert main(["--advanced", *arguments]) == 1
+    assert message in capsys.readouterr().out
+
+
 class Options:
     sim, source, realtime, fpga_decrypt = None, None, False, False
 
@@ -227,7 +263,7 @@ def test_recent_forgets_frames_older_than_the_window(clock):
     stats.record(500.0)
     clock[0] += 10.0
     stats.record(20.0)
-    assert stats.recent(3.0) == (1 / 3.0, 20.0)
+    assert stats.recent(3.0) == (1 / 3.0, 20.0, 0.0)
 
 
 def test_recent_divides_by_the_time_run_so_far_at_the_start(clock):
@@ -265,4 +301,4 @@ def test_no_frame_in_the_window_gives_no_delay(clock):
     stats = camera.Stats(started=clock[0])
     stats.record(20.0)
     clock[0] += 10.0
-    assert stats.recent(3.0) == (0.0, None)
+    assert stats.recent(3.0) == (0.0, None, 0.0)

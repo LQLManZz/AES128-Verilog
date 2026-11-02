@@ -27,6 +27,10 @@ void pace_reset(pace_t *pace);
 // fills a burst, and the rest must be offered again once pace_blocked() turns false.
 size_t pace_outgoing(pace_t *pace, const uint8_t *data, size_t length);
 
+// How many of the `length` bytes are complete [CMD][LEN][payload] packets. packet_parser drops a
+// packet that pauses for 10 ms, and Wi-Fi can pause that long, so a packet goes out only when whole.
+size_t pace_whole_packets(const uint8_t *data, size_t length);
+
 // Call with the opcode of every packet that came back from the FPGA.
 void pace_reply(pace_t *pace, uint8_t cmd);
 

@@ -24,6 +24,7 @@ _TEXT_PERIOD_S = 0.25   # Redrawing text is the slow part, and numbers that chan
 _FAIL_HOLD_S = 0.5      # One failed frame must stay on screen long enough to be seen
 _RECENT_S = 3.0         # The slowest frame in use takes about 2.2 s, so the numbers never fall to 0 between frames
 _QUIT_KEYS = (ord("q"), 27)
+_CIPHER_TAIL = 24 * 1024  # Ciphertext bytes the middle panel shows: an H.264 frame alone fills only a few cells
 
 _BACKGROUND = (34, 32, 30)
 _CARD = (48, 45, 42)
@@ -50,8 +51,11 @@ def load_font(size: int):
 class FrameResult:
     number: int
     cipher: bytes
-    jpeg: Optional[bytes]  # None when a tag failed: nothing of that frame may reach the screen
+    plain: Optional[bytes]  # The encoded frame, None when a tag failed: nothing of it may reach the screen
     captured_at: float = 0.0  # perf_counter() when the frame left the camera, 0 when unknown
+    picture: Optional[np.ndarray] = None  # Decoded by the pipeline; None means decode `plain` as JPEG here
+    key_frame: bool = True
+    waiting: bool = False  # Tag passed, but H.264 waits for a key frame after an earlier failure
 
 
 class Backlog(NamedTuple):
@@ -119,6 +123,8 @@ class View:
 
         self._playback = Playback(period_s)
         self._shown: Optional[FrameResult] = None
+        self._cipher_tail = bytearray()
+        self._waiting = False
         self._cipher = self._empty_panel()
         self._plain = self._empty_panel()
         self._last_number = 0
@@ -145,19 +151,24 @@ class View:
         if not due:
             return
         for result in due:  # A redraw may skip frames, but never a failed one
-            if result.jpeg is None:
+            self._cipher_tail += result.cipher
+            if result.plain is None:
                 self._failed_number = result.number
                 self._failed_until = now + _FAIL_HOLD_S
                 self._text_at = 0.0  # The numbers must not keep saying PASS beside a failed frame
+        del self._cipher_tail[:-_CIPHER_TAIL]
         result = due[-1]
         self._shown = result
         self._last_number = result.number
         self._delay_s = now - result.captured_at if result.captured_at else None
-        self._cipher = cipher_panel(result.cipher, self._panel)
-        if result.jpeg is None:
+        self._cipher = cipher_panel(bytes(self._cipher_tail), self._panel)
+        self._waiting = result.waiting
+        if result.plain is None or result.waiting:
             self._plain = None
             return
-        plain = cv2.imdecode(np.frombuffer(result.jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+        plain = result.picture
+        if plain is None:
+            plain = cv2.imdecode(np.frombuffer(result.plain, dtype=np.uint8), cv2.IMREAD_COLOR)
         self._plain = cv2.resize(plain, self._panel, interpolation=cv2.INTER_AREA)
 
     def _buffering_panel(self, backlog: Backlog) -> np.ndarray:
@@ -173,13 +184,14 @@ class View:
         panel = np.full((self._panel[1], self._panel[0], 3), _FAIL_PANEL, dtype=np.uint8)
         middle = (self._panel[0] // 2, self._panel[1] // 2)
         self._write(panel, (middle[0], middle[1] - 22), "TAG FAIL", 34, _TEXT, "mm")
-        self._write(panel, (middle[0], middle[1] + 20), f"Khung {self._failed_number}: không xuất plaintext", 15, _TEXT, "mm")
+        detail = "chờ khung I" if self._waiting and now >= self._failed_until else "không xuất plaintext"
+        self._write(panel, (middle[0], middle[1] + 20), f"Khung {self._failed_number}: {detail}", 15, _TEXT, "mm")
         return panel, _BAD
 
-    def _queue_card(self, backlog: Optional[Backlog]) -> Tuple[str, str, tuple]:
-        if backlog is None:
-            return "Hàng đợi", "Tắt", _MUTED
-        return "Hàng đợi", f"{backlog.waiting}/{backlog.capacity} khung", _WARN if backlog.waiting >= backlog.capacity else _TEXT
+    @staticmethod
+    def _throughput_card(recent) -> Tuple[str, str, tuple]:
+        """Bytes sent to the IP per second, framing included: UART 12 Mbaud tops out at 1.2 MB/s each way."""
+        return "Thông lượng", f"{recent.mbps:.2f} MB/s", _TEXT
 
     def _draw_text(self, stats, dropped: int, backlog: Optional[Backlog]) -> None:
         top = self.canvas[:self._panels_top]
@@ -188,8 +200,10 @@ class View:
         self._write(top, (self._width - _GAP - 4, 12), self._title, 15, _MUTED, "ra")
         self._write(top, (_GAP + 190, 12), self._badge, 15, _WARN)
         size_kb = len(self._shown.cipher) / 1024 if self._shown else 0
+        kind = "" if self._shown is None else (" (I)" if self._shown.key_frame else " (P)")
         delay = "" if self._delay_s is None else f", trễ {self._delay_s:.2f} s"
-        captions = (f"{self._source_name}, bỏ {dropped} khung", f"Ciphertext, khung {self._last_number}, {size_kb:.1f} KB",
+        stats.display_delay_s = self._delay_s
+        captions = (f"{self._source_name}, bỏ {dropped} khung", f"Ciphertext, khung {self._last_number}{kind}, {size_kb:.1f} KB",
                     f"Sau giải mã, khung {self._last_number}{delay}")
         for index, caption in enumerate(captions):
             self._write(top, (_GAP + index * (self._panel[0] + _GAP), _HEADER_HEIGHT + 3), caption, 15, _MUTED)
@@ -199,7 +213,7 @@ class View:
         recent = stats.recent(_RECENT_S)
         cards = (("Xử lý", f"{recent.fps:.1f} fps", _TEXT),
                  ("Trễ p95", "--" if recent.rtt_p95 is None else f"{recent.rtt_p95:.1f} ms", _TEXT),
-                 self._queue_card(backlog),
+                 self._throughput_card(recent),
                  ("Tag", f"{stats.failed} khung lỗi" if stats.failed else "PASS, 0 lỗi", _BAD if stats.failed else _GOOD))
         card_width = (self._width - 5 * _GAP) // 4
         for index, (label, value, color) in enumerate(cards):

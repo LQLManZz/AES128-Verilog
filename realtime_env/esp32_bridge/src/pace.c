@@ -39,6 +39,12 @@ size_t pace_outgoing(pace_t *pace, const uint8_t *data, size_t length) {
     return taken;
 }
 
+size_t pace_whole_packets(const uint8_t *data, size_t length) {
+    size_t whole = 0;
+    while (length - whole >= 2 && length - whole >= 2u + data[whole + 1]) whole += 2u + data[whole + 1];
+    return whole;
+}
+
 // A command ends with its ACK, an error, or the last packet of its answer: the tag when
 // encrypting, the verify result when decrypting. See read_reply() in host/links.py.
 void pace_reply(pace_t *pace, uint8_t cmd) {

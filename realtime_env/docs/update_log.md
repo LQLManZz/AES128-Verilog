@@ -42,3 +42,28 @@
   - Zero code duplication achieved via shared `common/` UART infrastructure.
   - Self-checking verification environments generated for both variants against official NIST SP 800-38D test vectors.
   - Host Python client supports seamless switching between variants.
+
+---
+
+## Update Entry: 2026-11-03 — Menu tập trung UART 12 Mbaud, `--advanced`, H.264, log mỗi lần chạy
+- **Date:** 2026-11-03
+- **Kế hoạch:** `realtime_env/docs/menu_redesign_plan.md`. Bản sao trước khi sửa: `backups/realtime_env_2026-11-03_pre_menu_redesign/` ở gốc repo.
+- **Changed Files:**
+  - `realtime_env/host/menu.py` (viết lại: menu vòng lặp, ít chữ, UART 12 Mbaud, tự tìm kênh D, chặn lặp key + IV)
+  - `realtime_env/host/cli.py` (`--advanced` khoá cả menu lẫn dòng lệnh, `--link` mặc định `uart12m`, `--quality` mặc định 70, `--codec`, lệnh `selftest`, bỏ `--buffer-frames`, log mỗi lần chạy)
+  - `realtime_env/host/camera.py` (đệm cố định 2 khung, H.264, chờ khung IDR sau lỗi tag, log từng khung và mỗi giây)
+  - `realtime_env/host/camera_view.py` (ô `Thông lượng` thay `Hàng đợi`, ciphertext 24 KB gần nhất, `chờ khung I`)
+  - `realtime_env/host/codec.py` (Created: H.264 qua PyAV/libx264, JPEG dự phòng)
+  - `realtime_env/host/run_log.py` (Created: `logs/*.log` và `*_frames.csv`)
+  - `realtime_env/host/selftest.py` (Created: vector NIST dùng chung với `uart_client.py`)
+  - `realtime_env/host/uart_client.py` (bỏ menu tương tác `-i`, dùng vector từ `selftest.py`)
+  - `realtime_env/host/console.py`, `realtime_env/host/links.py` (chép console và sự kiện mở cổng vào log)
+  - `realtime_env/tests/` (`test_menu.py` viết lại; thêm `test_codec.py`, `test_run_log.py`; các test dùng link khác hoặc giả lập thêm `--advanced`)
+  - `realtime_env/requirements.txt` (thêm `av`), `realtime_env/.gitignore` (thêm `logs/`)
+  - `realtime_env/README.md`, `realtime_env/INSTRUCTIONS.md`, `realtime_env/docs/integration_guide.md`
+- **Reason:** Hàng đợi camera ở 12 Mbaud gần như luôn 0/30: đường truyền nhanh hơn camera, bộ đệm 15 khung chỉ làm hình trễ khoảng 0,5 s. Người dùng muốn menu đơn giản cho UART 12 Mbaud, H.264 nếu có lợi hơn JPEG, và log đầy đủ khi chạy demo trên kit.
+- **Impact Summary:**
+  - Không có `--advanced`, chỉ dùng được UART 12 Mbaud trên FPGA hoặc software model, với các tuỳ chọn menu thường hỏi.
+  - Camera mặc định H.264 chất lượng 70 (CRF 23): ít byte hơn JPEG 5–9 lần trên clip thử; chưa đo trên kit.
+  - Log ghi key ở dạng rõ theo yêu cầu; `logs/` không vào git.
+  - 332 test pytest đạt.

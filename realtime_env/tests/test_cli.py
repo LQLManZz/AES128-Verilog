@@ -30,12 +30,12 @@ def color_photo(tmp_path):
 
 
 def run_image(source, tmp_path, *options, key=KEY):
-    return main(["image", str(source), "--output-dir", str(tmp_path / "output"), *SIM,
+    return main(["--advanced", "image", str(source), "--output-dir", str(tmp_path / "output"), *SIM,
                  "--key", key, "--iv", IV, "--aad", AAD, "--size", "32x24", *options])
 
 
 def run_raw(tmp_path, *options, key=KEY_128):
-    return main(["raw", "--output-dir", str(tmp_path / "output"), *SIM, "--key", key, "--iv", IV, *options])
+    return main(["--advanced", "raw", "--output-dir", str(tmp_path / "output"), *SIM, "--key", key, "--iv", IV, *options])
 
 
 def test_image_round_trip_restores_every_pixel(photo, tmp_path):
@@ -108,14 +108,13 @@ def test_key_and_iv_are_required(photo, tmp_path, missing):
     arguments = ["image", str(photo), *SIM, "--key", KEY, "--iv", IV]
     arguments = [item for index, item in enumerate(arguments)
                  if item != missing and (index == 0 or arguments[index - 1] != missing)]
-    with pytest.raises(SystemExit):
-        main(arguments)
+    assert main(["--advanced", *arguments]) == 2  # argparse refused it
 
 
 @pytest.mark.parametrize("flag,value", [("--key", "00ff"), ("--iv", "00ff"), ("--aad", "00" * 241), ("--key", "zz")])
 def test_bad_values_are_rejected(photo, tmp_path, flag, value):
     arguments = {"--key": KEY, "--iv": IV, "--aad": AAD, flag: value}
-    assert main(["image", str(photo), "--output-dir", str(tmp_path), *SIM,
+    assert main(["--advanced", "image", str(photo), "--output-dir", str(tmp_path), *SIM,
                  *[item for pair in arguments.items() for item in pair]]) == 1
 
 
@@ -132,7 +131,7 @@ def test_short_aad_is_padded_with_a_warning(tmp_path, capsys):
 def test_raw_message_matches_nist_test_case_2(tmp_path, capsys):
     arguments = ["raw", *SIM, "--key", "00" * 16, "--iv", "00" * 12, "--data", "00" * 16,
                  "--output-dir", str(tmp_path)]
-    assert main(arguments) == 0
+    assert main(["--advanced", *arguments]) == 0
     text = capsys.readouterr().out
     assert "0388dace 60b6a392 f328c2b9 71b2fe78" in text
     assert "ab6e47d42cec13bdf53a67b21257bddf" in text
@@ -141,9 +140,9 @@ def test_raw_message_matches_nist_test_case_2(tmp_path, capsys):
 def test_raw_decrypt_checks_the_tag_in_the_ip(tmp_path, capsys):
     common = ["raw", *SIM, "--key", "00" * 16, "--iv", "00" * 12, "--data", "0388dace60b6a392f328c2b971b2fe78",
               "--op", "decrypt", "--output-dir", str(tmp_path)]
-    assert main([*common, "--tag", "ab6e47d42cec13bdf53a67b21257bddf"]) == 0
+    assert main(["--advanced", *common, "--tag", "ab6e47d42cec13bdf53a67b21257bddf"]) == 0
     assert "PASS" in capsys.readouterr().out
-    assert main([*common, "--tag", "00" * 16]) == 1
+    assert main(["--advanced", *common, "--tag", "00" * 16]) == 1
     assert "FAIL" in capsys.readouterr().out
 
 
@@ -185,13 +184,13 @@ def test_every_link_has_a_preset():
 
 
 def test_rtl_is_refused_for_the_camera(capsys):
-    assert main(["camera", "--link", "spi40", "--sim", "rtl", "--key", KEY, "--iv", IV]) == 1
+    assert main(["--advanced", "camera", "--link", "spi40", "--sim", "rtl", "--key", KEY, "--iv", IV]) == 1
     assert "real time" in capsys.readouterr().out
 
 
 def test_sample_writes_an_image(tmp_path):
     path = tmp_path / "sample.png"
-    assert main(["sample", "-o", str(path), "--size", "16x16"]) == 0
+    assert main(["--advanced", "sample", "-o", str(path), "--size", "16x16"]) == 0
     assert path.exists()
 
 

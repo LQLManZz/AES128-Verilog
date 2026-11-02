@@ -26,6 +26,8 @@ def library(tmp_path_factory):
     loaded.pace_outgoing.restype = ctypes.c_size_t
     loaded.pace_outgoing.argtypes = (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t)
     loaded.pace_reply.argtypes = (ctypes.c_void_p, ctypes.c_ubyte)
+    loaded.pace_whole_packets.restype = ctypes.c_size_t
+    loaded.pace_whole_packets.argtypes = (ctypes.c_char_p, ctypes.c_size_t)
     loaded.pace_blocked.restype = ctypes.c_bool
     loaded.pace_awaiting.restype = ctypes.c_bool
     return loaded
@@ -159,3 +161,19 @@ def test_a_short_stream_never_blocks(pace):
     data = stream(encrypt_packets(3))
     assert pace.offer(data) == len(data)
     assert pace.awaiting and not pace.blocked
+
+
+def whole(library, data):
+    return library.pace_whole_packets(data, len(data))
+
+
+def test_a_packet_that_has_not_all_arrived_stays_behind(library):
+    packets = encrypt_packets(2)
+    data = stream(packets)
+    ends = [len(stream(packets[:count])) for count in range(len(packets) + 1)]
+    assert [whole(library, data[:size]) for size in range(len(data) + 1)] == \
+        [max(end for end in ends if end <= size) for size in range(len(data) + 1)]
+
+
+def test_a_packet_with_no_payload_is_whole(library):
+    assert whole(library, build_packet(CMD_START_ENCRYPT)) == 2

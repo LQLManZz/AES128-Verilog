@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
@@ -74,7 +75,7 @@ static volatile bool spi_load;
 static uint8_t *block;
 static pace_t pace;
 
-// What came out of to_fpga but has to wait for the replies of a full burst.
+// What came out of to_fpga but has to wait for the rest of its packet or the replies of a full burst.
 static struct {
     uint8_t data[FRAME_BYTES];
     size_t start;
@@ -123,16 +124,17 @@ static void report_status(uint8_t status) {
     send_to_client(packet, sizeof packet);
 }
 
-// The next bytes for the FPGA, stopping at the end of a burst until its replies are in.
-static size_t next_paced(uint8_t *out, TickType_t wait) {
-    if (pace_blocked(&pace)) return 0;
-    if (!held.left) {
-        held.start = 0;
-        held.left = xStreamBufferReceive(to_fpga, held.data, FRAME_BYTES - 1, wait);
-    }
-    size_t length = pace_outgoing(&pace, held.data + held.start, held.left);
-    memcpy(out, held.data + held.start, length);
-    held.start += length;
+// The next whole packets for the FPGA. In paced mode it also stops at the end of a burst until
+// the replies are in.
+static size_t next_packets(uint8_t *out, TickType_t wait) {
+    if (paced && pace_blocked(&pace)) return 0;
+    memmove(held.data, held.data + held.start, held.left);
+    held.start = 0;
+    held.left += xStreamBufferReceive(to_fpga, held.data + held.left, FRAME_BYTES - 1 - held.left, wait);
+    size_t length = pace_whole_packets(held.data, held.left);
+    if (paced) length = pace_outgoing(&pace, held.data, length);
+    memcpy(out, held.data, length);
+    held.start = length;
     held.left -= length;
     return length;
 }
@@ -165,14 +167,14 @@ static void spi_task(void *unused) {
         spi_frame(tx, rx, 1);
         miso.have = 0;
         pace_reset(&pace);
-        held.left = 0;
+        held.start = held.left = 0;
 
         int idle = IDLE_READS;
         int64_t progress = esp_timer_get_time();
         while (bridging) {
             bool reading = idle < IDLE_READS || pace_awaiting(&pace);
             TickType_t wait = reading ? 0 : pdMS_TO_TICKS(1);
-            size_t length = paced ? next_paced(tx + 1, wait) : xStreamBufferReceive(to_fpga, tx + 1, FRAME_BYTES - 1, wait);
+            size_t length = next_packets(tx + 1, wait);
             if (length) {
                 tx[0] = OP_DATA;
                 idle = 0;
@@ -385,6 +387,12 @@ static void start_spi(void) {
     spi_device_interface_config_t device = {.mode = 0, .clock_speed_hz = SCLK_HZ, .spics_io_num = PIN_CS,
                                             .queue_size = 1, .input_delay_ns = 0};
     ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &device, &spi));
+
+    // At the default drive the edges of SCLK and MOSI reach CS over the wires, and any rise on CS
+    // restarts the frame in spi_link.sv, at 26.67 MHz too: see INSTRUCTIONS.md.
+    ESP_ERROR_CHECK(gpio_set_drive_capability(PIN_SCLK, GPIO_DRIVE_CAP_1));
+    ESP_ERROR_CHECK(gpio_set_drive_capability(PIN_MOSI, GPIO_DRIVE_CAP_1));
+    ESP_ERROR_CHECK(gpio_set_drive_capability(PIN_CS, GPIO_DRIVE_CAP_3));
 
     int actual_khz = 0;
     spi_device_get_actual_freq(spi, &actual_khz);

@@ -1,5 +1,7 @@
 """Runs the real serial path of uart_client.py against a fake port answered by the software model."""
 
+from types import SimpleNamespace
+
 import pytest
 import serial as pyserial
 from PIL import Image
@@ -80,7 +82,7 @@ def photo(tmp_path):
 
 
 def run_image(photo, tmp_path, *options):
-    return main(["image", str(photo), "--output-dir", str(tmp_path / "output"), *ARGS, *options])
+    return main(["--advanced", "image", str(photo), "--output-dir", str(tmp_path / "output"), *ARGS, *options])
 
 
 def test_transfer_returns_what_the_simulator_returns():
@@ -213,3 +215,31 @@ def test_full_board_round_trip_restores_the_image(photo, tmp_path, board):
 def test_board_can_fall_back_to_stop_and_wait(photo, tmp_path, board):
     assert run_image(photo, tmp_path, "--window", "1") == 0
     assert all(count == 1 for count, _ in board.writes)
+
+
+def serial_port(device, vid, pid, number, description="USB Serial Port"):
+    return SimpleNamespace(device=device, vid=vid, pid=pid, serial_number=number, description=description,
+                           hwid=f"USB VID:PID={vid:04X}:{pid:04X} SER={number}")
+
+
+KIT_PORTS = [serial_port(f"COM{10 + index}", 0x1514, 0x2008, f"009L70T2{channel}", f"FlashPro5 Port (COM{10 + index})")
+             for index, channel in enumerate("BCD")]
+ADAPTER = serial_port("COM3", 0x0403, 0x6001, "A50285BI")
+
+
+def detect(monkeypatch, ports, baud):
+    client_class = links.load_client_class()  # It imports serial.tools
+    monkeypatch.setattr(pyserial.tools.list_ports, "comports", lambda: ports)
+    return client_class.auto_detect_port(baud)
+
+
+def test_12_mbaud_finds_channel_d_of_the_kit(monkeypatch):
+    assert detect(monkeypatch, KIT_PORTS, 12_000_000) == "COM12"
+
+
+def test_12_mbaud_ignores_an_adapter_on_the_same_pc(monkeypatch):
+    assert detect(monkeypatch, [ADAPTER, *KIT_PORTS], 12_000_000) == "COM12"
+
+
+def test_2_mbaud_stays_on_the_external_adapter(monkeypatch):
+    assert detect(monkeypatch, [*KIT_PORTS, ADAPTER], 2_000_000) == "COM3"

@@ -152,7 +152,7 @@ def test_frames_keep_their_order():
     results = []
     stream_of(arguments(), Recording(), Frames(8, live=False), camera.Stats(), results)
     assert [result.number for result in results] == list(range(1, 9))
-    means = [cv2.imdecode(np.frombuffer(result.jpeg, np.uint8), cv2.IMREAD_GRAYSCALE).mean() for result in results]
+    means = [cv2.imdecode(np.frombuffer(result.plain, np.uint8), cv2.IMREAD_GRAYSCALE).mean() for result in results]
     assert means == sorted(means)
 
 
@@ -181,7 +181,7 @@ def test_dropped_frames_use_no_iv_and_no_iv_repeats():
 def test_tamper_counts_the_frames_sent():
     stats, results = camera.Stats(), []
     stream_of(arguments(tamper_every=2), Recording(), Frames(6, live=False), stats, results)
-    assert [result.jpeg is None for result in results] == [False, True] * 3 and stats.failed == 3
+    assert [result.plain is None for result in results] == [False, True] * 3 and stats.failed == 3
 
 
 def test_frame_limit_stops_a_source_that_never_ends():
@@ -242,3 +242,29 @@ def test_results_carry_when_the_frame_was_captured():
     stream_of(arguments(), Recording(), Frames(1, live=False), camera.Stats(), results)
     assert before <= results[0].captured_at <= time.perf_counter()
 
+
+
+def h264_arguments(**values):
+    args = arguments(**values)
+    args.codec = "h264"
+    return args
+
+
+def test_h264_waits_for_a_key_frame_after_a_failed_tag():
+    pytest.importorskip("av")
+    stats, results = camera.Stats(), []
+    stream_of(h264_arguments(tamper_every=4), Recording(), Frames(12, live=False), stats, results)
+    assert stats.failed == 3
+    for index, result in enumerate(results):
+        if result.plain is None:  # Every frame after a failure is held back until a key frame
+            after = results[index + 1:]
+            shown = next((later for later in after if later.picture is not None), None)
+            assert shown is None or shown.key_frame
+    assert all(result.picture is None for result in results if result.waiting)
+
+
+def test_h264_never_drops_an_encoded_frame_of_a_live_source():
+    pytest.importorskip("av")
+    stats, results = camera.Stats(), []
+    stream = stream_of(h264_arguments(buffer_frames=1), Recording(delay_s=0.03), Frames(12), stats, results)
+    assert stream.dropped == 0 and len(results) == 12  # The camera drops instead: LiveSource keeps the newest

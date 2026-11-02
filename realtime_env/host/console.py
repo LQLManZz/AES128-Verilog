@@ -8,6 +8,8 @@ from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
+from . import run_log
+
 _FONT_CANDIDATES = (r"C:\Windows\Fonts\consola.ttf", "DejaVuSansMono.ttf")
 _FONT_SIZE = 16
 _LINE_HEIGHT = 20
@@ -58,6 +60,7 @@ class Report:
 
     def line(self, text: str = "", style: str = "") -> None:
         self.items.append(("text", text, style))
+        run_log.console(text)
         code = _ANSI.get(style)
         print(f"\x1b[{code}m{text}\x1b[0m" if code and self._colors else text)
 

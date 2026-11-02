@@ -20,7 +20,7 @@ def input_dir(tmp_path):
 
 
 def run(input_dir, tmp_path, *options):
-    return main(["image", str(input_dir), "--output-dir", str(tmp_path / "output"), "--size", "32x24",
+    return main(["--advanced", "image", str(input_dir), "--output-dir", str(tmp_path / "output"), "--size", "32x24",
                  "--key", KEY, "--iv", IV, "--aad", AAD, *options])
 
 
@@ -30,7 +30,7 @@ def model(input_dir, tmp_path, *options):
 
 def test_sample_image_uses_all_three_channels(tmp_path):
     path = tmp_path / "sample.png"
-    assert main(["sample", "-o", str(path), "--size", "64x64"]) == 0
+    assert main(["--advanced", "sample", "-o", str(path), "--size", "64x64"]) == 0
     with Image.open(path) as img:
         assert img.mode == "RGB" and img.size == (64, 64)
         assert len(img.getcolors(maxcolors=65536)) > 100

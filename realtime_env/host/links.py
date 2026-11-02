@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
-from . import framing, gcm_model
+from . import framing, gcm_model, run_log
 from .packet_file import Packet
 from .protocol import (
     BURST_MESSAGES, CMD_ACKS, CMD_NAMES, CMD_START_DECRYPT, CMD_START_ENCRYPT, RESP_AUTH_TAG,
@@ -66,6 +66,7 @@ def open_client(key: bytes, port: Optional[str], baud: int, timeout: float):
     client = load_client_class()(port=port, baudrate=baud, timeout=timeout, variant=variant)
     if hasattr(client.ser, "set_buffer_size"):  # Windows only
         client.ser.set_buffer_size(rx_size=_RX_BUFFER_BYTES)
+    run_log.event("port", f"mở {client.port} @ {baud} baud, {variant}, resync xong, timeout {timeout} s")
     return client
 
 

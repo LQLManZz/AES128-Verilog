@@ -131,14 +131,14 @@ Install prerequisites:
 pip install pyserial
 ```
 
-The UART client is `realtime_env/host/uart_client.py`. Run it from `realtime_env/` as `python -m host.uart_client`.
+The UART client is `realtime_env/host/uart_client.py`. Run it from `realtime_env/` as `python -m host.uart_client`. Its interactive menu (`-i`) was removed on 2026-11-03: the menu is now `python realtime_env/main.py`, and the same NIST vectors (shared through `host/selftest.py`) also run over any link with `python realtime_env/main.py --advanced selftest`.
 
 ### 4.1 CLI Argument Reference
 
 | Argument | Description | Default |
 |:---|:---|:---:|
 | `-v`, `--variant` | Core variant: `aes128` or `aes256` | `aes256` |
-| `-op`, `--operation` | Operation mode: `test`, `encrypt`, `decrypt`, `interactive` | `test` |
+| `-op`, `--operation` | Operation mode: `test`, `encrypt`, `decrypt` | `test` |
 | `-p`, `--port` | Serial COM port (e.g., `COM4` or `/dev/ttyUSB0`) | Auto-detect |
 | `-b`, `--baud` | UART baudrate | `2000000` |
 | `-t`, `--timeout` | UART read timeout in seconds | `3.0` |
@@ -152,7 +152,6 @@ The UART client is `realtime_env/host/uart_client.py`. Run it from `realtime_env
 | `--tag` | Expected 16-byte authentication tag in hex, required for decrypt mode | None |
 | `--test`, `--test-nist` | Execute automated self-test verification suite | False |
 | `--benchmark [N]` | Run continuous benchmark stream of N packets for visual LED activity | Disabled (const: 50) |
-| `-i`, `--interactive` | Launch interactive terminal UI | False |
 
 ---
 

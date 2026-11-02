@@ -156,7 +156,7 @@ def test_an_error_on_the_link_reaches_the_main_thread(view, stats, monkeypatch):
             return None
 
     class Args:
-        frames, buffer_frames = 0, 0
+        frames, buffer_frames, size, quality = 0, 0, (64, 48), 50
 
     class Secrets:
         iv = bytes(12)
@@ -264,10 +264,30 @@ def test_buffering_never_counts_backwards(view, stats):
     assert view._filled == 15
 
 
-def test_queue_card_warns_when_full_and_says_when_off(view):
-    assert view._queue_card(Backlog(12, 30, 15)) == ("Hàng đợi", "12/30 khung", camera_view._TEXT)
-    assert view._queue_card(Backlog(30, 30, 15)) == ("Hàng đợi", "30/30 khung", camera_view._WARN)
-    assert view._queue_card(None) == ("Hàng đợi", "Tắt", camera_view._MUTED)
+def test_throughput_card_shows_what_reached_the_ip_per_second(view):
+    assert view._throughput_card(camera.Recent(30.0, 20.0, 0.5123)) == ("Thông lượng", "0.51 MB/s", camera_view._TEXT)
+
+
+def test_a_picture_decoded_by_the_pipeline_is_shown_as_is(view, stats):
+    picture = np.full((48, 64, 3), (0, 0, 200), dtype=np.uint8)
+    view.publish(FrameResult(1, bytes(1000), b"h264 bytes, never decoded here", 0.0, picture, key_frame=False))
+    view.compose(None, stats, 0)
+    assert third_panel(view)[10, 10].tolist() == [0, 0, 200]
+
+
+def test_waiting_for_a_key_frame_shows_no_plaintext(view, stats):
+    view.publish(result(1, good=False))
+    view.publish(FrameResult(2, bytes(1000), b"tag passed", waiting=True))
+    view.compose(None, stats, 0)
+    assert third_panel(view)[10, 10].tolist() == list(camera_view._FAIL_PANEL)
+    assert view._waiting
+
+
+def test_the_ciphertext_panel_keeps_a_tail_of_recent_frames(view, stats):
+    for number in range(1, 40):
+        view.publish(FrameResult(number, bytes([number]) * 1000, None))
+        view.compose(None, stats, 0)
+    assert len(view._cipher_tail) == camera_view._CIPHER_TAIL
 
 
 def test_the_delay_is_drawn_from_when_the_frame_was_captured(view, stats, monkeypatch):

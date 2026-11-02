@@ -40,6 +40,10 @@ from .protocol import (
     RESP_CIPHERTEXT, RESP_AUTH_TAG, RESP_VERIFY_RESULT, RESP_NAMES, VERIFY_PASS,
     build_packet,
 )
+from .selftest import vectors_for
+
+KIT_USB_ID = (0x1514, 0x2008)  # FT4232HL of the Discovery Kit, listed as FlashPro5 Port
+KIT_UART_CHANNEL = "D"         # Last letter of its USB serial number; the other channels never reach the IP
 
 
 # =============================================================================
@@ -105,7 +109,7 @@ class AesGcmUartClient:
         self.variant  = variant.lower()
         self.verbose  = verbose
         self.mock     = mock
-        self.port     = "MOCK_DEVICE" if mock else (port or self.auto_detect_port())
+        self.port     = "MOCK_DEVICE" if mock else (port or self.auto_detect_port(baudrate))
 
         if not self.mock:
             try:
@@ -133,16 +137,21 @@ class AesGcmUartClient:
             pass
 
     @staticmethod
-    def auto_detect_port() -> str:
-        """Finds FTDI USB bridge or first available serial port."""
+    def auto_detect_port(baudrate: int = DEFAULT_BAUD_RATE) -> str:
+        """Finds channel D of the kit above 2 Mbaud, else FTDI USB bridge or first available serial port."""
         ports = list(serial.tools.list_ports.comports())
         if not ports:
             raise OSError("No serial/COM ports found! Please check FPGA USB connection.")
 
+        if baudrate > DEFAULT_BAUD_RATE:
+            for p in ports:
+                if (p.vid, p.pid) == KIT_USB_ID and (p.serial_number or "").endswith(KIT_UART_CHANNEL):
+                    return p.device
+
         for p in ports:
             desc = (p.description or "").lower()
             hwid = (p.hwid or "").lower()
-            if any(k in desc or k in hwid for k in ["ftdi", "ft4232", "polarfire", "0403:6011", "ch340", "cp210"]):
+            if any(k in desc or k in hwid for k in ["ftdi", "ft4232", "polarfire", "0403:", "ch340", "cp210"]):
                 return p.device
 
         return ports[0].device
@@ -514,88 +523,7 @@ def print_test_summary_table(results: List[Dict]):
 def run_self_tests(client: AesGcmUartClient):
     print(f"\n[*] Running Hardware Self-Test Suite for {client.variant.upper()}...")
 
-    if client.variant == "aes128":
-        test_cases = [
-            {
-                "name": "NIST App.B TC2 (Zero Vector)",
-                "mode": "ENC",
-                "key": bytes.fromhex("00000000000000000000000000000000"),
-                "iv":  bytes.fromhex("000000000000000000000000"),
-                "aad": None,
-                "data": bytes.fromhex("00000000000000000000000000000000"),
-                "expected_ct":  bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"),
-                "expected_tag": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
-            },
-            {
-                "name": "NIST App.B TC3 (64B Stream)",
-                "mode": "ENC",
-                "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
-                "aad": None,
-                "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72"
-                                      "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"),
-                "expected_ct":  bytes.fromhex("42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e"
-                                              "21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985"),
-                "expected_tag": bytes.fromhex("4d5c2af327cd64a62cf35abd2ba6fab4")
-            },
-            {
-                "name": "AES-128 Decrypt & Verify",
-                "mode": "DEC",
-                "key": bytes.fromhex("00000000000000000000000000000000"),
-                "iv":  bytes.fromhex("000000000000000000000000"),
-                "aad": None,
-                "data": bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"), # Ciphertext from TC2
-                "expected_ct":  bytes.fromhex("00000000000000000000000000000000"), # Recovered Plaintext
-                "expected_tag": bytes.fromhex("ab6e47d42cec13bdf53a67b21257bddf")
-            }
-        ]
-    else:  # aes256
-        test_cases = [
-            {
-                "name": "GCM spec TC14 (Zero Vector)",
-                "mode": "ENC",
-                "key": bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000"),
-                "iv":  bytes.fromhex("000000000000000000000000"),
-                "aad": None,
-                "data": bytes.fromhex("00000000000000000000000000000000"),
-                "expected_ct":  bytes.fromhex("cea7403d4d606b6e074ec5d3baf39d18"),
-                "expected_tag": bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919")
-            },
-            {
-                "name": "GCM spec TC15 (64B Stream)",
-                "mode": "ENC",
-                "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
-                "aad": None,
-                "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72"
-                                      "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255"),
-                "expected_ct":  bytes.fromhex("522dc1f099567d07f47f37a32a84427d"
-                                              "643a8cdcbfe5c0c97598a2bd2555d1aa"
-                                              "8cb08e48590dbb3da7b08b1056828838"
-                                              "c5f61e6393ba7a0abcc9f662898015ad"),
-                "expected_tag": bytes.fromhex("b094dac5d93471bdec1a502270e3cc6c")
-            },
-            {
-                "name": "Custom AAD+PT vector 16B",
-                "mode": "ENC",
-                "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
-                "aad": bytes.fromhex("feedfacedeadbeeffeedfacedeadbeef"), # 16 bytes AAD
-                "data": bytes.fromhex("d9313225f88406e5a55909c5aff5269a"), # 16 bytes PT
-                "expected_ct":  bytes.fromhex("522dc1f099567d07f47f37a32a84427d"),
-                "expected_tag": bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
-            },
-            {
-                "name": "AES-256 Decrypt & Verify",
-                "mode": "DEC",
-                "key": bytes.fromhex("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308"),
-                "iv":  bytes.fromhex("cafebabefacedbaddecaf888"),
-                "aad": bytes.fromhex("feedfacedeadbeeffeedfacedeadbeef"),
-                "data": bytes.fromhex("522dc1f099567d07f47f37a32a84427d"), # Ciphertext of the custom vector
-                "expected_ct":  bytes.fromhex("d9313225f88406e5a55909c5aff5269a"), # Recovered Plaintext
-                "expected_tag": bytes.fromhex("03a2864be371e37753a80e8e240ff2f0")
-            }
-        ]
+    test_cases = vectors_for(32 if client.variant == "aes256" else 16)  # Shared with main.py selftest
 
     results = []
     for tc in test_cases:
@@ -667,91 +595,6 @@ def run_benchmark(client: AesGcmUartClient, count: int = 50):
 
 
 # =============================================================================
-# Interactive Mode
-# =============================================================================
-def run_interactive(client: AesGcmUartClient):
-    print("\n" + "=" * 60)
-    print(" AES-GCM FPGA INTERACTIVE CONTROLLER")
-    print(f" Target: {client.variant.upper()} | Port: {client.port} @ {client.baudrate} bps")
-    print("=" * 60)
-    print(" [1] Run Automated Self-Tests (NIST Vectors + AAD)")
-    print(" [2] Custom Encryption (Key, IV, Plaintext, optional AAD)")
-    print(" [3] Custom Decryption & Tag Verification (Key, IV, Ciphertext, Tag, optional AAD)")
-    print(" [4] Continuous Activity Benchmark (Visual LED Monitor)")
-    print(" [5] Exit")
-    print("-" * 60)
-
-    choice = input("Select an option [1-5] (default: 1): ").strip() or "1"
-    if choice == "1":
-        run_self_tests(client)
-    elif choice == "4":
-        count_str = input("Enter number of iterations [default: 50]: ").strip() or "50"
-        try:
-            count = int(count_str)
-        except ValueError:
-            count = 50
-        run_benchmark(client, count=count)
-    elif choice in ("2", "3"):
-        is_decrypt = (choice == "3")
-        op_name = "DECRYPT" if is_decrypt else "ENCRYPT"
-        key_len = 32 if client.variant == "aes256" else 16
-
-        print(f"\n--- Enter Parameters for {op_name} ({client.variant.upper()}) ---")
-        key_input = input(f"Enter Key (hex, {key_len} bytes): ").strip()
-        key_b = parse_bytes(key_input, "Key")
-        if len(key_b) != key_len:
-            print(f"[!] Invalid key length: expected {key_len} bytes, got {len(key_b)} bytes.")
-            return
-
-        iv_input = input("Enter IV (hex, 12 bytes / 96 bits): ").strip()
-        iv_b = parse_bytes(iv_input, "IV")
-        if len(iv_b) != 12:
-            print(f"[!] Invalid IV length: expected 12 bytes, got {len(iv_b)} bytes.")
-            return
-
-        aad_input = input("Enter AAD (hex or text, press Enter to skip): ").strip()
-        aad_b = parse_bytes(aad_input, "AAD", pad_to_16=True) if aad_input else None
-        if aad_b:
-            print(f"[*] AAD loaded ({len(aad_b)} bytes, padded to 16B boundary): {aad_b.hex()}")
-
-        prompt_data = "Enter Ciphertext (hex): " if is_decrypt else "Enter Plaintext (hex or text): "
-        data_input = input(prompt_data).strip()
-        data_b = parse_bytes(data_input, "Data", pad_to_16=True)
-        if len(data_b) == 0:
-            print("[!] Data payload cannot be empty.")
-            return
-
-        expected_tag_b = None
-        if is_decrypt:
-            tag_input = input("Enter Expected Tag (hex, 16 bytes): ").strip()
-            expected_tag_b = parse_bytes(tag_input, "Tag")
-            if len(expected_tag_b) != 16:
-                print(f"[!] Expected tag must be 16 bytes, got {len(expected_tag_b)} bytes.")
-                return
-
-        out_data, out_tag, elapsed_ms = client.execute(key_b, iv_b, data_b, aad_b, is_decrypt=is_decrypt,
-                                                       tag_ref=expected_tag_b)
-
-        print_execution_report(
-            operation=op_name,
-            variant=client.variant,
-            port=client.port,
-            baud=client.baudrate,
-            elapsed_ms=elapsed_ms,
-            key=key_b,
-            iv=iv_b,
-            in_data=data_b,
-            out_data=out_data,
-            tag=out_tag,
-            aad=aad_b,
-            expected_tag=expected_tag_b
-        )
-    elif choice == "4":
-        print("[*] Exiting.")
-        return
-
-
-# =============================================================================
 # Main CLI Entry Point
 # =============================================================================
 def main():
@@ -773,8 +616,9 @@ Examples:
 
     parser.add_argument("-v", "--variant", "-m", "--mode", type=str, choices=["aes128", "aes256"], default="aes256",
                         help="AES core variant (default: aes256)")
-    parser.add_argument("-op", "--operation", type=str, choices=["encrypt", "decrypt", "test", "interactive"],
-                        default="test", help="Operation mode: encrypt | decrypt | test | interactive (default: test)")
+    parser.add_argument("-op", "--operation", type=str, choices=["encrypt", "decrypt", "test"],
+                        default="test", help="Operation mode: encrypt | decrypt | test (default: test). "
+                                             "The menu is main.py; the self-test also runs as main.py --advanced selftest")
     parser.add_argument("-p", "--port", type=str, default=None, help="Serial COM port (e.g. COM4 or /dev/ttyUSB0)")
     parser.add_argument("-b", "--baud", type=int, default=DEFAULT_BAUD_RATE, help=f"UART baud rate (default: {DEFAULT_BAUD_RATE})")
     parser.add_argument("-t", "--timeout", type=float, default=3.0, help="UART response timeout in seconds (default: 3.0)")
@@ -788,7 +632,6 @@ Examples:
     parser.add_argument("--ct", "--ciphertext", "--data", type=str, help="Ciphertext to decrypt (hex)")
     parser.add_argument("--tag", type=str, help="Expected 16-byte authentication tag in hex (for decrypt mode)")
     parser.add_argument("--test", "--test-nist", action="store_true", help="Run automated self-tests")
-    parser.add_argument("-i", "--interactive", action="store_true", help="Launch interactive menu")
     parser.add_argument("--benchmark", type=int, nargs="?", const=50, default=None,
                         help="Run continuous benchmark loop of N packets for visual LED activity (default: 50)")
     parser.add_argument("--mock", "--dry-run", action="store_true", help="Simulate FPGA hardware responses (for testing without board)")
@@ -797,9 +640,7 @@ Examples:
 
     # Determine operation mode
     op = args.operation.lower()
-    if args.interactive:
-        op = "interactive"
-    elif args.benchmark is not None:
+    if args.benchmark is not None:
         op = "benchmark"
     elif args.test:
         op = "test"
@@ -822,9 +663,7 @@ Examples:
         sys.exit(1)
 
     try:
-        if op == "interactive":
-            run_interactive(client)
-        elif op == "benchmark":
+        if op == "benchmark":
             run_benchmark(client, count=args.benchmark)
         elif op == "test":
             run_self_tests(client)

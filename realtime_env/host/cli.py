@@ -1,13 +1,15 @@
-"""Command line of realtime_env: pick a link, a mode, and your own key, IV and AAD."""
+"""Command line of realtime_env: UART 12 Mbaud by default, everything else behind --advanced."""
 
 import argparse
+import os
+import platform
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
-from . import console, esp_link, framing, gcm_model, image_io, links, menu, packet_file
+from . import codec, console, esp_link, framing, gcm_model, image_io, links, menu, packet_file, run_log, selftest
 from .packet_file import Packet
 from .protocol import (
     BURST_MESSAGES, CMD_LOAD_AAD, CMD_LOAD_IV, CMD_LOAD_KEY, CMD_LOAD_PLAINTEXT, CMD_LOAD_TAG_REF,
@@ -19,6 +21,16 @@ KEY_SIZES = (16, 32)
 TAG_BYTES = 16
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff", ".gif"}
 IV_WARNING = "[!] Mỗi cặp key + IV chỉ dùng một lần: lặp lại sẽ phá an toàn GCM. Hãy đổi IV sau mỗi lần chạy."
+ADVANCED = "--advanced"
+DEFAULT_LINK = "uart12m"
+DEFAULT_QUALITY = 70
+LOG_DIR_ENV = "REALTIME_ENV_LOG_DIR"  # Tests point this at a temporary folder
+LOCKED_COMMANDS = ("selftest", "wifi-test", "sample")
+# Everything the plain menu can ask for. Any other option needs --advanced
+OPEN_OPTIONS = {"--link", "--sim", "--key", "--iv", "--aad", "-p", "--port", "--size", "--quality",
+                "--fpga-decrypt", "--fps", "--data", "--file", "--op", "--tag"}
+OPEN_SIMS = (None, "model")
+LOGGED_COMMANDS = ("raw", "image", "camera", "selftest")
 
 
 @dataclass
@@ -74,7 +86,11 @@ def answer_stream(packets: List[Packet], name: str, channel, report: console.Rep
     result = channel.exchange(packets, name)
     payload = sum(len(message.data) for message in framing.split_tx(packets)[1])
     note = f"{result.note}, " if result.note else ""
-    report.field("Truyền", f"{note}{result.elapsed_s * 1e3:.2f} ms, {payload / max(result.elapsed_s, 1e-9) / 1e6:.2f} MB/s payload")
+    rate = payload / max(result.elapsed_s, 1e-9) / 1e6
+    report.field("Truyền", f"{note}{result.elapsed_s * 1e3:.2f} ms, {rate:.2f} MB/s payload")
+    run_log.event("link", f"{name}: {len(packets)} gói, tx {framing.wire_bytes(packets)} B, "
+                          f"rx {framing.wire_bytes(result.responses)} B, {result.elapsed_s * 1e3:.2f} ms, "
+                          f"{rate:.3f} MB/s payload")
     if not channel.is_model:
         differences = links.compare_with_model(packets, result.responses)
         if differences:
@@ -316,13 +332,25 @@ def camera_mode(args: argparse.Namespace) -> int:
         raise ValueError("--realtime and --loop replay a video: give --source")
     if args.loop and args.no_window and not args.frames:
         raise ValueError("--loop with --no-window would never end: give --frames")
-    if args.buffer_frames < 0:
-        raise ValueError("--buffer-frames cannot be negative")
+    if args.fps < 0:
+        raise ValueError("--fps cannot be negative")
+    if args.fps and args.source and not args.realtime:
+        raise ValueError("--fps limits a live source: add --realtime to replay the video")
     report = console.Report()
     secrets = read_secrets(args, report)
     channel = links.open_channel(args.link, args.sim, link_options(args), secrets.key)
     try:
         return camera.run(args, secrets, channel, report)
+    finally:
+        channel.close()
+
+
+def selftest_mode(args: argparse.Namespace) -> int:
+    key_bytes = args.aes // 8
+    report = console.Report()
+    channel = links.open_channel(args.link, args.sim, link_options(args), bytes(key_bytes))
+    try:
+        return selftest.run(channel, key_bytes, report)
     finally:
         channel.close()
 
@@ -336,13 +364,12 @@ def wifi_test_mode(args: argparse.Namespace) -> int:
     return 0
 
 
-def add_common_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--link", choices=list(links.LINKS), required=True, help="Link to the IP")
+def add_link_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--link", choices=list(links.LINKS), default=DEFAULT_LINK,
+                        help=f"Link to the IP (default: {DEFAULT_LINK}; others need {ADVANCED})")
     parser.add_argument("--sim", choices=["model", "rtl", "emu"],
-                        help="Replace the hardware: software model, QuestaSim, or the model on the measured timing of the link")
-    parser.add_argument("--key", required=True, help="Key in hex, 16 or 32 bytes: picks AES-128 or AES-256")
-    parser.add_argument("--iv", required=True, help="IV in hex, 12 bytes. Use a new one for every run")
-    parser.add_argument("--aad", default="", help="AAD in hex, up to 240 bytes (default: none)")
+                        help=f"Replace the hardware: software model, QuestaSim, or the model on the measured timing "
+                             f"of the link (rtl and emu need {ADVANCED})")
     parser.add_argument("--window", type=int, default=BURST_MESSAGES,
                         help=f"Messages sent before reading their replies, 1 = stop-and-wait (default: {BURST_MESSAGES})")
     parser.add_argument("--paced", action="store_true",
@@ -351,6 +378,13 @@ def add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-t", "--timeout", type=float, default=3.0, help="Reply timeout in seconds (default: 3.0)")
     parser.add_argument("--esp-host", default="192.168.4.1", help="ESP32 bridge address for spi40 (default: 192.168.4.1)")
     parser.add_argument("--ftdi-url", default="ftdi://ftdi:232h/1", help="pyftdi URL for spi30 (default: ftdi://ftdi:232h/1)")
+
+
+def add_common_options(parser: argparse.ArgumentParser) -> None:
+    add_link_options(parser)
+    parser.add_argument("--key", required=True, help="Key in hex, 16 or 32 bytes: picks AES-128 or AES-256")
+    parser.add_argument("--iv", required=True, help="IV in hex, 12 bytes. Use a new one for every run")
+    parser.add_argument("--aad", default="", help="AAD in hex, up to 240 bytes (default: none)")
 
 
 def add_output_options(parser: argparse.ArgumentParser) -> None:
@@ -362,8 +396,11 @@ def add_output_options(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="main.py", description="AES-GCM IP over UART or SPI. No arguments: menu.")
-    commands = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="main.py", description=f"AES-GCM IP over UART 12 Mbaud. No command: menu. {ADVANCED} unlocks the other "
+                                    f"links, simulators and options, in the menu and here.")
+    parser.add_argument(ADVANCED, action="store_true", help="Unlock every link, simulator, option and command")
+    commands = parser.add_subparsers(dest="command")
 
     raw_cmd = commands.add_parser("raw", help="One message from your own values, or one binary file")
     add_common_options(raw_cmd)
@@ -384,7 +421,10 @@ def build_parser() -> argparse.ArgumentParser:
     camera_cmd = commands.add_parser("camera", help="Realtime: the PC compresses JPEG, the IP encrypts")
     add_common_options(camera_cmd)
     camera_cmd.add_argument("--size", type=parse_size, default=(640, 480), help="Frame size WIDTHxHEIGHT (default: 640x480)")
-    camera_cmd.add_argument("--quality", type=int, default=50, help="JPEG quality 1..100 (default: 50)")
+    camera_cmd.add_argument("--quality", type=int, default=DEFAULT_QUALITY,
+                            help=f"Quality 1..100, CRF 51-0.4q for H.264 (default: {DEFAULT_QUALITY}, CRF 23)")
+    camera_cmd.add_argument("--codec", choices=codec.CODECS, default="h264",
+                            help="Frame codec: h264 sends 5-10x fewer bytes, jpeg keeps every frame on its own (default: h264)")
     camera_cmd.add_argument("--fpga-decrypt", action="store_true", help="Decrypt and verify in the IP too: about half the frame rate")
     camera_cmd.add_argument("--source", help="Video file instead of the camera")
     camera_cmd.add_argument("--camera-index", type=int, default=0, help="Camera number (default: 0)")
@@ -393,8 +433,12 @@ def build_parser() -> argparse.ArgumentParser:
     camera_cmd.add_argument("--realtime", action="store_true", help="Play --source at its own frame rate, dropping late frames as a camera does")
     camera_cmd.add_argument("--loop", action="store_true", help="Restart --source when it ends")
     camera_cmd.add_argument("--tamper-every", type=int, default=0, metavar="N", help="Flip a ciphertext bit in every Nth frame before decrypting")
-    camera_cmd.add_argument("--buffer-frames", type=int, default=15, metavar="N",
-                            help="Live source: hold N frames before sending the first, 0 = send at once (default: 15)")
+    camera_cmd.add_argument("--fps", type=float, default=0.0, metavar="N",
+                            help="Live source: send at most N frames per second (default: all the camera gives)")
+
+    selftest_cmd = commands.add_parser("selftest", help="NIST vectors through the link")
+    add_link_options(selftest_cmd)
+    selftest_cmd.add_argument("--aes", type=int, choices=(128, 256), default=256, help="Key size (default: 256)")
 
     sample_cmd = commands.add_parser("sample", help="Write a color test image")
     sample_cmd.add_argument("-o", "--output", type=Path, default=APP_ROOT / "input" / "color_test.png")
@@ -409,24 +453,99 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def locked_by(args: argparse.Namespace, argv: List[str]) -> Optional[str]:
+    """Names what in this command line needs --advanced, or returns None."""
+    if args.command in LOCKED_COMMANDS:
+        return f"Lệnh {args.command}"
+    for token in argv:
+        option = token.split("=", 1)[0]
+        if option.startswith("-") and option not in OPEN_OPTIONS and not option.lstrip("-").replace(".", "").isdigit():
+            return option
+    if getattr(args, "link", DEFAULT_LINK) != DEFAULT_LINK:
+        return f"--link {args.link}"
+    if getattr(args, "sim", None) not in OPEN_SIMS:
+        return f"--sim {args.sim}"
+    if args.command == "camera" and args.codec != "h264":
+        return f"--codec {args.codec}"
+    return None
+
+
+def log_dir() -> Path:
+    return Path(os.environ.get(LOG_DIR_ENV) or APP_ROOT / "logs")
+
+
+def describe_run(args: argparse.Namespace) -> str:
+    values = {name: (str(value) if isinstance(value, Path) else value) for name, value in vars(args).items()
+              if name != "command" and value not in (None, False, "")}
+    return ", ".join(f"{name}={value}" for name, value in values.items())
+
+
+def start_log(args: argparse.Namespace, argv: List[str]) -> None:
+    columns = run_log.FRAME_COLUMNS if args.command == "camera" else None
+    log = run_log.start(log_dir(), args.command, getattr(args, "link", DEFAULT_LINK), columns)
+    preset = links.LINKS[args.link]
+    speed = f"{preset.baud} baud" if preset.baud else f"SCLK {preset.sclk_mhz} MHz"
+    run_log.info("start", "main.py " + " ".join(argv))
+    run_log.info("link", f"{args.link}: {preset.label}, {speed}, chạy trên {args.sim or 'phần cứng'}")
+    run_log.info("args", describe_run(args))
+    run_log.info("host", f"Python {platform.python_version()}, {platform.platform()}")
+    print(f"[log] {log.path}")
+
+
+def dispatch(args: argparse.Namespace) -> int:
+    if args.command == "raw":
+        return raw_mode(args)
+    if args.command == "image":
+        return image_mode(args)
+    if args.command == "camera":
+        return camera_mode(args)
+    if args.command == "selftest":
+        return selftest_mode(args)
+    if args.command == "wifi-test":
+        return wifi_test_mode(args)
+    image_io.make_sample(args.output, args.size)
+    print(f"[+] {args.output}")
+    return 0
+
+
+def run_command(argv: List[str], advanced: bool) -> int:
+    """Runs one command line, logging it. --advanced may stand anywhere in `argv`."""
+    advanced = advanced or ADVANCED in argv
+    argv = [token for token in argv if token != ADVANCED]
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as stop:  # argparse has printed why
+        return int(stop.code or 0)
+    reason = None if advanced else locked_by(args, argv)
+    if reason:
+        print(f"[!] {reason} cần {ADVANCED}: python main.py {ADVANCED} ...")
+        return 2
+    logged = args.command in LOGGED_COMMANDS
+    code = 1
+    try:
+        if logged:
+            start_log(args, ([ADVANCED] if advanced else []) + argv)
+        code = dispatch(args)
+    except (ValueError, OSError, TimeoutError) as error:
+        print(f"[!] {error}")
+        run_log.error("run", error)
+    except KeyboardInterrupt:
+        print("[!] Đã dừng")
+        run_log.event("stop", "Ctrl+C")
+    finally:
+        if logged:
+            run_log.info("end", f"mã thoát {code}")
+            run_log.finish()
+    return code
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
     argv = sys.argv[1:] if argv is None else argv
-    try:
-        args = build_parser().parse_args(argv or menu.ask_arguments(input))
-        if args.command == "raw":
-            return raw_mode(args)
-        if args.command == "image":
-            return image_mode(args)
-        if args.command == "camera":
-            return camera_mode(args)
-        if args.command == "wifi-test":
-            return wifi_test_mode(args)
-        image_io.make_sample(args.output, args.size)
-        print(f"[+] {args.output}")
-    except (ValueError, OSError, TimeoutError) as error:
-        print(f"[!] {error}")
-        return 1
-    return 0
+    advanced = ADVANCED in argv
+    rest = [token for token in argv if token != ADVANCED]
+    if not rest:
+        return menu.run_menu(input, lambda arguments: run_command(arguments, advanced), advanced)
+    return run_command(rest, advanced)
